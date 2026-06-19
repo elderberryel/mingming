@@ -41,32 +41,54 @@
 
     // === 适配：书签地球 ===
     if (/bookmarkearth\.cn/i.test(location.host) && location.pathname.startsWith('/view/')) {
-        
-        const jumpToLink = () => {
-            const el = document.querySelector('p.link');
-            if (el) {
-                const link = el.textContent.trim();
-                // 防循环检测
-                if (link && /^https?:/i.test(link) && link !== location.href) {
-                    setTimeout(() => {
-                        location.replace(link);
-                    }, 0);
-                    return true;
-                }
-            }
-            return false;
-        };
-
-        if (!jumpToLink()) {
-            const obs = new MutationObserver(() => {
-                if (jumpToLink()) {
-                    obs.disconnect();
-                }
-            });
-            const target = document.documentElement || document;
-            obs.observe(target, { childList: true, subtree: true });
-            setTimeout(() => obs.disconnect(), 3000);
+      const jumpToLink = () => {
+        const el = document.querySelector('p.link');
+        if (el) {
+          const link = el.textContent.trim();
+          // 防循环检测
+          if (link && /^https?:/i.test(link) && link !== location.href) {
+            setTimeout(() => {
+              location.replace(link);
+            }, 0);
+            return true;
+          }
         }
+        return false;
+      };
+
+      if (!jumpToLink()) {
+        const obs = new MutationObserver(() => {
+          if (jumpToLink()) {
+            obs.disconnect();
+          }
+        });
+        const target = document.documentElement || document;
+        obs.observe(target, { childList: true, subtree: true });
+        setTimeout(() => obs.disconnect(), 3000);
+      }
+    }
+
+    // === 通用安全提示页识别 ===
+    // 适用于各种"该链接不安全"/"即将跳转"的安全中间页
+    // 常见结构：<p class="url"><a href="...">https://real-target.com</a></p>
+    const tryExtractWarningLink = () => {
+      const el = document.querySelector("p.url a, .url a, .notice .url a");
+      if (el) {
+        const link = (el.textContent || "").trim();
+        if (link && /^https?:/i.test(link) && link !== location.href) {
+          location.replace(clean(link));
+          return true;
+        }
+      }
+      return false;
+    };
+
+    if (!tryExtractWarningLink()) {
+      const obs = new MutationObserver(() => {
+        if (tryExtractWarningLink()) obs.disconnect();
+      });
+      obs.observe(document.documentElement || document, { childList: true, subtree: true });
+      setTimeout(() => obs.disconnect(), 3000);
     }
   })();
 
@@ -77,10 +99,10 @@
 
   // 安全解码函数
   function safeDecode(url) {
-    try { 
-      return decodeURIComponent(url); 
-    } catch { 
-      return url; 
+    try {
+      return decodeURIComponent(url);
+    } catch {
+      return url;
     }
   }
 
