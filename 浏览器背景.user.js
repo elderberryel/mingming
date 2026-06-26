@@ -30,12 +30,12 @@
         overlayAlpha: 0.10
     };
 
-    const STYLE_ID = 'vie-browser-bg-style-v72';
-    const FLOAT_ID = 'vie-browser-bg-float-v72';
-    const FLOAT_STYLE_ID = 'vie-browser-bg-float-style-v72';
-    const IMG_LAYER_ID = 'vie-browser-bg-img-layer-v72';
-    const CSP_META_ID = 'vie-browser-bg-csp-meta-v72';
-    const NATIVE_BLUR_STYLE_ID = 'vie-browser-bg-native-blur-style-v72';
+    const STYLE_ID = 'vie-browser-bg-style-v73';
+    const FLOAT_ID = 'vie-browser-bg-float-v73';
+    const FLOAT_STYLE_ID = 'vie-browser-bg-float-style-v73';
+    const IMG_LAYER_ID = 'vie-browser-bg-img-layer-v73';
+    const CSP_META_ID = 'vie-browser-bg-csp-meta-v73';
+    const NATIVE_BLUR_STYLE_ID = 'vie-browser-bg-native-blur-style-v73';
 
     const overlayMarked = new WeakSet();
     const overlayLastApplied = new WeakMap();
@@ -69,12 +69,57 @@
 
     function normalizeHost(h) { return String(h || '').trim().toLowerCase(); }
 
+    // 改进的域名匹配函数
     function hostMatch(rule, host) {
-        rule = normalizeHost(rule); host = normalizeHost(host);
-        return rule && host && (host === rule || host.endsWith('.' + rule));
+        rule = normalizeHost(rule);
+        host = normalizeHost(host);
+        
+        if (!rule || !host) return false;
+        
+        // 1. 完全匹配
+        if (host === rule) return true;
+        
+        // 2. 子域名匹配（原有逻辑）
+        if (host.endsWith('.' + rule)) return true;
+        
+        // 3. 提取顶级域名进行匹配
+        const ruleParts = rule.split('.');
+        const hostParts = host.split('.');
+        
+        // 如果规则只有一级域名（如jd.com），则匹配所有子域名
+        if (ruleParts.length === 2) {
+            // 检查当前域名是否以规则域名结尾
+            return hostParts.length >= 2 && 
+                   hostParts.slice(-2).join('.') === rule;
+        }
+        
+        // 如果规则是多级域名（如sub.jd.com），则匹配所有子域名
+        if (ruleParts.length > 2) {
+            // 检查当前域名是否以规则域名结尾
+            if (hostParts.length >= ruleParts.length) {
+                return hostParts.slice(-ruleParts.length).join('.') === rule;
+            }
+        }
+        
+        return false;
     }
 
-    function inSiteList(host) { return getList().some(item => hostMatch(item, host)); }
+    // 获取顶级域名（例如：sub.jd.com -> jd.com）
+    function getTopDomain(host) {
+        host = normalizeHost(host);
+        const parts = host.split('.');
+        
+        // 处理常见的二级域名（如.com, .co.uk等）
+        // 这里简化处理，假设域名至少有两级
+        if (parts.length >= 2) {
+            return parts.slice(-2).join('.');
+        }
+        return host;
+    }
+
+    function inSiteList(host) {
+        return getList().some(item => hostMatch(item, host));
+    }
 
     function getSiteConfigMap() { return safeJSONParse(getValue('Vie背景站点配置', '{}'), {}); }
     function setSiteConfigMap(map) { setValue('Vie背景站点配置', JSON.stringify(map)); }
@@ -245,12 +290,26 @@ html::before { content:""!important; position:fixed!important; inset:0!important
 
     function clearCurrentSiteConfig() { removeSiteConfig(getHost()); applyAgain(); }
 
+    // 修改：切换当前站点时，直接使用顶级域名
     function toggleCurrentSiteInList() {
         const host = getHost();
+        const topDomain = getTopDomain(host); // 获取顶级域名
         let list = getList();
-        const exists = list.some(item => item === host);
-        if (exists) { list = list.filter(item => item !== host); setList(list); alert('已从站点列表移除：' + host); }
-        else { list.push(host); setList(list); alert('已加入站点列表：' + host); }
+        
+        // 检查顶级域名是否在列表中
+        const exists = list.some(item => hostMatch(item, topDomain));
+        
+        if (exists) {
+            // 移除顶级域名
+            list = list.filter(item => !hostMatch(item, topDomain));
+            setList(list);
+            alert('已从站点列表移除顶级域名：' + topDomain + '\n（包括所有子域名）');
+        } else {
+            // 添加顶级域名
+            list.push(topDomain);
+            setList(list);
+            alert('已加入站点列表顶级域名：' + topDomain + '\n（包括所有子域名）');
+        }
         applyAgain();
     }
 
@@ -483,7 +542,7 @@ html::before { content:""!important; position:fixed!important; inset:0!important
             }
 
             const configData = {
-                version: '2.0',
+                version: '2.1',
                 exportedAt: new Date().toISOString(),
                 global: {
                     url: globalImageFile || '',
@@ -614,20 +673,59 @@ html::before { content:""!important; position:fixed!important; inset:0!important
 
     function registerMenus() {
         const host = getHost();
+        const topDomain = getTopDomain(host);
         const globalCfg = getGlobalConfig();
         const siteCfg = getSiteConfig(host);
         const currentCfg = mergeConfig(host);
         const inList = inSiteList(host);
 
-        GM_registerMenuCommand(globalCfg.enabled ? '关闭背景功能（全局）' : '开启背景功能（全局）', () => { setGlobal('Vie背景启用', !getGlobalConfig().enabled); alert('全局背景功能已切换'); });
-        GM_registerMenuCommand(globalCfg.listMode === 'blacklist' ? '切换为白名单模式' : '切换为黑名单模式', () => { const next = getGlobalConfig().listMode === 'blacklist' ? 'whitelist' : 'blacklist'; setGlobal('Vie背景列表模式', next); alert('已切换为：' + next); });
-        GM_registerMenuCommand((inList ? '当前站点：移出站点列表' : '当前站点：加入站点列表'), () => { toggleCurrentSiteInList(); });
-        GM_registerMenuCommand('查看/编辑站点列表', () => { const text = prompt('每行一个域名：', getList().join('\n')); if (text === null) return; setList(text.split(/\r?\n/).map(s => s.trim()).filter(Boolean)); alert('站点列表已保存'); applyAgain(); });
+        GM_registerMenuCommand(globalCfg.enabled ? '关闭背景功能（全局）' : '开启背景功能（全局）', () => { 
+            setGlobal('Vie背景启用', !getGlobalConfig().enabled); 
+            alert('全局背景功能已切换'); 
+        });
+        
+        GM_registerMenuCommand(globalCfg.listMode === 'blacklist' ? '切换为白名单模式' : '切换为黑名单模式', () => { 
+            const next = getGlobalConfig().listMode === 'blacklist' ? 'whitelist' : 'blacklist'; 
+            setGlobal('Vie背景列表模式', next); 
+            alert('已切换为：' + next); 
+        });
+        
+        GM_registerMenuCommand((inList ? '当前站点：移出站点列表' : '当前站点：加入站点列表'), () => { 
+            toggleCurrentSiteInList(); 
+        });
+        
+        // 修改提示信息，显示顶级域名
+        GM_registerMenuCommand('查看/编辑站点列表（顶级域名）', () => { 
+            const list = getList();
+            const text = prompt('每行一个顶级域名（如jd.com）：\n注意：禁用顶级域名将禁用所有子域名', list.join('\n')); 
+            if (text === null) return; 
+            setList(text.split(/\r?\n/).map(s => s.trim()).filter(Boolean)); 
+            alert('站点列表已保存（顶级域名模式）'); 
+            applyAgain(); 
+        });
+        
         GM_registerMenuCommand('亮色调（全局）', () => { setGlobal('Vie背景', 1); });
         GM_registerMenuCommand('暗色调（全局）', () => { setGlobal('Vie背景', 2); });
-        GM_registerMenuCommand(currentCfg.floatVisible ? '隐藏悬浮按钮' : '显示悬浮按钮', () => { setGlobal('Vie背景悬浮按钮显示', !getGlobalConfig().floatVisible); const el = document.getElementById(FLOAT_ID); if (el) el.style.display = !getGlobalConfig().floatVisible ? 'block' : 'none'; });
-        GM_registerMenuCommand(siteCfg && siteCfg.enabled === false ? '当前站点：单独启用' : '当前站点：单独禁用', () => { updateCurrentSiteConfig({ enabled: (getSiteConfig(host) || {}).enabled === false ? true : false }); });
-        GM_registerMenuCommand('当前站点：清空全部单独配置', () => { if (!confirm('确定清空当前站点的所有单独配置？\n' + host)) return; clearCurrentSiteConfig(); });
+        
+        GM_registerMenuCommand(currentCfg.floatVisible ? '隐藏悬浮按钮' : '显示悬浮按钮', () => { 
+            setGlobal('Vie背景悬浮按钮显示', !getGlobalConfig().floatVisible); 
+            const el = document.getElementById(FLOAT_ID); 
+            if (el) el.style.display = !getGlobalConfig().floatVisible ? 'block' : 'none'; 
+        });
+        
+        GM_registerMenuCommand(siteCfg && siteCfg.enabled === false ? '当前站点：单独启用' : '当前站点：单独禁用', () => { 
+            updateCurrentSiteConfig({ enabled: (getSiteConfig(host) || {}).enabled === false ? true : false }); 
+        });
+        
+        GM_registerMenuCommand('当前站点：清空全部单独配置', () => { 
+            if (!confirm('确定清空当前站点的所有单独配置？\n' + host)) return; 
+            clearCurrentSiteConfig(); 
+        });
+        
+        // 添加显示当前顶级域名的功能
+        GM_registerMenuCommand('显示当前顶级域名：' + topDomain, () => {
+            alert('当前顶级域名：' + topDomain + '\n\n在站点列表中添加此域名将禁用所有子域名');
+        });
     }
 
     function ensureFloatStyle() {
@@ -646,7 +744,7 @@ html::before { content:""!important; position:fixed!important; inset:0!important
 #${FLOAT_ID} *{
     box-sizing:border-box!important;
 }
-#vie-bg-toggle-v72{
+#vie-bg-toggle-v73{
     width:46px!important;
     height:46px!important;
     line-height:46px!important;
@@ -658,7 +756,7 @@ html::before { content:""!important; position:fixed!important; inset:0!important
     cursor:pointer!important;
     box-shadow:0 2px 12px rgba(0,0,0,0.35)!important;
 }
-#vie-bg-panel-v72{
+#vie-bg-panel-v73{
     margin-top:8px!important;
     width:260px!important;
     padding:12px!important;
@@ -672,15 +770,15 @@ html::before { content:""!important; position:fixed!important; inset:0!important
     overflow-y:auto!important;
     overflow-x:hidden!important;
 }
-#vie-bg-panel-v72 .row{
+#vie-bg-panel-v73 .row{
     margin-bottom:8px!important;
 }
-#vie-bg-panel-v72 .lab{
+#vie-bg-panel-v73 .lab{
     font-size:11px!important;
     margin-bottom:3px!important;
     color:#ccc!important;
 }
-#vie-bg-panel-v72 input[type="range"]{
+#vie-bg-panel-v73 input[type="range"]{
     width:100%!important;
     -webkit-appearance:none!important;
     appearance:none!important;
@@ -690,7 +788,7 @@ html::before { content:""!important; position:fixed!important; inset:0!important
     opacity:0.9!important;
     border-radius:3px!important;
 }
-#vie-bg-panel-v72 input[type="range"]::-webkit-slider-thumb {
+#vie-bg-panel-v73 input[type="range"]::-webkit-slider-thumb {
     -webkit-appearance:none!important;
     width:16px!important;
     height:16px!important;
@@ -700,7 +798,7 @@ html::before { content:""!important; position:fixed!important; inset:0!important
     border:2px solid #222!important;
     box-shadow:0 1px 3px rgba(0,0,0,0.5)!important;
 }
-#vie-bg-panel-v72 input[type="range"]::-moz-range-thumb {
+#vie-bg-panel-v73 input[type="range"]::-moz-range-thumb {
     width:16px!important;
     height:16px!important;
     background:#7DD87D!important;
@@ -708,7 +806,7 @@ html::before { content:""!important; position:fixed!important; inset:0!important
     border-radius:50%!important;
     border:2px solid #222!important;
 }
-#vie-bg-panel-v72 input[type="text"] {
+#vie-bg-panel-v73 input[type="text"] {
     width:100%!important;
     padding:4px 6px!important;
     border-radius:4px!important;
@@ -718,15 +816,15 @@ html::before { content:""!important; position:fixed!important; inset:0!important
     border:1px solid rgba(255,255,255,0.15)!important;
     outline:none!important;
 }
-#vie-bg-panel-v72 input[type="text"]:focus {
+#vie-bg-panel-v73 input[type="text"]:focus {
     border-color:rgba(155,219,155,0.5)!important;
 }
-#vie-bg-panel-v72 .btns{
+#vie-bg-panel-v73 .btns{
     display:flex!important;
     gap:6px!important;
     margin-top:8px!important;
 }
-#vie-bg-panel-v72 button{
+#vie-bg-panel-v73 button{
     flex:1!important;
     border:0!important;
     border-radius:6px!important;
@@ -738,47 +836,47 @@ html::before { content:""!important; position:fixed!important; inset:0!important
     transition:background 0.2s!important;
     white-space:nowrap!important;
 }
-#vie-bg-panel-v72 button:hover{
+#vie-bg-panel-v73 button:hover{
     background:rgba(255,255,255,0.25)!important;
 }
-#vie-bg-panel-v72 .btn-primary button {
+#vie-bg-panel-v73 .btn-primary button {
     background:rgba(155,219,155,0.35)!important;
     font-weight:bold!important;
 }
-#vie-bg-panel-v72 .btn-primary button:hover {
+#vie-bg-panel-v73 .btn-primary button:hover {
     background:rgba(155,219,155,0.55)!important;
 }
-#vie-bg-panel-v72 .btn-danger button {
+#vie-bg-panel-v73 .btn-danger button {
     background:rgba(255,100,100,0.35)!important;
 }
-#vie-bg-panel-v72 .btn-danger button:hover {
+#vie-bg-panel-v73 .btn-danger button:hover {
     background:rgba(255,100,100,0.55)!important;
 }
-#vie-bg-panel-v72 .btn-export button {
+#vie-bg-panel-v73 .btn-export button {
     background:rgba(100,180,255,0.35)!important;
 }
-#vie-bg-panel-v72 .btn-export button:hover {
+#vie-bg-panel-v73 .btn-export button:hover {
     background:rgba(100,180,255,0.55)!important;
 }
-#vie-bg-panel-v72 .section-divider {
+#vie-bg-panel-v73 .section-divider {
     border:none!important;
     border-top:1px solid rgba(255,255,255,0.1)!important;
     margin:10px 0 8px!important;
 }
-#vie-bg-panel-v72 .section-title {
+#vie-bg-panel-v73 .section-title {
     font-size:10px!important;
     color:rgba(255,255,255,0.45)!important;
     margin-bottom:6px!important;
     text-transform:uppercase!important;
     letter-spacing:1px!important;
 }
-#vie-bg-panel-v72::-webkit-scrollbar {
+#vie-bg-panel-v73::-webkit-scrollbar {
     width:4px!important;
 }
-#vie-bg-panel-v72::-webkit-scrollbar-track {
+#vie-bg-panel-v73::-webkit-scrollbar-track {
     background:transparent!important;
 }
-#vie-bg-panel-v72::-webkit-scrollbar-thumb {
+#vie-bg-panel-v73::-webkit-scrollbar-thumb {
     background:rgba(255,255,255,0.2)!important;
     border-radius:2px!important;
 }
@@ -808,58 +906,58 @@ html::before { content:""!important; position:fixed!important; inset:0!important
         box.style.bottom = pos.bottom + 'px';
 
         box.innerHTML = `
-<div id="vie-bg-toggle-v72" title="点击展开/收起；拖动移动">𖣐</div>
-<div id="vie-bg-panel-v72">
+<div id="vie-bg-toggle-v73" title="点击展开/收起；拖动移动">𖣐</div>
+<div id="vie-bg-panel-v73">
     <div class="row">
         <div class="lab">全局背景图 URL</div>
-        <input id="vie-v72-global-image-url" type="text" placeholder="输入网络图片链接">
+        <input id="vie-v73-global-image-url" type="text" placeholder="输入网络图片链接">
     </div>
     <div class="row">
         <div class="lab">当前站点背景图 URL</div>
-        <input id="vie-v72-site-image-url" type="text" placeholder="留空则使用全局图片">
+        <input id="vie-v73-site-image-url" type="text" placeholder="留空则使用全局图片">
     </div>
     <div class="row">
-        <div class="lab">透明度 <span id="vie-v72-opacity-txt">${Math.round(cfg.opacity * 100)}%</span></div>
-        <input id="vie-v72-opacity" type="range" min="10" max="100" step="1" value="${Math.round(cfg.opacity * 100)}">
+        <div class="lab">透明度 <span id="vie-v73-opacity-txt">${Math.round(cfg.opacity * 100)}%</span></div>
+        <input id="vie-v73-opacity" type="range" min="10" max="100" step="1" value="${Math.round(cfg.opacity * 100)}">
     </div>
     <div class="row">
-        <div class="lab">背景模糊 <span id="vie-v72-blur-txt">${cfg.blur}px</span></div>
-        <input id="vie-v72-blur" type="range" min="0" max="50" step="1" value="${cfg.blur}">
+        <div class="lab">背景模糊 <span id="vie-v73-blur-txt">${cfg.blur}px</span></div>
+        <input id="vie-v73-blur" type="range" min="0" max="50" step="1" value="${cfg.blur}">
     </div>
     <div class="row">
-        <div class="lab">弹层模糊 <span id="vie-v72-native-blur-txt">${cfg.nativeElementBlur}px</span></div>
-        <input id="vie-v72-native-blur" type="range" min="0" max="20" step="1" value="${cfg.nativeElementBlur}">
+        <div class="lab">弹层模糊 <span id="vie-v73-native-blur-txt">${cfg.nativeElementBlur}px</span></div>
+        <input id="vie-v73-native-blur" type="range" min="0" max="20" step="1" value="${cfg.nativeElementBlur}">
     </div>
     <hr class="section-divider">
     <div class="section-title">自动弹层增强</div>
     <div class="row">
-        <div class="lab">自动弹层模糊 <span id="vie-v72-overlay-blur-txt">${cfg.overlayBlur}px</span></div>
-        <input id="vie-v72-overlay-blur" type="range" min="0" max="40" step="1" value="${cfg.overlayBlur}">
+        <div class="lab">自动弹层模糊 <span id="vie-v73-overlay-blur-txt">${cfg.overlayBlur}px</span></div>
+        <input id="vie-v73-overlay-blur" type="range" min="0" max="40" step="1" value="${cfg.overlayBlur}">
     </div>
     <div class="row">
-        <div class="lab">自动弹层透明 <span id="vie-v72-overlay-alpha-txt">${cfg.overlayAlpha.toFixed(2)}</span></div>
-        <input id="vie-v72-overlay-alpha" type="range" min="0" max="80" step="1" value="${Math.round(cfg.overlayAlpha * 100)}">
+        <div class="lab">自动弹层透明 <span id="vie-v73-overlay-alpha-txt">${cfg.overlayAlpha.toFixed(2)}</span></div>
+        <input id="vie-v73-overlay-alpha" type="range" min="0" max="80" step="1" value="${Math.round(cfg.overlayAlpha * 100)}">
     </div>
     <div class="btns btn-primary">
-        <button id="vie-v72-save-global">💾 存全局</button>
-        <button id="vie-v72-save-site">💾 存本站</button>
+        <button id="vie-v73-save-global">💾 存全局</button>
+        <button id="vie-v73-save-site">💾 存本站</button>
     </div>
     <div class="btns">
-        <button id="vie-v72-pick-global">🖼️ 全局本地图</button>
-        <button id="vie-v72-pick-site">🖼️ 本站本地图</button>
+        <button id="vie-v73-pick-global">🖼️ 全局本地图</button>
+        <button id="vie-v73-pick-site">🖼️ 本站本地图</button>
     </div>
     <hr class="section-divider">
     <div class="btns btn-export">
-        <button id="vie-v72-export">📦 导出压缩包</button>
-        <button id="vie-v72-import">📂 导入压缩包</button>
+        <button id="vie-v73-export">📦 导出压缩包</button>
+        <button id="vie-v73-import">📂 导入压缩包</button>
     </div>
     <div class="btns" style="margin-top:6px!important;">
-        <button id="vie-v72-advanced">⚙️ 高级设置 ▼</button>
+        <button id="vie-v73-advanced">⚙️ 高级设置 ▼</button>
     </div>
-    <div id="vie-v72-advanced-panel" style="display:none;">
+    <div id="vie-v73-advanced-panel" style="display:none;">
         <div class="btns btn-danger">
-            <button id="vie-v72-reset-global">🔄 全局默认</button>
-            <button id="vie-v72-reset-site">🗑️ 清本站</button>
+            <button id="vie-v73-reset-global">🔄 全局默认</button>
+            <button id="vie-v73-reset-site">🗑️ 清本站</button>
         </div>
     </div>
 </div>
@@ -868,24 +966,24 @@ html::before { content:""!important; position:fixed!important; inset:0!important
         document.documentElement.appendChild(box);
         floatShouldExist = true;
 
-        const toggle = box.querySelector('#vie-bg-toggle-v72');
-        const panelEl = box.querySelector('#vie-bg-panel-v72');
-        const advancedBtn = box.querySelector('#vie-v72-advanced');
-        const advancedPanel = box.querySelector('#vie-v72-advanced-panel');
+        const toggle = box.querySelector('#vie-bg-toggle-v73');
+        const panelEl = box.querySelector('#vie-bg-panel-v73');
+        const advancedBtn = box.querySelector('#vie-v73-advanced');
+        const advancedPanel = box.querySelector('#vie-v73-advanced-panel');
 
-        const globalImageUrlInput = box.querySelector('#vie-v72-global-image-url');
-        const siteImageUrlInput = box.querySelector('#vie-v72-site-image-url');
-        const opacityEl = box.querySelector('#vie-v72-opacity');
-        const blurEl = box.querySelector('#vie-v72-blur');
-        const nativeBlurEl = box.querySelector('#vie-v72-native-blur');
-        const overlayBlurEl = box.querySelector('#vie-v72-overlay-blur');
-        const overlayAlphaEl = box.querySelector('#vie-v72-overlay-alpha');
+        const globalImageUrlInput = box.querySelector('#vie-v73-global-image-url');
+        const siteImageUrlInput = box.querySelector('#vie-v73-site-image-url');
+        const opacityEl = box.querySelector('#vie-v73-opacity');
+        const blurEl = box.querySelector('#vie-v73-blur');
+        const nativeBlurEl = box.querySelector('#vie-v73-native-blur');
+        const overlayBlurEl = box.querySelector('#vie-v73-overlay-blur');
+        const overlayAlphaEl = box.querySelector('#vie-v73-overlay-alpha');
 
-        const opacityTxt = box.querySelector('#vie-v72-opacity-txt');
-        const blurTxt = box.querySelector('#vie-v72-blur-txt');
-        const nativeBlurTxt = box.querySelector('#vie-v72-native-blur-txt');
-        const overlayBlurTxt = box.querySelector('#vie-v72-overlay-blur-txt');
-        const overlayAlphaTxt = box.querySelector('#vie-v72-overlay-alpha-txt');
+        const opacityTxt = box.querySelector('#vie-v73-opacity-txt');
+        const blurTxt = box.querySelector('#vie-v73-blur-txt');
+        const nativeBlurTxt = box.querySelector('#vie-v73-native-blur-txt');
+        const overlayBlurTxt = box.querySelector('#vie-v73-overlay-blur-txt');
+        const overlayAlphaTxt = box.querySelector('#vie-v73-overlay-alpha-txt');
 
         const currentGlobalUrl = getGlobalConfig().url;
         const currentSiteUrl = (getSiteConfig(host) || {}).url || '';
@@ -964,7 +1062,7 @@ html::before { content:""!important; position:fixed!important; inset:0!important
             advancedBtn.textContent = isHidden ? '⚙️ 高级设置 ▲' : '⚙️ 高级设置 ▼';
         });
 
-        box.querySelector('#vie-v72-save-global').addEventListener('click', (e) => {
+        box.querySelector('#vie-v73-save-global').addEventListener('click', (e) => {
             e.stopPropagation();
             const v = getLiveValues();
             if (v.globalImageUrl) setValue('Vie背景图片', v.globalImageUrl);
@@ -978,7 +1076,7 @@ html::before { content:""!important; position:fixed!important; inset:0!important
             alert('已保存到全局配置');
         });
 
-        box.querySelector('#vie-v72-save-site').addEventListener('click', (e) => {
+        box.querySelector('#vie-v73-save-site').addEventListener('click', (e) => {
             e.stopPropagation();
             const v = getLiveValues();
             const h = getHost();
@@ -991,20 +1089,20 @@ html::before { content:""!important; position:fixed!important; inset:0!important
             alert('已保存到当前站点：' + h);
         });
 
-        box.querySelector('#vie-v72-pick-global').addEventListener('click', (e) => {
+        box.querySelector('#vie-v73-pick-global').addEventListener('click', (e) => {
             e.stopPropagation();
             pickLocalImage((b64, file) => { setGlobal('Vie背景图片', b64); globalImageUrlInput.value = ''; alert('已设置全局本地图片：' + file.name); });
         });
 
-        box.querySelector('#vie-v72-pick-site').addEventListener('click', (e) => {
+        box.querySelector('#vie-v73-pick-site').addEventListener('click', (e) => {
             e.stopPropagation();
             pickLocalImage((b64, file) => { const h = getHost(); const old = getSiteConfig(h) || {}; old.url = b64; setSiteConfig(h, old); siteImageUrlInput.value = ''; alert('已设置本站本地图片：' + file.name); });
         });
 
-        box.querySelector('#vie-v72-export').addEventListener('click', (e) => { e.stopPropagation(); exportAllConfigZip(); });
-        box.querySelector('#vie-v72-import').addEventListener('click', (e) => { e.stopPropagation(); importAllConfigZip(); });
+        box.querySelector('#vie-v73-export').addEventListener('click', (e) => { e.stopPropagation(); exportAllConfigZip(); });
+        box.querySelector('#vie-v73-import').addEventListener('click', (e) => { e.stopPropagation(); importAllConfigZip(); });
 
-        box.querySelector('#vie-v72-reset-global').addEventListener('click', (e) => {
+        box.querySelector('#vie-v73-reset-global').addEventListener('click', (e) => {
             e.stopPropagation();
             setValue('Vie背景图片', DEFAULTS.url);
             setValue('Vie背景透明度', DEFAULTS.opacity);
@@ -1028,7 +1126,7 @@ html::before { content:""!important; position:fixed!important; inset:0!important
             advancedBtn.textContent = '⚙️ 高级设置 ▼';
         });
 
-        box.querySelector('#vie-v72-reset-site').addEventListener('click', (e) => {
+        box.querySelector('#vie-v73-reset-site').addEventListener('click', (e) => {
             e.stopPropagation();
             if (!confirm('⚠️ 警告：此操作将清空当前站点的所有个性化配置，且无法撤销。\n\n确定继续？')) return;
             removeSiteConfig(getHost());
