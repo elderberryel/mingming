@@ -5,6 +5,7 @@
 ||example.com^
 ##.ad
 example.org##.popup
+##canvas[width="1602"][height="2340"]
 axutongxue.cn##button.darkmode-toggle--white + #clickCanvas
 ##.fabu-mask
 ##.fabu-dialog
