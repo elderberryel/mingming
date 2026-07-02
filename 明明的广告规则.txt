@@ -5,6 +5,7 @@
 ||example.com^
 ##.ad
 example.org##.popup
+axutongxue.cn##button.darkmode-toggle--white + #clickCanvas
 ##.fabu-mask
 ##.fabu-dialog
 ##body:style(overflow:auto !important;)
