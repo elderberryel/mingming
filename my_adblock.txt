@@ -1,0 +1,7 @@
+! Title: 明明广告规则
+! Version: 1.0
+! Homepage: https://github.com/elderberryel/mingming
+
+||example.com^
+##.ad
+example.org##.popup
