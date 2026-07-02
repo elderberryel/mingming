@@ -1,4 +1,4 @@
-! Title: 明明广告规则
+! Title: 明明的广告规则
 ! Version: 1.0
 ! Homepage: https://github.com/elderberryel/mingming
 
