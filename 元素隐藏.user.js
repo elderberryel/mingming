@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         元素隐藏
 // @namespace    http://tampermonkey.net/
-// @version      2.2
+// @version      2.3
 // @description  隐藏页面中的特定元素
 // @author       MiMo
 // @match        *://*/*
@@ -13,6 +13,7 @@
     'use strict';
 
     const hideSelectors = [
+        // ===== 原有选择器 =====
         '#components-layout-demo-top > div.fixedSecondaryHeader:nth-child(2) > span > div > div',
         '#mainContent > span > div.ant-row.notfont:last-child > div.ant-col-23:last-child',
         '.notfont.ant-row',
@@ -25,13 +26,18 @@
         'div:has(a[href*="wailian2.cn"])',
         'div[style*="border-radius: 15px"][style*="box-shadow"]:has(button)',
         'div:has(> div > img[src*="wework.qpic.cn"])',
-        '#button_Close'
+        '#button_Close',
+
+        // ===== 新增：屏蔽右下角 "SPS免费托管" 悬浮条 =====
+        'div:has(> a[href*="Sys_Index.aspx"][href*="ft=ad"])',
+        'div:has(a[href*="Sys_Index.aspx?ft=ad"])',
+        'div[style*="position: fixed"][style*="bottom: 0"][style*="right: 0"][style*="z-index: 9999"][style*="border-top-left-radius"]',
     ];
 
     // 注入 CSS
     const cssRules = hideSelectors
-        。map(selector => `${selector} { display: none !important; }`)
-        。join('\n');
+        .map(selector => `${selector} { display: none !important; }`)
+        .join('\n');
 
     GM_addStyle(cssRules);
 
@@ -43,7 +49,7 @@
                     el.style.setProperty('display', 'none', 'important');
                 });
             } catch (e) {
-                console.warn(`[zi.tools隐藏] 选择器无效: ${selector}`, e);
+                console.warn(`[元素隐藏] 选择器无效: ${selector}`, e);
             }
         });
     };
@@ -57,9 +63,7 @@
         };
     };
 
-    // 创建防抖版本的 hideElements（100ms 延迟）
     const debouncedHide = debounce(hideElements, 100);
-    // ================================
 
     // 首次执行
     if (document.readyState === 'loading') {
