@@ -1,11 +1,10 @@
 // ==UserScript==
-// @name         zi.tools 元素隐藏
+// @name         元素隐藏
 // @namespace    http://tampermonkey.net/
-// @version      2.0
-// @description  隐藏 zi.tools 页面中的特定元素
+// @version      2.2
+// @description  隐藏页面中的特定元素
 // @author       MiMo
-// @match        https://zi.tools/*
-// @match        http://zi.tools/*
+// @match        *://*/*
 // @grant        GM_addStyle
 // @run-at       document-start
 // ==/UserScript==
@@ -14,30 +13,25 @@
     'use strict';
 
     const hideSelectors = [
-        // 规则1: 固定二级头部中的特定子元素
         '#components-layout-demo-top > div.fixedSecondaryHeader:nth-child(2) > span > div > div',
-
-        // 规则2: 主内容区最后一行的最后一列
         '#mainContent > span > div.ant-row.notfont:last-child > div.ant-col-23:last-child',
-
-        // 规则3: 所有同时具有 .notfont 和 .ant-row 类的元素
         '.notfont.ant-row',
-
-        // 规则4: 页脚设置图标按钮（齿轮图标）
         '[data-v-736ced16].ant-col-1 .anticon-setting',
-
-        // 规则5: 页脚链接区域（版权、Telegram、QQ、外部链接等）
         '[data-v-736ced16].ant-col-23[style*="text-align: right"]',
-
-        // 规则6: 页脚整个容器（如果上面两个不够，直接隐藏整行）
         '[data-v-736ced16].ant-col-1:has(.anticon-setting)',
-        '[data-v-736ced16].ant-col-23:has(a[href="https://zi.tools/"])'
+        '[data-v-736ced16].ant-col-23:has(a[href="https://zi.tools/"])',
+        'div:has(> div > div > #button_Close)',
+        'div:has(button#button_Close)',
+        'div:has(a[href*="wailian2.cn"])',
+        'div[style*="border-radius: 15px"][style*="box-shadow"]:has(button)',
+        'div:has(> div > img[src*="wework.qpic.cn"])',
+        '#button_Close'
     ];
 
     // 注入 CSS
     const cssRules = hideSelectors
-        .map(selector => `${selector} { display: none !important; }`)
-        .join('\n');
+        。map(selector => `${selector} { display: none !important; }`)
+        。join('\n');
 
     GM_addStyle(cssRules);
 
@@ -54,13 +48,28 @@
         });
     };
 
+    // ========== 防抖函数 ==========
+    const debounce = (fn, delay = 100) => {
+        let timer = null;
+        return function (...args) {
+            if (timer) clearTimeout(timer);
+            timer = setTimeout(() => fn.apply(this, args), delay);
+        };
+    };
+
+    // 创建防抖版本的 hideElements（100ms 延迟）
+    const debouncedHide = debounce(hideElements, 100);
+    // ================================
+
+    // 首次执行
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', hideElements);
     } else {
         hideElements();
     }
 
-    const observer = new MutationObserver(() => hideElements());
+    // MutationObserver 使用防抖版本
+    const observer = new MutationObserver(() => debouncedHide());
 
     if (document.body) {
         observer.observe(document.body, { childList: true, subtree: true });
