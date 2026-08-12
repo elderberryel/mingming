@@ -15,7 +15,7 @@
 // @connect      api.deepseek.com
 // @connect      open.bigmodel.cn
 // @run-at       document-end
-// @namespace    https://greasyfork.org/users/452911
+// @namespace    https://github.com/elderberryel/mingming
 // ==/UserScript==
 
 (async () => {
