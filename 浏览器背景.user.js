@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         浏览器背景 v3.0
 // @namespace    https://viayoo.com/
-// @version      3.0.1
+// @version      3.0
 // @description  浏览器背景 (修复部分传统网站骨架容器不透明问题)
 // @author       ChatGPT & MiMo
 // @match        *://*/*
