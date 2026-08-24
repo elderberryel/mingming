@@ -172,7 +172,7 @@
 #bgCanvas{display:none!important;}
 ${bgCss}
 body::before{content:""!important;position:fixed!important;inset:0!important;z-index:-2147483646!important;pointer-events:none!important;background:transparent!important;}
-*:not(img):not(svg):not(video):not(canvas):not(.translate-ui):not(.translate-ui *):not(.cf-turnstile):not(.h-captcha):not(.g-recaptcha):not(input):not(select):not(textarea):not([id^="typeaheadDropdown"]):not(.search-suggest):not(.sug-list):not(.s-sug):not([class*="suggest"]):not([class*="dropdown"]):not([class*="autocomplete"]):not([role="listbox"]):not([role="menu"]){background-color:transparent!important;}
+*:not(img):not(svg):not(video):not(canvas):not(.translate-ui):not(.translate-ui *):not(.cf-turnstile):not(.h-captcha):not(.g-recaptcha):not(input):not(select):not(textarea):not([id^="typeaheadDropdown"]):not(.search-suggest):not(.sug-list):not(.s-sug):not([class*="suggest"]):not([class*="dropdown"]):not([class*="autocomplete"]):not([id*="search-result"]):not([id*="search-results"]):not([class*="search-result"]):not([role="listbox"]):not([role="menu"]){background-color:transparent!important;}
 [id^="_r_"],[id^="_r_"] *{background-color:transparent!important;background:transparent!important;background-image:none!important;box-shadow:none!important;}
 #container,#header,#logo,#wrapper,#page,#main,.container,.wrapper,header,footer,nav,.navbar,.top-bar,.row1,.header,.logo,#top,.top,#site-header,.site-header{background:transparent!important;background-color:transparent!important;background-image:none!important;box-shadow:none!important;border-color:transparent!important;}
 #additional-info,.user-content,#script-info,.width-constraint,#install-area,.good-bad,.discussion-list,article,.post-body,.entry-content,.markdown-body,.topic-body,.post-content,#readme,.Box-body{background:transparent!important;background-color:transparent!important;background-image:none!important;box-shadow:none!important;border-color:transparent!important;--bg-color:transparent!important;--color-canvas-default:transparent!important;}
@@ -193,13 +193,23 @@ td,th,thead,tbody,tfoot,.rounded-top-2,.rounded-bottom-2,.rounded-2{background:t
     function getNativeBlurCSS(blurAmount, theme) {
         if (blurAmount <= 0) return '';
         const isDark = theme === 1;
-        const xDropdownBg = isDark ? 'rgba(15,20,25,0.00)' : 'rgba(255,255,255,0.00)';
-        const xDropdownBorder = isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)';
+        // 液态玻璃参数：饱和度提升让底层颜色透过玻璃更鲜活
+        const GLASS_FILTER = `blur(${blurAmount}px) saturate(180%)`;
+        // 玻璃色底（比纯模糊略带一点色，制造"厚度"）
+        const glassBg = isDark ? 'rgba(28,30,38,0.28)' : 'rgba(255,255,255,0.22)';
+        const xDropdownBorder = isDark ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.55)';
         const xHoverBg = isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)';
+        // 液态玻璃招牌：外层景深 + 顶部内嵌高光（镜面反光）+ 底部微暗
+        const glassHighlight = isDark ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.7)';
+        const glassShadow = isDark ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.18)';
+        const GLASS_SHADOW = `0 8px 32px ${glassShadow}, inset 0 1px 1px ${glassHighlight}, inset 0 -1px 2px rgba(0,0,0,0.06)`;
+
+        const DROP = '[id^="typeaheadDropdown"],.search-suggest,.sug-list,.s-sug,[class*="suggest"],[class*="dropdown"],[class*="autocomplete"],[id*="search-result"],[id*="search-results"],[id*="searchResult"],[id*="search_result"],[class*="search-result"],[class*="searchResult"],[class*="search-results"],[role="listbox"],[role="menu"]';
+        const DROP_CHILD = '[id^="typeaheadDropdown"] *:not(img),.search-suggest *:not(img),.sug-list *:not(img),.s-sug *:not(img),[class*="suggest"] *:not(img),[id*="search-result"] *:not(img),[id*="search-results"] *:not(img),[class*="search-result"] *:not(img),[role="listbox"] *:not(img),[role="menu"] *:not(img)';
         return `
-.modal,.dialog,.popup,.dropdown,.menu,.popover,.tooltip,[role="dialog"],[role="menu"],[role="tooltip"],[role="listbox"],[role="grid"],.layer,.fancybox,.swal-modal,.ant-modal,.el-dialog,.el-popper,.notification,.Toastify__toast-container,.position-fixed,.z-50{backdrop-filter:blur(${blurAmount}px)!important;-webkit-backdrop-filter:blur(${blurAmount}px)!important;}
-[id^="typeaheadDropdown"],.search-suggest,.sug-list,.s-sug,[class*="suggest"],[class*="dropdown"],[class*="autocomplete"],[role="listbox"],[role="menu"]{backdrop-filter:blur(${blurAmount}px)!important;-webkit-backdrop-filter:blur(${blurAmount}px)!important;background-color:${xDropdownBg}!important;border:1px solid ${xDropdownBorder}!important;box-shadow:0 4px 12px rgba(0,0,0,0.2)!important;transform:translateZ(0)!important;isolation:isolate!important;}
-[id^="typeaheadDropdown"] *:not(img),.search-suggest *:not(img),.sug-list *:not(img),.s-sug *:not(img),[class*="suggest"] *:not(img),[role="listbox"] *:not(img),[role="menu"] *:not(img){background-color:transparent!important;box-shadow:none!important;}
+.modal,.dialog,.popup,.dropdown,.menu,.popover,.tooltip,[role="dialog"],[role="menu"],[role="tooltip"],[role="listbox"],[role="grid"],.layer,.fancybox,.swal-modal,.ant-modal,.el-dialog,.el-popper,.notification,.Toastify__toast-container,.position-fixed,.z-50{backdrop-filter:${GLASS_FILTER}!important;-webkit-backdrop-filter:${GLASS_FILTER}!important;box-shadow:${GLASS_SHADOW}!important;}
+${DROP}{backdrop-filter:${GLASS_FILTER}!important;-webkit-backdrop-filter:${GLASS_FILTER}!important;background-color:${glassBg}!important;border:1px solid ${xDropdownBorder}!important;box-shadow:${GLASS_SHADOW}!important;border-radius:12px!important;transform:translateZ(0)!important;isolation:isolate!important;overflow:hidden!important;}
+${DROP_CHILD}{background-color:transparent!important;box-shadow:none!important;}
 input:not(.translate-ui input),textarea,select,[type="text"],[type="search"],[type="email"],[type="password"],[type="url"],[type="number"],[contenteditable="true"]{
   background-color:transparent!important;
   background:transparent!important;
@@ -209,10 +219,9 @@ input:not(.translate-ui input),textarea,select,[type="text"],[type="search"],[ty
   box-shadow:none!important;
   border-color:${xDropdownBorder}!important;
 }
-button:hover,[role="option"]:hover,div[class*="suggest"] li:hover,div[class*="suggest"] div:hover{background-color:${xHoverBg}!important;}`;
+button:hover,[role="option"]:hover,div[class*="suggest"] li:hover,div[class*="suggest"] div:hover,[id*="search-result"] .search-result:hover,[id*="search-result"] a:hover{background-color:${xHoverBg}!important;}`;
     }
 
-    // X（Twitter）头部毛玻璃兜底 CSS。主力是 JS 的 stripXHeaderBlur()。
     function getXSpecificCSS() {
         return `
 [data-testid="primaryColumn"] div:has(nav[aria-live="polite"][role="navigation"]),
@@ -233,7 +242,27 @@ nav[aria-live="polite"][role="navigation"] div[role="tab"]{background-color:tran
 
     function isXSite() { const h = getHost(); return /(^|\.)x\.com$/.test(h) || /(^|\.)twitter\.com$/.test(h); }
 
-    const X_DROPDOWN_GUARD = '[id^="typeaheadDropdown"],[role="listbox"],[role="menu"],[role="combobox"],[role="dialog"],.search-suggest,.sug-list,.s-sug,[class*="suggest"],[class*="dropdown"],[class*="autocomplete"],[class*="typeahead"]';
+    function isTiebaSite() { return /(^|\.)tieba\.baidu\.com$/.test(getHost()); }
+
+    function getTiebaCSS() {
+        return `
+.forum_content,.forum_content .main,#content_wrap,
+.content_leftList,.j-content-leftList,
+.thread_list_bottom,.th_footer_bright,.th_footer_l,
+#frs_list_pager,.pagination-default,
+.aside,#aside,
+[id^="pagelet_frs-list"],[id^="pagelet_platform"],[id^="pagelet_live"],[id^="pagelet_frs-aside"],
+.forum_content .thread_list,.forum_content li,.forum_content .t_con{
+  background:transparent!important;background-color:transparent!important;
+  background-image:none!important;box-shadow:none!important;border-color:transparent!important;
+}
+#frs_list_pager .pagination-item,.pagination-default .pagination-item{
+  background:transparent!important;background-color:transparent!important;
+  border-color:rgba(255,255,255,0.3)!important;
+}`;
+    }
+
+    const X_DROPDOWN_GUARD = '[id^="typeaheadDropdown"],[role="listbox"],[role="menu"],[role="combobox"],[role="dialog"],.search-suggest,.sug-list,.s-sug,[class*="suggest"],[class*="dropdown"],[class*="autocomplete"],[class*="typeahead"],[id*="search-result"],[class*="search-result"]';
 
     function stripXHeaderBlur() {
         if (!isXSite() || captchaActive) return;
@@ -290,9 +319,7 @@ nav[aria-live="polite"][role="navigation"] div[role="tab"]{background-color:tran
             for (let j = 0; j < kids.length; j++) clearBlur(kids[j]);
         }
 
-        // 锚点 1：帖子详情页返回按钮
         document.querySelectorAll('[data-testid="app-bar-back"]').forEach(stripHeaderFromAnchor);
-        // 锚点 2：时间线标签栏 nav
         document.querySelectorAll('nav[aria-live="polite"][role="navigation"]').forEach(nav => {
             stripHeaderFromAnchor(nav);
             if (!isProtected(nav)) {
@@ -311,6 +338,7 @@ nav[aria-live="polite"][role="navigation"] div[role="tab"]{background-color:tran
             + `.btn-close{box-sizing:content-box!important;width:1em!important;height:1em!important;padding:.25em!important;background:transparent url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23000'%3e%3cpath d='M.293.293a1 1 0 0 1 1.414 0L8 6.586 14.293.293a1 1 0 1 1 1.414 1.414L9.414 8l6.293 6.293a1 1 0 0 1-1.414 1.414L8 9.414l-6.293 6.293a1 1 0 0 1-1.414-1.414L6.586 8 .293 1.707a1 1 0 0 1 0-1.414z'/%3e%3c/svg%3e") center/1em auto no-repeat!important;border:0!important;border-radius:.375rem!important;opacity:.7!important;}`
             + `.btn-close-white{filter:invert(1) grayscale(100%) brightness(200%)!important;}`;
         if (isXSite()) css += getXSpecificCSS();
+        if (isTiebaSite()) css += getTiebaCSS();
         return css;
     }
 
@@ -393,7 +421,7 @@ nav[aria-live="polite"][role="navigation"] div[role="tab"]{background-color:tran
     const overlayKeywordCache = new WeakMap();
     function isOverlayVisible(el, style) { if (!el || !style) return false; if (style.display === 'none' || style.visibility === 'hidden') return false; if (parseFloat(style.opacity || '1') <= 0) return false; const rect = el.getBoundingClientRect(); return rect.width > 2 && rect.height > 2; }
     function getZIndex(style) { const z = parseInt(style.zIndex || '0', 10); return Number.isFinite(z) ? z : 0; }
-    function hasOverlayKeyword(el) { if (overlayKeywordCache.has(el)) return overlayKeywordCache.get(el); const txt = `${(el.className || '').toString().toLowerCase()} ${(el.id || '').toString().toLowerCase()}`; const role = (el.getAttribute && el.getAttribute('role') || '').toLowerCase(); const result = /overlay|backdrop|mask|modal|drawer|popup|dialog|sheet|menu|popover|sidebar|side-nav|side-panel|nav-panel|offcanvas|slide-panel|flyout|panel|typeahead|autocomplete/.test(txt) || ['listbox', 'menu', 'dialog', 'tooltip', 'grid', 'alertdialog'].includes(role); overlayKeywordCache.set(el, result); return result; }
+    function hasOverlayKeyword(el) { if (overlayKeywordCache.has(el)) return overlayKeywordCache.get(el); const txt = `${(el.className || '').toString().toLowerCase()} ${(el.id || '').toString().toLowerCase()}`; const role = (el.getAttribute && el.getAttribute('role') || '').toLowerCase(); const result = /overlay|backdrop|mask|modal|drawer|popup|dialog|sheet|menu|popover|sidebar|side-nav|side-panel|nav-panel|offcanvas|slide-panel|flyout|panel|typeahead|autocomplete|search-result|search-results/.test(txt) || ['listbox', 'menu', 'dialog', 'tooltip', 'grid', 'alertdialog'].includes(role); overlayKeywordCache.set(el, result); return result; }
     function hasOverlayBg(style) { const bg = style.backgroundColor || ''; return bg.includes('rgb') || (style.backdropFilter && style.backdropFilter !== 'none') || (style.webkitBackdropFilter && style.webkitBackdropFilter !== 'none'); }
     function htmlBodyLocked() { if (!document.body) return false; const hs = getComputedStyle(document.documentElement), bs = getComputedStyle(document.body); const hc = (document.documentElement.className || '').toLowerCase(), bc = (document.body.className || '').toLowerCase(); return ['modal-open', 'drawer-open', 'overflow-hidden', 'no-scroll', 'popup-open', 'dialog-open'].some(k => hc.includes(k) || bc.includes(k)) || hs.overflow === 'hidden' || hs.overflowY === 'hidden' || bs.overflow === 'hidden' || bs.overflowY === 'hidden'; }
     function isLightBg(bg) { if (!bg || !bg.includes('rgb')) return false; const nums = bg.match(/\d+(\.\d+)?/g); return nums && nums.length >= 3 && (parseFloat(nums[0]) + parseFloat(nums[1]) + parseFloat(nums[2])) / 3 > 180; }
@@ -428,9 +456,14 @@ nav[aria-live="polite"][role="navigation"] div[role="tab"]{background-color:tran
 
     function writeOverlay(item, blur, alpha) {
         const el = item.el;
-        el.style.setProperty('backdrop-filter', `blur(${blur}px)`, 'important');
-        el.style.setProperty('-webkit-backdrop-filter', `blur(${blur}px)`, 'important');
+        const glassFilter = `blur(${blur}px) saturate(180%)`;
+        el.style.setProperty('backdrop-filter', glassFilter, 'important');
+        el.style.setProperty('-webkit-backdrop-filter', glassFilter, 'important');
         el.style.setProperty('background-color', item.useWhite ? `rgba(255,255,255,${alpha})` : `rgba(0,0,0,${alpha})`, 'important');
+        // 液态玻璃：内嵌顶部高光 + 外层柔和景深
+        el.style.setProperty('box-shadow', item.useWhite
+            ? 'inset 0 1px 1px rgba(255,255,255,0.65), 0 8px 32px rgba(0,0,0,0.15)'
+            : 'inset 0 1px 1px rgba(255,255,255,0.14), 0 8px 32px rgba(0,0,0,0.45)', 'important');
         if (item.pointerNone) el.style.setProperty('pointer-events', 'auto', 'important');
         overlayMarked.add(el);
         overlayLastApplied.set(el, { blur, alpha });
@@ -507,7 +540,7 @@ nav[aria-live="polite"][role="navigation"] div[role="tab"]{background-color:tran
             const imgEntries = []; if (gData && gFile) imgEntries.push({ name: 'images/' + gFile, data: gData });
             let frc = 0, flc = 0; const fru = [], fls = [];
             for (const h in scm) { const url = scm[h].url; if (!url) continue; let fn = null; if (isCacheKey(url)) { const ck = extractCacheKey(url), orig = getOriginalFilename(ck), ext = orig ? getExtFromFilename(orig) : 'jpg'; fn = 'site_' + simpleHash(h) + '_local.' + ext; let id = null; if (CACHE_AVAILABLE) { try { const c = await caches.open(CACHE_NAME), r = await c.match(new Request('/' + ck)); if (r) id = new Uint8Array(await r.arrayBuffer()); } catch (e) {} } if (!id) { const b = getValue(GM_BACKUP_PREFIX + ck, ''); if (b && b.startsWith('data:image/')) id = dataUrlToUint8Array(b); } if (id) imgEntries.push({ name: 'images/' + fn, data: id }); else { flc++; fls.push(h); } } else if (isDataImageUrl(url)) { fn = 'site_' + simpleHash(h) + '_local.' + guessExt(url); imgEntries.push({ name: 'images/' + fn, data: dataUrlToUint8Array(url) }); } else { const au = toAbsoluteUrl(url); scm[h].remoteUrl = au; try { const { data, ext } = await fetchImageAsUint8(au); fn = 'site_' + simpleHash(h) + '_remote.' + ext; imgEntries.push({ name: 'images/' + fn, data }); } catch (e) { frc++; fru.push(au); } } scm[h].url = fn || ''; }
-            const cfg = { version: '3.9', exportedAt: new Date().toISOString(), global: { url: gFile || '', remoteUrl: gRemote, theme: getValue(KEYS.theme, DEFAULTS.theme), opacity: getValue(KEYS.opacity, DEFAULTS.opacity), blur: getValue(KEYS.blur, DEFAULTS.blur), enabled: getValue(KEYS.enabled, DEFAULTS.enabled), floatVisible: getValue(KEYS.floatVisible, DEFAULTS.floatVisible), listMode: getValue(KEYS.listMode, DEFAULTS.listMode), floatPos: safeJSONParse(getValue(KEYS.floatPos, JSON.stringify(DEFAULTS.floatPos)), DEFAULTS.floatPos), nativeElementBlur: getValue(KEYS.nativeElementBlur, DEFAULTS.nativeElementBlur), overlayBlur: getValue(KEYS.overlayBlur, DEFAULTS.overlayBlur), overlayAlpha: getValue(KEYS.overlayAlpha, DEFAULTS.overlayAlpha) }, siteList: getList(), siteConfigMap: scm };
+            const cfg = { version: '4.2', exportedAt: new Date().toISOString(), global: { url: gFile || '', remoteUrl: gRemote, theme: getValue(KEYS.theme, DEFAULTS.theme), opacity: getValue(KEYS.opacity, DEFAULTS.opacity), blur: getValue(KEYS.blur, DEFAULTS.blur), enabled: getValue(KEYS.enabled, DEFAULTS.enabled), floatVisible: getValue(KEYS.floatVisible, DEFAULTS.floatVisible), listMode: getValue(KEYS.listMode, DEFAULTS.listMode), floatPos: safeJSONParse(getValue(KEYS.floatPos, JSON.stringify(DEFAULTS.floatPos)), DEFAULTS.floatPos), nativeElementBlur: getValue(KEYS.nativeElementBlur, DEFAULTS.nativeElementBlur), overlayBlur: getValue(KEYS.overlayBlur, DEFAULTS.overlayBlur), overlayAlpha: getValue(KEYS.overlayAlpha, DEFAULTS.overlayAlpha) }, siteList: getList(), siteConfigMap: scm };
             imgEntries.push({ name: 'config.json', data: new TextEncoder().encode(JSON.stringify(cfg, null, 2)) });
             const zipped = await buildZip(imgEntries), blob = new Blob([zipped], { type: 'application/zip' }), bu = URL.createObjectURL(blob);
             const a = document.createElement('a'); a.href = bu; a.download = '浏览器背景_' + new Date().toISOString().slice(0, 10) + '.zip'; a.style.display = 'none'; document.body.appendChild(a); a.click(); setTimeout(() => { try { a.remove(); } catch (e) {} URL.revokeObjectURL(bu); }, 1000);
