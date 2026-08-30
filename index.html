@@ -1,0 +1,1391 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>昵称后缀添加器</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        :root {
+            --bg: #0f172a;
+            --card-bg: rgba(30, 41, 59, 0.88);
+            --border: #334155;
+            --primary: #60a5fa;
+            --primary-light: #1e293b;
+            --text-dark: #f1f5f9;
+            --text-muted: #94a3b8;
+            --radius: 20px;
+            --shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.6);
+            --font: 'Segoe UI', 'PingFang SC', system-ui, sans-serif;
+            --toggle-bg: #475569;
+            --toggle-active: #60a5fa;
+            --disabled-bg: #1e293b;
+            --slider-track: #334155;
+            --slider-fill: #60a5fa;
+            --slider-thumb: #60a5fa;
+        }
+        body {
+            font-family: var(--font);
+            background: var(--bg);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 16px;
+            margin: 0;
+            background-image: radial-gradient(circle at 10% 20%, rgba(96, 165, 250, 0.08) 0%, transparent 50%),
+                radial-gradient(circle at 90% 80%, rgba(96, 165, 250, 0.08) 0%, transparent 50%);
+        }
+        .card {
+            background: var(--card-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow), 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+            padding: 28px 24px 24px;
+            max-width: 820px;
+            width: 100%;
+            transition: all 0.25s;
+        }
+        .header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 22px;
+            flex-wrap: wrap;
+        }
+        .header .icon {
+            font-size: 28px;
+            line-height: 1;
+        }
+        .header h1 {
+            font-size: 21px;
+            font-weight: 700;
+            color: var(--text-dark);
+            letter-spacing: -0.2px;
+            flex: 1;
+        }
+        .header .badge {
+            background: var(--primary-light);
+            color: var(--primary);
+            font-size: 12px;
+            font-weight: 600;
+            padding: 4px 14px;
+            border-radius: 100px;
+            letter-spacing: 0.3px;
+            white-space: nowrap;
+            transition: all 0.25s;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            border: 1px solid #334155;
+        }
+
+        /* 输入区 */
+        .input-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+            margin-bottom: 18px;
+        }
+        .input-field {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        .input-field label {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-dark);
+            letter-spacing: 0.2px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .input-field label .label-hint {
+            font-weight: 400;
+            color: var(--text-muted);
+            font-size: 12px;
+        }
+        .input-field input {
+            width: 100%;
+            padding: 11px 14px;
+            font-size: 15px;
+            font-family: var(--font);
+            border: 2px solid var(--border);
+            border-radius: 14px;
+            background: #1e293b;
+            color: var(--text-dark);
+            transition: border-color 0.2s, box-shadow 0.2s, opacity 0.3s;
+            outline: none;
+        }
+        .input-field input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(96, 165, 250, 0.15);
+        }
+        .input-field input::placeholder {
+            color: #64748b;
+            font-weight: 400;
+        }
+        .input-field input:disabled {
+            background: var(--disabled-bg);
+            opacity: 0.5;
+            cursor: not-allowed;
+            border-style: dashed;
+        }
+
+        /* 颜色控制区 */
+        .color-section {
+            background: #1a2332;
+            border-radius: 16px;
+            padding: 16px 18px 14px;
+            margin-bottom: 18px;
+            border: 1px solid var(--border);
+            transition: opacity 0.3s, border-color 0.3s;
+        }
+        .color-section.disabled {
+            opacity: 0.45;
+            pointer-events: none;
+            border-color: #2d3748;
+        }
+        .color-section .color-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+            gap: 4px;
+        }
+        .color-section .color-header .color-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-dark);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .color-section .color-header .color-title .tag {
+            font-size: 11px;
+            font-weight: 400;
+            color: var(--text-muted);
+            background: #1e293b;
+            padding: 1px 10px;
+            border-radius: 12px;
+            border: 1px solid #334155;
+        }
+        .color-section .color-header .color-hex {
+            font-size: 14px;
+            font-weight: 600;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            color: var(--text-muted);
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            padding: 2px 6px;
+            border-radius: 4px;
+            transition: background 0.2s;
+            user-select: none;
+        }
+        .color-section .color-header .color-hex:hover {
+            background: #2d3748;
+        }
+        .color-section .color-header .color-hex input {
+            background: #1e293b;
+            color: #f1f5f9;
+            border: 2px solid var(--primary);
+            border-radius: 6px;
+            padding: 0 4px;
+            font-size: 14px;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            text-align: center;
+            outline: none;
+            width: 90px;
+        }
+        .preview-bar-wrap {
+            width: 100%;
+            height: 28px;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 12px;
+            border: 1px solid #2d3748;
+            position: relative;
+            background: #1e293b;
+        }
+        .preview-bar-wrap .preview-bar {
+            width: 100%;
+            height: 100%;
+            border-radius: 9px;
+            transition: background-color 0.08s;
+        }
+        .slider-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px 18px;
+        }
+        .slider-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .slider-row .slider-label {
+            font-size: 12px;
+            font-weight: 600;
+            min-width: 22px;
+            color: var(--text-muted);
+            letter-spacing: 0.3px;
+        }
+        .slider-row .slider-label.label-r {
+            color: #f87171;
+        }
+        .slider-row .slider-label.label-g {
+            color: #6ee7b7;
+        }
+        .slider-row .slider-label.label-b {
+            color: #60a5fa;
+        }
+        .slider-row .slider-label.label-a {
+            color: #a78bfa;
+        }
+        .slider-row .slider-val {
+            font-size: 12px;
+            font-weight: 600;
+            min-width: 28px;
+            text-align: right;
+            color: var(--text-muted);
+            font-variant-numeric: tabular-nums;
+        }
+        .custom-slider {
+            position: relative;
+            flex: 1;
+            height: 24px;
+            cursor: pointer;
+            touch-action: none;
+            -webkit-user-select: none;
+            user-select: none;
+            min-width: 40px;
+        }
+        .custom-slider .track {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 4px;
+            transform: translateY(-50%);
+            border-radius: 4px;
+            background: #2d3748;
+            pointer-events: none;
+        }
+        .custom-slider .fill {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            height: 4px;
+            transform: translateY(-50%);
+            border-radius: 4px;
+            pointer-events: none;
+            transition: width 0.05s;
+        }
+        .custom-slider .thumb {
+            position: absolute;
+            top: 50%;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+            pointer-events: none;
+            touch-action: none;
+            transition: left 0.05s;
+            border: 2px solid rgba(255, 255, 255, 0.15);
+        }
+        .slider-r .fill {
+            background: #f87171;
+        }
+        .slider-r .thumb {
+            background: #f87171;
+        }
+        .slider-g .fill {
+            background: #6ee7b7;
+        }
+        .slider-g .thumb {
+            background: #6ee7b7;
+        }
+        .slider-b .fill {
+            background: #60a5fa;
+        }
+        .slider-b .thumb {
+            background: #60a5fa;
+        }
+        .slider-a .fill {
+            background: #a78bfa;
+        }
+        .slider-a .thumb {
+            background: #a78bfa;
+        }
+
+        /* 结果区 */
+        .result-section {
+            margin-top: 2px;
+        }
+        .result-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        .result-header .result-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-dark);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .result-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .format-select-wrap {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-weight: 500;
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+        .format-select-wrap select {
+            padding: 4px 28px 4px 12px;
+            font-size: 13px;
+            font-weight: 600;
+            font-family: var(--font);
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            background: #1e293b url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2394a3b8'/%3E%3C/svg%3E") no-repeat right 10px center;
+            background-size: 10px 6px;
+            appearance: none;
+            -webkit-appearance: none;
+            color: var(--text-dark);
+            cursor: pointer;
+            transition: border-color 0.2s, box-shadow 0.2s, opacity 0.3s;
+            outline: none;
+            min-width: 155px;
+        }
+        .format-select-wrap select:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.15);
+        }
+        .format-select-wrap select:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            background-color: var(--disabled-bg);
+        }
+        .format-select-wrap select option {
+            font-weight: 500;
+            background: #1e293b;
+            color: var(--text-dark);
+        }
+        .result-actions {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .result-actions button {
+            padding: 5px 16px;
+            border: none;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: var(--font);
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .btn-copy {
+            background: #334155;
+            color: var(--text-dark);
+        }
+        .btn-copy:hover {
+            background: #475569;
+            transform: translateY(-1px);
+        }
+        .btn-copy.copied {
+            background: #065f46;
+            color: #6ee7b7;
+        }
+        .btn-reset {
+            background: transparent;
+            color: #94a3b8;
+        }
+        .btn-reset:hover {
+            background: #1e293b;
+            color: #e2e8f0;
+        }
+        .toggle-wrapper {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-muted);
+            user-select: none;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        .toggle-wrapper .toggle-label {
+            transition: color 0.2s;
+        }
+        .toggle-wrapper.active .toggle-label {
+            color: var(--primary);
+            font-weight: 600;
+        }
+        .toggle-switch {
+            position: relative;
+            width: 34px;
+            height: 19px;
+            flex-shrink: 0;
+            background: var(--toggle-bg);
+            border-radius: 40px;
+            transition: background 0.25s;
+            cursor: pointer;
+        }
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 15px;
+            height: 15px;
+            background: white;
+            border-radius: 50%;
+            transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+        }
+        .toggle-switch.active {
+            background: var(--toggle-active);
+        }
+        .toggle-switch.active::after {
+            transform: translateX(15px);
+            box-shadow: 0 2px 8px rgba(96, 165, 250, 0.4);
+        }
+        .toggle-input {
+            position: absolute;
+            opacity: 0;
+            width: 0;
+            height: 0;
+            pointer-events: none;
+        }
+        .result-box {
+            background: #1e293b;
+            border: 2px solid var(--border);
+            border-radius: 16px;
+            padding: 16px 18px;
+            min-height: 62px;
+            font-size: 18px;
+            line-height: 1.8;
+            color: var(--text-dark);
+            word-break: break-all;
+            transition: border-color 0.2s, line-height 0.25s, padding 0.25s, font-size 0.25s;
+            position: relative;
+            cursor: pointer;
+            white-space: pre-wrap;
+        }
+        .result-box:focus-within {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(96, 165, 250, 0.10);
+        }
+        .result-box .placeholder {
+            color: #64748b;
+            font-size: 15px;
+            font-weight: 400;
+        }
+        .result-box.vertical-mode {
+            line-height: 2.4;
+            padding: 12px 18px;
+            font-size: 17px;
+        }
+        .result-box .ctrl-char {
+            display: inline-block;
+            background: #2d3748;
+            color: #93bbfc;
+            font-size: 13px;
+            font-weight: 700;
+            padding: 0 7px;
+            border-radius: 6px;
+            border: 1px solid #4b5563;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            letter-spacing: 0.5px;
+            margin: 0 1px;
+            position: relative;
+            cursor: help;
+            white-space: nowrap;
+        }
+        .result-box .ctrl-char .tooltip {
+            display: none;
+            position: absolute;
+            bottom: calc(100% + 10px);
+            left: 50%;
+            transform: translateX(-50%);
+            background: #0f172a;
+            color: #f1f5f9;
+            font-size: 11px;
+            font-weight: 500;
+            padding: 3px 12px;
+            border-radius: 8px;
+            white-space: nowrap;
+            font-family: var(--font);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+            pointer-events: none;
+            z-index: 10;
+            border: 1px solid #334155;
+        }
+        .result-box .ctrl-char:hover .tooltip {
+            display: block;
+        }
+        .result-box .ctrl-char.bracket-char {
+            background: #3d2e1e;
+            color: #fbbf24;
+            border-color: #78350f;
+            font-family: var(--font);
+            font-weight: 600;
+        }
+        .result-box .ctrl-char.color-char {
+            background: #1e2a3a;
+            color: #c084fc;
+            border-color: #5b3d8a;
+            font-weight: 700;
+            padding: 0 4px;
+            min-width: 18px;
+            text-align: center;
+        }
+        .result-box.vertical-mode .ctrl-char {
+            font-size: 14px;
+            padding: 0 8px;
+            margin: 0;
+        }
+
+        .format-hint {
+            font-size: 11px;
+            color: var(--text-muted);
+            font-weight: 400;
+            margin-left: 2px;
+            opacity: 0.8;
+        }
+
+        /* 响应式 */
+        @media (max-width: 640px) {
+            .card {
+                padding: 20px 14px;
+                border-radius: 16px;
+            }
+            .input-group {
+                grid-template-columns: 1fr;
+                gap: 10px;
+            }
+            .header h1 {
+                font-size: 18px;
+            }
+            .header .badge {
+                font-size: 10px;
+                padding: 3px 10px;
+            }
+            .color-section {
+                padding: 12px 14px;
+            }
+            .slider-group {
+                grid-template-columns: 1fr;
+                gap: 4px;
+            }
+            .result-box {
+                font-size: 16px;
+                padding: 12px 14px;
+                min-height: 52px;
+            }
+            .result-box.vertical-mode {
+                font-size: 15px;
+                padding: 10px 14px;
+                line-height: 2.2;
+            }
+            .result-header {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 4px;
+            }
+            .result-header .result-label {
+                justify-content: space-between;
+                flex-wrap: wrap;
+            }
+            .result-controls {
+                justify-content: flex-start;
+                gap: 6px;
+            }
+            .result-actions {
+                justify-content: flex-end;
+                flex-wrap: wrap;
+            }
+            .toggle-wrapper .toggle-label {
+                font-size: 12px;
+            }
+            .toggle-switch {
+                width: 30px;
+                height: 17px;
+            }
+            .toggle-switch::after {
+                width: 13px;
+                height: 13px;
+            }
+            .toggle-switch.active::after {
+                transform: translateX(13px);
+            }
+            .format-select-wrap select {
+                font-size: 12px;
+                padding: 3px 22px 3px 10px;
+                min-width: 130px;
+            }
+            .preview-bar-wrap {
+                height: 22px;
+            }
+        }
+        @media (max-width: 400px) {
+            .card {
+                padding: 14px 10px;
+            }
+            .header .icon {
+                font-size: 22px;
+            }
+            .header h1 {
+                font-size: 16px;
+            }
+            .result-actions button {
+                font-size: 11px;
+                padding: 4px 10px;
+            }
+            .format-select-wrap select {
+                min-width: 110px;
+                font-size: 11px;
+                padding: 2px 18px 2px 8px;
+            }
+            .color-section .color-header .color-title {
+                font-size: 12px;
+            }
+            .color-section .color-header .color-hex {
+                font-size: 12px;
+            }
+            .slider-row .slider-label {
+                font-size: 11px;
+                min-width: 18px;
+            }
+            .slider-row .slider-val {
+                font-size: 11px;
+                min-width: 24px;
+            }
+            .custom-slider {
+                height: 20px;
+            }
+            .custom-slider .thumb {
+                width: 16px;
+                height: 16px;
+            }
+        }
+        @keyframes pop {
+            0% {
+                transform: scale(0.94);
+                opacity: 0.6;
+            }
+            50% {
+                transform: scale(1.04);
+                opacity: 1;
+            }
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+        .pop-anim {
+            animation: pop 0.22s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="card" role="main">
+        <div class="header">
+            <span class="icon">🎨</span>
+            <h1>昵称后缀添加器</h1>
+            <span class="badge" id="badgeDisplay">LRI · LRO</span>
+        </div>
+
+        <div class="input-group">
+            <div class="input-field">
+                <label for="mainInput">主内容 <span class="label-hint"></span></label>
+                <input type="text" id="mainInput" placeholder="输入主内容…" value="明明" spellcheck="false">
+            </div>
+            <div class="input-field">
+                <label for="suffixInput">后缀 <span class="label-hint">（垂直模式下禁用）</span></label>
+                <input type="text" id="suffixInput" placeholder="输入后缀…" value="~喵" spellcheck="false">
+            </div>
+        </div>
+
+        <!-- 颜色控制区 -->
+        <div class="color-section" id="colorSection">
+            <div class="color-header">
+                <span class="color-title">
+                    🎨 颜色设置
+                    <span class="tag">仅群昵称格式</span>
+                </span>
+                <span class="color-hex" id="colorHex">#98C898</span>
+            </div>
+            <div class="preview-bar-wrap">
+                <div class="preview-bar" id="previewBar" style="background-color:#98C898;"></div>
+            </div>
+            <div class="slider-group">
+                <div class="slider-row slider-r">
+                    <span class="slider-label label-r">R</span>
+                    <div class="custom-slider" id="sR">
+                        <div class="track"></div>
+                        <div class="fill" id="fR"></div>
+                        <div class="thumb" id="tR"></div>
+                    </div>
+                    <span class="slider-val" id="rv">152</span>
+                </div>
+                <div class="slider-row slider-g">
+                    <span class="slider-label label-g">G</span>
+                    <div class="custom-slider" id="sG">
+                        <div class="track"></div>
+                        <div class="fill" id="fG"></div>
+                        <div class="thumb" id="tG"></div>
+                    </div>
+                    <span class="slider-val" id="gv">200</span>
+                </div>
+                <div class="slider-row slider-b">
+                    <span class="slider-label label-b">B</span>
+                    <div class="custom-slider" id="sB">
+                        <div class="track"></div>
+                        <div class="fill" id="fB"></div>
+                        <div class="thumb" id="tB"></div>
+                    </div>
+                    <span class="slider-val" id="bv">152</span>
+                </div>
+                <div class="slider-row slider-a">
+                    <span class="slider-label label-a">A</span>
+                    <div class="custom-slider" id="sA">
+                        <div class="track"></div>
+                        <div class="fill" id="fA"></div>
+                        <div class="thumb" id="tA"></div>
+                    </div>
+                    <span class="slider-val" id="av">255</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="result-section">
+            <div class="result-header">
+                <span class="result-label">
+                    ✨ 转换结果
+                    <span class="result-controls">
+                        <span class="format-select-wrap">
+                            <span>格式</span>
+                            <select id="formatSelect">
+                                <option value="standard">标准</option>
+                                <option value="bracket">括号</option>
+                                <option value="group-standard">群昵称(标准)</option>
+                                <option value="group-bracket">群昵称(括号)</option>
+                            </select>
+                        </span>
+                        <label class="toggle-wrapper" id="toggleVertical" title="每个字符间插入 U+2028 (行分隔符)">
+                            <span class="toggle-label">垂直</span>
+                            <span class="toggle-switch" id="switchVertical">
+                                <input type="checkbox" class="toggle-input" id="verticalToggle">
+                            </span>
+                        </label>
+                    </span>
+                </span>
+                <div class="result-actions">
+                    <button class="btn-copy" id="copyBtn">📋 复制</button>
+                    <button class="btn-reset" id="resetBtn">✕</button>
+                </div>
+            </div>
+            <div class="result-box" id="resultBox" role="textbox" aria-readonly="true">
+                <span class="placeholder">等待输入…</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            'use strict';
+
+            // ---- 常量 ----
+            const LRI = '\u2067';
+            const LRO = '\u202D';
+            const LS = '\u2028';
+            const LPAREN = '\u0028';
+
+            const CHAR_NAMES = {
+                '\u2067': 'U+2067  LRI (从左至右隔离)',
+                '\u202D': 'U+202D  LRO (从左至右覆盖)',
+                '\u2028': 'U+2028  LS (行分隔符)',
+                '\u0028': 'U+0028  ( 左括号',
+            };
+            const CHAR_LABELS = {
+                '\u2067': 'LRI',
+                '\u202D': 'LRO',
+                '\u2028': 'LS',
+                '\u0028': '(',
+            };
+
+            // ---- DOM 引用 ----
+            const mainInput = document.getElementById('mainInput');
+            const suffixInput = document.getElementById('suffixInput');
+            const resultBox = document.getElementById('resultBox');
+            const copyBtn = document.getElementById('copyBtn');
+            const resetBtn = document.getElementById('resetBtn');
+            const verticalToggle = document.getElementById('verticalToggle');
+            const toggleVertical = document.getElementById('toggleVertical');
+            const switchVertical = document.getElementById('switchVertical');
+            const formatSelect = document.getElementById('formatSelect');
+            const badgeDisplay = document.getElementById('badgeDisplay');
+            const colorSection = document.getElementById('colorSection');
+            const previewBar = document.getElementById('previewBar');
+            const colorHex = document.getElementById('colorHex');
+
+            // ---- 颜色状态（默认 #98C898） ----
+            const color = { r: 152, g: 200, b: 152, a: 255 };
+            const sliderIds = ['sR', 'sG', 'sB', 'sA'];
+            const fillIds = ['fR', 'fG', 'fB', 'fA'];
+            const thumbIds = ['tR', 'tG', 'tB', 'tA'];
+            const valIds = ['rv', 'gv', 'bv', 'av'];
+            const colorKeys = ['r', 'g', 'b', 'a'];
+
+            // ---- 状态 ----
+            let isVertical = false;
+            let currentFormat = 'standard';
+            let isEditingHex = false;  // 是否正在编辑十六进制输入框
+
+            // ---- 颜色工具 ----
+            function updateColorUI() {
+                for (let i = 0; i < 4; i++) {
+                    const pct = (color[colorKeys[i]] / 255) * 100;
+                    document.getElementById(fillIds[i]).style.width = pct + '%';
+                    document.getElementById(thumbIds[i]).style.left = pct + '%';
+                    document.getElementById(valIds[i]).textContent = color[colorKeys[i]];
+                }
+                const hex = '#' +
+                    [color.r, color.g, color.b].map(c => c.toString(16).padStart(2, '0')).join('');
+                // 如果不在编辑状态，更新显示文本
+                if (!isEditingHex) {
+                    colorHex.textContent = hex.toUpperCase();
+                }
+                previewBar.style.backgroundColor = 'rgba(' + color.r + ',' + color.g + ',' + color.b + ',' + (color.a / 255) +
+                    ')';
+            }
+
+            function getColorTag() {
+                return '<&' +
+                    String.fromCodePoint(color.a) +
+                    String.fromCodePoint(color.r) +
+                    String.fromCodePoint(color.g) +
+                    String.fromCodePoint(color.b) +
+                    '>';
+            }
+
+            function getColorChars() {
+                return [
+                    String.fromCodePoint(color.a),
+                    String.fromCodePoint(color.r),
+                    String.fromCodePoint(color.g),
+                    String.fromCodePoint(color.b)
+                ];
+            }
+
+            // ---- 滑块交互 ----
+            function getValueFromX(el, clientX) {
+                const rect = el.getBoundingClientRect();
+                let pct = (clientX - rect.left) / rect.width;
+                pct = Math.max(0, Math.min(1, pct));
+                return Math.round(pct * 255);
+            }
+
+            function startDrag(idx, e) {
+                e.preventDefault();
+                const el = document.getElementById(sliderIds[idx]);
+                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                color[colorKeys[idx]] = getValueFromX(el, clientX);
+                updateColorUI();
+                renderResult();
+
+                function onMove(ev) {
+                    ev.preventDefault();
+                    const cx = ev.touches ? ev.touches[0].clientX : ev.clientX;
+                    color[colorKeys[idx]] = getValueFromX(el, cx);
+                    updateColorUI();
+                    renderResult();
+                }
+
+                function onEnd() {
+                    document.removeEventListener('mousemove', onMove);
+                    document.removeEventListener('mouseup', onEnd);
+                    document.removeEventListener('touchmove', onMove);
+                    document.removeEventListener('touchend', onEnd);
+                }
+                document.addEventListener('mousemove', onMove);
+                document.addEventListener('mouseup', onEnd);
+                document.addEventListener('touchmove', onMove, { passive: false });
+                document.addEventListener('touchend', onEnd);
+            }
+
+            function initSliders() {
+                for (let i = 0; i < 4; i++) {
+                    const el = document.getElementById(sliderIds[i]);
+                    el.addEventListener('mousedown', function(e) { startDrag(i, e); });
+                    el.addEventListener('touchstart', function(e) { startDrag(i, e); }, { passive: false });
+                }
+                updateColorUI();
+            }
+
+            // ---- 十六进制编辑 ----
+            function setupHexEditor() {
+                colorHex.addEventListener('click', function(e) {
+                    if (isEditingHex) return;
+                    const currentText = colorHex.textContent.trim();
+                    // 创建输入框
+                    const input = document.createElement('input');
+                    input.type = 'text';
+                    input.value = currentText;
+                    input.setAttribute('placeholder', '#RRGGBB');
+                    input.style.cssText =
+                        'background:#1e293b;color:#f1f5f9;border:2px solid #60a5fa;border-radius:6px;padding:0 4px;font-size:14px;font-family:"SF Mono","Fira Code",monospace;text-align:center;outline:none;width:90px;';
+                    colorHex.textContent = '';
+                    colorHex.appendChild(input);
+                    input.focus();
+                    input.select();
+                    isEditingHex = true;
+
+                    function finish() {
+                        const val = input.value.trim();
+                        let hex = val.replace(/^#/, '');
+                        if (hex.length === 6 && /^[0-9a-fA-F]{6}$/.test(hex)) {
+                            const r = parseInt(hex.substring(0, 2), 16);
+                            const g = parseInt(hex.substring(2, 4), 16);
+                            const b = parseInt(hex.substring(4, 6), 16);
+                            color.r = r;
+                            color.g = g;
+                            color.b = b;
+                            // a 保持不变
+                            updateColorUI();
+                            renderResult();
+                            colorHex.textContent = '#' + hex.toUpperCase();
+                        } else {
+                            // 无效，恢复原显示
+                            colorHex.textContent = currentText;
+                        }
+                        isEditingHex = false;
+                    }
+
+                    input.addEventListener('blur', finish);
+                    input.addEventListener('keydown', function(ev) {
+                        if (ev.key === 'Enter') {
+                            ev.preventDefault();
+                            input.blur();
+                        } else if (ev.key === 'Escape') {
+                            colorHex.textContent = currentText;
+                            isEditingHex = false;
+                            input.removeEventListener('blur', finish);
+
+                        }
+                    });
+                });
+            }
+
+            // ---- 核心转换 ----
+            function transform(mainText, suffixText, format) {
+                const m = mainText || '';
+                const s = suffixText || '';
+                const isGroup = (format === 'group-standard' || format === 'group-bracket');
+                let colorTag = '';
+                let colorChars = [];
+                if (isGroup) {
+                    colorTag = getColorTag();
+                    colorChars = getColorChars();
+                }
+                let result = '';
+                if (format === 'bracket') {
+                    result = m + LPAREN + LRI + LPAREN + LRI + s + LRI + LRO;
+                } else if (format === 'group-standard') {
+                    result = colorTag + m + LRI + s + LRI + LRO;
+                } else if (format === 'group-bracket') {
+                    result = colorTag + m + LPAREN + LRI + LPAREN + LRI + s + LRI + LRO;
+                } else {
+                    result = m + LRI + s + LRI + LRO;
+                }
+                return { result, colorChars, isGroup };
+            }
+
+            function makeVertical(text) {
+                if (!text) return '';
+                return text.split('').join(LS);
+            }
+
+            function getRawResult() {
+                const main = mainInput.value;
+                const suffix = suffixInput.value;
+                if (isVertical) {
+                    return main;
+                } else {
+                    const { result } = transform(main, suffix, currentFormat);
+                    return result;
+                }
+            }
+
+            function getDisplayResult() {
+                const raw = getRawResult();
+                return isVertical ? makeVertical(raw) : raw;
+            }
+
+            function getColorCharsForDisplay() {
+                if (isVertical) return [];
+                const main = mainInput.value;
+                const suffix = suffixInput.value;
+                const { colorChars, isGroup } = transform(main, suffix, currentFormat);
+                return isGroup ? colorChars : [];
+            }
+
+            // ---- 更新徽章 ----
+            function updateBadge() {
+                if (isVertical) {
+                    badgeDisplay.textContent = 'LS · 垂直';
+                    badgeDisplay.style.background = '#1e293b';
+                    badgeDisplay.style.color = '#93bbfc';
+                    return;
+                }
+                switch (currentFormat) {
+                    case 'standard':
+                        badgeDisplay.textContent = '2067 · 2067 · 202D';
+                        badgeDisplay.style.background = '#1e293b';
+                        badgeDisplay.style.color = '#60a5fa';
+                        break;
+                    case 'bracket':
+                        badgeDisplay.textContent = '0028 · 2067 · 0028 · 2067 · 2067 · 202D';
+                        badgeDisplay.style.background = '#3d2e1e';
+                        badgeDisplay.style.color = '#fbbf24';
+                        break;
+                    case 'group-standard':
+                        badgeDisplay.textContent = '🎨 群昵称(标准)';
+                        badgeDisplay.style.background = '#1e293b';
+                        badgeDisplay.style.color = '#38bdf8';
+                        break;
+                    case 'group-bracket':
+                        badgeDisplay.textContent = '🎨 群昵称(括号)';
+                        badgeDisplay.style.background = '#2d1b3d';
+                        badgeDisplay.style.color = '#c084fc';
+                        break;
+                    default:
+                        badgeDisplay.textContent = 'LRI · LRO';
+                        badgeDisplay.style.background = '#1e293b';
+                        badgeDisplay.style.color = '#60a5fa';
+                }
+            }
+
+            // ---- 渲染结果 ----
+            function renderResult() {
+                const displayText = getDisplayResult();
+                const colorChars = getColorCharsForDisplay();
+                const isGroup = (currentFormat === 'group-standard' || currentFormat === 'group-bracket');
+
+                // 颜色区禁用状态
+                const shouldDisableColor = isVertical || !isGroup;
+                colorSection.classList.toggle('disabled', shouldDisableColor);
+
+                if (!displayText) {
+                    resultBox.innerHTML = '<span class="placeholder">等待输入…</span>';
+                    resultBox.classList.remove('vertical-mode');
+                    updateBadge();
+                    return;
+                }
+
+                if (isVertical) resultBox.classList.add('vertical-mode');
+                else resultBox.classList.remove('vertical-mode');
+
+                // 构建显示HTML
+                let html = '';
+                const text = displayText;
+
+                // 用于标记颜色字符是否被消耗
+                let colorIdx = 0;
+                const colorSet = new Set(colorChars);
+
+                for (const ch of text) {
+                    const isCtrl = (ch === LRI || ch === LRO || ch === LS);
+                    const isParen = (ch === LPAREN);
+                    const isColorChar = colorSet.has(ch) && colorIdx < colorChars.length;
+
+                    if (isCtrl || isParen || isColorChar) {
+                        let label, name, extraClass = '';
+                        if (isColorChar) {
+                            const idx = colorIdx;
+                            colorIdx++;
+                            const names = ['Alpha', 'Red', 'Green', 'Blue'];
+                            const vals = [color.a, color.r, color.g, color.b];
+                            label = names[idx] + '[' + vals[idx] + ']';
+                            name = '🎨 颜色分量 ' + names[idx] + ' = ' + vals[idx] + ' (U+' + ch.charCodeAt(0).toString(16)
+                                .toUpperCase().padStart(4, '0') + ')';
+                            extraClass = ' color-char';
+                            // 用当前颜色做背景
+                            const bgColor = 'rgba(' + color.r + ',' + color.g + ',' + color.b + ',' + (color.a / 255) + ')';
+                            html += `<span class="ctrl-char${extraClass}" title="${name}" style="background:${bgColor};color:#fff;border-color:${bgColor};">${label}<span class="tooltip">${name}</span></span>`;
+                            continue;
+                        }
+                        if (isParen) {
+                            label = '(';
+                            name = CHAR_NAMES[ch] || 'U+????';
+                            extraClass = ' bracket-char';
+                        } else {
+                            label = CHAR_LABELS[ch] || 'CTRL';
+                            name = CHAR_NAMES[ch] || 'U+????';
+                        }
+                        html += `<span class="ctrl-char${extraClass}" title="${name}">${label}<span class="tooltip">${name}</span></span>`;
+                    } else {
+                        const escaped = ch.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                        html += escaped;
+                    }
+                }
+                resultBox.innerHTML = html;
+                updateBadge();
+            }
+
+            // ---- 复制 ----
+            async function copyHTML(text) {
+                const html = text.replace(/\u2028/g, '<br>');
+                const data = new ClipboardItem({
+                    'text/plain': new Blob([text], { type: 'text/plain' }),
+                    'text/html': new Blob([html], { type: 'text/html' })
+                });
+                await navigator.clipboard.write([data]);
+            }
+
+            async function copyResult() {
+                const displayText = getDisplayResult();
+                if (!displayText) {
+                    copyBtn.textContent = '⚠️ 无内容';
+                    setTimeout(() => { copyBtn.textContent = '📋 复制'; }, 1200);
+                    return;
+                }
+
+                try {
+                    await copyHTML(displayText);
+                    copyBtn.textContent = '✅ 已复制';
+                    copyBtn.classList.add('copied', 'pop-anim');
+                    setTimeout(() => copyBtn.classList.remove('pop-anim'), 300);
+                    setTimeout(() => {
+                        copyBtn.textContent = '📋 复制';
+                        copyBtn.classList.remove('copied');
+                    }, 2000);
+                } catch (err) {
+                    try {
+                        await navigator.clipboard.writeText(displayText);
+                        copyBtn.textContent = '✅ 已复制';
+                        copyBtn.classList.add('copied', 'pop-anim');
+                        setTimeout(() => copyBtn.classList.remove('pop-anim'), 300);
+                        setTimeout(() => {
+                            copyBtn.textContent = '📋 复制';
+                            copyBtn.classList.remove('copied');
+                        }, 2000);
+                    } catch (_) {
+                        const ta = document.createElement('textarea');
+                        ta.value = displayText;
+                        document.body.appendChild(ta);
+                        ta.select();
+                        try {
+                            document.execCommand('copy');
+                            copyBtn.textContent = '✅ 已复制';
+                            copyBtn.classList.add('copied');
+                            setTimeout(() => {
+                                copyBtn.textContent = '📋 复制';
+                                copyBtn.classList.remove('copied');
+                            }, 2000);
+                        } catch (__) {
+                            copyBtn.textContent = '❌ 复制失败';
+                            setTimeout(() => { copyBtn.textContent = '📋 复制'; }, 1500);
+                        }
+                        document.body.removeChild(ta);
+                    }
+                }
+            }
+
+            // ---- 重置 ----
+            function resetAll() {
+                mainInput.value = '明明';
+                suffixInput.value = '~喵';
+                formatSelect.value = 'standard';
+                currentFormat = 'standard';
+                // 重置颜色为 #98C898
+                color.r = 152;
+                color.g = 200;
+                color.b = 152;
+                color.a = 255;
+                updateColorUI();
+
+                if (isVertical) {
+                    isVertical = false;
+                    verticalToggle.checked = false;
+                    toggleVertical.classList.remove('active');
+                    switchVertical.classList.remove('active');
+                    suffixInput.disabled = false;
+                    suffixInput.style.opacity = '1';
+                    formatSelect.disabled = false;
+                }
+                renderResult();
+                mainInput.focus();
+                mainInput.setSelectionRange(mainInput.value.length, mainInput.value.length);
+            }
+
+            // ---- 垂直切换 ----
+            function toggleVerticalHandler(checked) {
+                isVertical = checked;
+                toggleVertical.classList.toggle('active', checked);
+                switchVertical.classList.toggle('active', checked);
+                suffixInput.disabled = checked;
+                suffixInput.style.opacity = checked ? '0.5' : '1';
+                formatSelect.disabled = checked;
+                renderResult();
+            }
+
+            // ---- 格式切换 ----
+            function formatChangeHandler() {
+                currentFormat = formatSelect.value;
+                renderResult();
+            }
+
+            // ---- 初始化事件 ----
+            verticalToggle.addEventListener('change', function(e) {
+                toggleVerticalHandler(e.target.checked);
+            });
+
+            formatSelect.addEventListener('change', formatChangeHandler);
+
+            mainInput.addEventListener('input', renderResult);
+            suffixInput.addEventListener('input', renderResult);
+
+            copyBtn.addEventListener('click', copyResult);
+            resetBtn.addEventListener('click', resetAll);
+
+            resultBox.addEventListener('click', function(e) {
+                if (e.target.closest('.ctrl-char')) return;
+                const main = mainInput.value;
+                const suffix = suffixInput.value;
+                if (main || suffix) copyResult();
+            });
+
+            document.addEventListener('keydown', function(e) {
+                if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                    e.preventDefault();
+                    copyResult();
+                }
+            });
+
+            // ---- 暗色模式强制亮色覆盖 ----
+            (function forceLightMode() {
+                if (window.matchMedia && window.matchMedia('(prefers-color-scheme:dark)').matches) {
+                    const s = document.createElement('style');
+                    s.id = 'darkModeOverride';
+                    s.textContent =
+                        'html{color-scheme:light!important;background:#0f172a!important}' +
+                        'body{background:#0f172a!important;background-image:radial-gradient(circle at 10% 20%,rgba(96,165,250,0.08) 0%,transparent 50%),radial-gradient(circle at 90% 80%,rgba(96,165,250,0.08) 0%,transparent 50%)!important}' +
+                        '.card{background:rgba(30,41,59,0.88)!important}' +
+                        '.input-field input{background:#1e293b!important;color:#f1f5f9!important}' +
+                        '.color-section{background:#1a2332!important;border-color:#334155!important}' +
+                        '.result-box{background:#1e293b!important;border-color:#334155!important}' +
+                        '.format-select-wrap select{background:#1e293b!important;color:#f1f5f9!important}' +
+                        '.custom-slider .track{background:#2d3748!important}' +
+                        '.preview-bar-wrap{border-color:#2d3748!important;background:#1e293b!important}' +
+                        '.result-box .ctrl-char{background:#2d3748!important;color:#93bbfc!important;border-color:#4b5563!important}' +
+                        '.result-box .ctrl-char.bracket-char{background:#3d2e1e!important;color:#fbbf24!important;border-color:#78350f!important}' +
+                        '.result-box .ctrl-char.color-char{background:#1e2a3a!important;color:#c084fc!important;border-color:#5b3d8a!important}' +
+                        '.btn-copy{background:#334155!important;color:#f1f5f9!important}' +
+                        '.btn-copy:hover{background:#475569!important}' +
+                        '.btn-reset{color:#94a3b8!important}' +
+                        '.btn-reset:hover{background:#1e293b!important;color:#e2e8f0!important}' +
+                        '.toggle-switch{background:#475569!important}' +
+                        '.toggle-switch.active{background:#60a5fa!important}' +
+                        '.header .badge{background:#1e293b!important;border-color:#334155!important}' +
+                        '.color-section .color-header .color-title .tag{background:#1e293b!important;border-color:#334155!important}' +
+                        '.color-section .color-header .color-hex{color:#94a3b8!important}' +
+                        '.color-section .color-header .color-hex input{background:#1e293b!important;color:#f1f5f9!important;border-color:#60a5fa!important}' +
+                        '.result-box .placeholder{color:#64748b!important}' +
+                        '.slider-row .slider-val{color:#94a3b8!important}' +
+                        '.slider-row .slider-label{color:#94a3b8!important}' +
+                        '.slider-row .slider-label.label-r{color:#f87171!important}' +
+                        '.slider-row .slider-label.label-g{color:#6ee7b7!important}' +
+                        '.slider-row .slider-label.label-b{color:#60a5fa!important}' +
+                        '.slider-row .slider-label.label-a{color:#a78bfa!important}';
+                    document.head.appendChild(s);
+                }
+                if (window.matchMedia) {
+                    window.matchMedia('(prefers-color-scheme:dark)').addEventListener('change', function(e) {
+                        if (e.matches) {
+                            const old = document.getElementById('darkModeOverride');
+                            if (!old) {
+                                const s2 = document.createElement('style');
+                                s2.id = 'darkModeOverride';
+                                s2.textContent =
+                                    'html{color-scheme:light!important;background:#0f172a!important}' +
+                                    'body{background:#0f172a!important;background-image:radial-gradient(circle at 10% 20%,rgba(96,165,250,0.08) 0%,transparent 50%),radial-gradient(circle at 90% 80%,rgba(96,165,250,0.08) 0%,transparent 50%)!important}' +
+                                    '.card{background:rgba(30,41,59,0.88)!important}' +
+                                    '.input-field input{background:#1e293b!important;color:#f1f5f9!important}' +
+                                    '.color-section{background:#1a2332!important;border-color:#334155!important}' +
+                                    '.result-box{background:#1e293b!important;border-color:#334155!important}' +
+                                    '.format-select-wrap select{background:#1e293b!important;color:#f1f5f9!important}' +
+                                    '.custom-slider .track{background:#2d3748!important}' +
+                                    '.preview-bar-wrap{border-color:#2d3748!important;background:#1e293b!important}' +
+                                    '.result-box .ctrl-char{background:#2d3748!important;color:#93bbfc!important;border-color:#4b5563!important}' +
+                                    '.result-box .ctrl-char.bracket-char{background:#3d2e1e!important;color:#fbbf24!important;border-color:#78350f!important}' +
+                                    '.result-box .ctrl-char.color-char{background:#1e2a3a!important;color:#c084fc!important;border-color:#5b3d8a!important}' +
+                                    '.btn-copy{background:#334155!important;color:#f1f5f9!important}' +
+                                    '.btn-copy:hover{background:#475569!important}' +
+                                    '.btn-reset{color:#94a3b8!important}' +
+                                    '.btn-reset:hover{background:#1e293b!important;color:#e2e8f0!important}' +
+                                    '.toggle-switch{background:#475569!important}' +
+                                    '.toggle-switch.active{background:#60a5fa!important}' +
+                                    '.header .badge{background:#1e293b!important;border-color:#334155!important}' +
+                                    '.color-section .color-header .color-title .tag{background:#1e293b!important;border-color:#334155!important}' +
+                                    '.color-section .color-header .color-hex{color:#94a3b8!important}' +
+                                    '.color-section .color-header .color-hex input{background:#1e293b!important;color:#f1f5f9!important;border-color:#60a5fa!important}' +
+                                    '.result-box .placeholder{color:#64748b!important}' +
+                                    '.slider-row .slider-val{color:#94a3b8!important}' +
+                                    '.slider-row .slider-label{color:#94a3b8!important}' +
+                                    '.slider-row .slider-label.label-r{color:#f87171!important}' +
+                                    '.slider-row .slider-label.label-g{color:#6ee7b7!important}' +
+                                    '.slider-row .slider-label.label-b{color:#60a5fa!important}' +
+                                    '.slider-row .slider-label.label-a{color:#a78bfa!important}';
+                                document.head.appendChild(s2);
+                            }
+                        }
+                    });
+                }
+            })();
+
+            // ---- 启动 ----
+            initSliders();
+            setupHexEditor();   // 绑定十六进制编辑
+            isVertical = false;
+            verticalToggle.checked = false;
+            toggleVertical.classList.remove('active');
+            switchVertical.classList.remove('active');
+            suffixInput.disabled = false;
+            suffixInput.style.opacity = '1';
+            formatSelect.disabled = false;
+            currentFormat = 'standard';
+            formatSelect.value = 'standard';
+            renderResult();
+            mainInput.focus();
+            mainInput.setSelectionRange(mainInput.value.length, mainInput.value.length);
+        })();
+    </script>
+</body>
+</html>
