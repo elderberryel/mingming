@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>歌词自动增强工具 v2 </title>
+
+    <style>
+        body {
+            background: #111;
+            color: #eee;
+            font-family: system-ui;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        textarea {
+            width: 100%;
+            height: 260px;
+            background: #222;
+            color: #fff;
+            border: 1px solid #444;
+            border-radius: 8px;
+            padding: 10px;
+            box-sizing: border-box;
+            font-size: 14px;
+            resize: vertical;
+        }
+
+        button {
+            margin-top: 10px;
+            margin-right: 10px;
+            padding: 8px 16px;
+            background: #444;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #666;
+        }
+
+        pre {
+            white-space: pre-wrap;
+            word-break: break-word;
+            background: #181818;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            border: 1px solid #333;
+            min-height: 120px;
+        }
+
+        input[type="number"] {
+            width: 100px;
+            padding: 6px;
+            background: #222;
+            color: #fff;
+            border: 1px solid #444;
+            border-radius: 6px;
+            margin-left: 8px;
+        }
+
+        input[type="text"] {
+            padding: 6px;
+            background: #222;
+            color: #fff;
+            border: 1px solid #444;
+            border-radius: 6px;
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .tip {
+            color: #aaa;
+            margin-top: 10px;
+            font-size: 13px;
+        }
+
+        .filter-section {
+            margin-top: 12px;
+            padding: 12px 14px;
+            background: #1a1a1a;
+            border-radius: 8px;
+            border: 1px solid #333;
+        }
+
+        .filter-section label {
+            cursor: pointer;
+        }
+
+        .filter-row {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 6px;
+        }
+
+        .filter-row input[type="text"] {
+            flex: 1;
+            min-width: 260px;
+        }
+
+        .badge {
+            display: inline-block;
+            background: #2a4a6a;
+            color: #8cf;
+            font-size: 11px;
+            padding: 0 8px;
+            border-radius: 10px;
+            margin-left: 6px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h2>歌词自动增强工具 v2 <span style="color:#8cf; font-size:14px;"></span></h2>
+
+    <textarea id="input" placeholder="粘贴歌词..."></textarea>
+
+    <div style="margin-top:10px;">
+        延迟逐字提前量：
+        <input type="number" id="delay" value="0.5" step="0.1">
+        秒
+        &nbsp;&nbsp;&nbsp;
+        空白段间隔阈值：
+        <input type="number" id="gapThreshold" value="2.0" step="0.1">
+        秒
+    </div>
+
+    <div class="filter-section">
+        <label>
+            <input type="checkbox" id="filterEnable" checked>
+            <strong>启用非歌词内容过滤</strong>
+            <span class="badge">繁简兼容</span>
+        </label>
+        <div class="filter-row">
+            <span style="white-space:nowrap; font-size:14px; color:#aaa;">要过滤的关键词：</span>
+            <input type="text" id="filterKeywords"
+            value="作词,作詞,作曲,编曲,編曲,制作人,監製,监制,混音,录音,錄音,母带,母帶,和声,和聲,和音,配唱,OP,SP,出品,发行,發行,吉他,笛,箫,簫,弦乐,弦樂,小提琴,中提琴,大提琴,谱务,譜務,制作发行,發行公司,录音师,錄音師,混音师,混音師,母带师,母帶師,人声录音,弦乐录音,弦樂錄音,总监,總監,设计,設計,键盘,鍵盤,贝斯,貝斯,鼓,打击乐,打擊樂,PGM,长号,長號,小号,小號,词,曲"
+            placeholder="输入要过滤的关键词，用逗号分隔">
+        </div>
+        <div class="tip" style="margin-top:4px; font-size:12px;">
+</div>
+    </div>
+
+    <div>
+        <button onclick="processLRC()">立即生成</button>
+        <button onclick="copyOutput()">复制结果</button>
+        <button onclick="downloadLRC()">下载 LRC</button>
+        <button onclick="clearAll()">清空</button>
+    </div>
+    
+    <h3>输出结果</h3>
+
+    <pre id="output"></pre>
+
+    <script>
+        // ============================================================
+        // 核心功能：解析时间标签
+        // ============================================================
+        function parseTimeTag(line) {
+            const m = line.match(/\[(\d{2}):(\d{2})\.(\d{2,3})]/);
+            if (!m) return null;
+            return parseInt(m[1]) * 60 + parseInt(m[2]) + parseInt(m[3].padEnd(3, "0")) / 1000;
+        }
+
+        function formatTime(sec) {
+            sec = Math.max(0, sec);
+            const m = Math.floor(sec / 60);
+            const s = Math.floor(sec % 60);
+            let ms = Math.round((sec - Math.floor(sec)) * 1000);
+            let mm = m;
+            let ss = s;
+            if (ms >= 1000) {
+                ms = 0;
+                ss++;
+                if (ss >= 60) {
+                    ss = 0;
+                    mm++;
+                }
+            }
+            return `${String(mm).padStart(2,"0")}:${String(ss).padStart(2,"0")}.${String(ms).padStart(3,"0")}`;
+        }
+
+        function hasInlineTime(text) {
+            return /<\d{2}:\d{2}\.\d{2,3}>/.test(text);
+        }
+
+        function getInlineMatches(text) {
+            return [...text.matchAll(/<(\d{2}):(\d{2})\.(\d{2,3})>/g)];
+        }
+
+        function getFirstInlineTime(text) {
+            const m = getInlineMatches(text);
+            if (!m.length) return null;
+            return parseInt(m[0][1]) * 60 + parseInt(m[0][2]) + parseInt(m[0][3].padEnd(3, "0")) / 1000;
+        }
+
+        function getLastInlineTime(text) {
+            const m = getInlineMatches(text);
+            if (!m.length) return null;
+            const last = m[m.length - 1];
+            return parseInt(last[1]) * 60 + parseInt(last[2]) + parseInt(last[3].padEnd(3, "0")) / 1000;
+        }
+
+        function replaceLastInlineTime(text, newSec) {
+            const matches = getInlineMatches(text);
+            if (!matches.length) return text;
+            const last = matches[matches.length - 1];
+            const start = last.index;
+            const end = start + last[0].length;
+            return text.slice(0, start) + `<${formatTime(newSec)}>` + text.slice(end);
+        }
+
+        // ============================================================
+        // 智能过滤函数（繁简兼容）
+        // ============================================================
+        function processLineText(line, keywords) {
+            // 移除时间标签，得到歌词部分
+            let lyricPart = line.replace(/\[[^\]]*\]/g, '');
+            
+            // 移除内嵌时间标签，得到纯文本用于检查
+            let pureText = lyricPart.replace(/<\d{2}:\d{2}\.\d{2,3}>/g, '');
+            
+            // 如果是纯空白行，跳过
+            if (pureText.trim() === '') {
+                return null;
+            }
+            
+            // 移除空格和冒号变体，用于匹配
+            let normalizedText = pureText
+                .replace(/\s+/g, '')  // 移除所有空格
+                .replace(/：/g, ':'); // 统一冒号为英文冒号
+            
+            // 检查是否包含制作信息关键词
+            for (const keyword of keywords) {
+                // 移除关键词中的空格和冒号
+                let normalizedKeyword = keyword.replace(/\s+/g, '').replace(/：/g, ':');
+                
+                // 检查关键词是否在规范化后的文本中
+                if (normalizedText.includes(normalizedKeyword)) {
+                    // 进一步检查：关键词后面应该跟冒号或空格或直接跟内容
+                    // 避免误删包含"词"或"曲"的歌词
+                    if (normalizedKeyword === '词' || normalizedKeyword === '曲') {
+                        // 只有当"词"或"曲"在开头或后面跟冒号时才过滤
+                        const regex = new RegExp(`(^|\\s)${normalizedKeyword}\\s*[:：]`);
+                        if (regex.test(pureText)) {
+                            return null;
+                        }
+                    } else {
+                        return null; // 删除整行
+                    }
+                }
+            }
+            
+            // 删除角色标注（男：、女：、合：）
+            lyricPart = lyricPart.replace(/(男：|女：|合：)\s*/, '');
+            
+            return {
+                time: parseTimeTag(line),
+                text: lyricPart
+            };
+        }
+
+        // ============================================================
+        // 主处理函数
+        // ============================================================
+        function processLRC() {
+            const input = document.getElementById("input").value;
+            if (!input.trim()) {
+                document.getElementById("output").textContent = "";
+                return;
+            }
+
+            const delay = parseFloat(document.getElementById("delay").value) || 0.5;
+            const gapThreshold = parseFloat(document.getElementById("gapThreshold").value) || 2.0;
+
+            const filterEnable = document.getElementById("filterEnable").checked;
+            const filterKeywordsText = document.getElementById("filterKeywords").value;
+            const filterKeywords = filterKeywordsText.split(',').map(k => k.trim()).filter(k => k);
+
+            const lines = input.split(/\r?\n/);
+            const filteredLines = [];
+
+            for (const line of lines) {
+                if (!line.trim()) continue;
+                
+                if (filterEnable) {
+                    const processed = processLineText(line, filterKeywords);
+                    if (processed && processed.time != null) {
+                        filteredLines.push({
+                            time: processed.time,
+                            text: processed.text,
+                            hasInline: hasInlineTime(processed.text)
+                        });
+                    }
+                } else {
+                    const t = parseTimeTag(line);
+                    if (t != null) {
+                        const text = line.replace(/\[[^\]]*\]/, "");
+                        filteredLines.push({
+                            time: t,
+                            text: text,
+                            hasInline: hasInlineTime(text)
+                        });
+                    }
+                }
+            }
+
+            // ====== 计算延迟逐字并构建行组 ======
+            const lineGroups = [];
+            let currentGroup = null;
+
+            for (const lineData of filteredLines) {
+                const t = lineData.time;
+                let text = lineData.text;
+                const visible = text.replace(/<\d{2}:\d{2}\.\d{2,3}>/g, "");
+                const isBlank = visible.trim() === "";
+                const isTranslation = !lineData.hasInline && !isBlank;
+
+                if (isBlank) {
+                    if (currentGroup) {
+                        lineGroups.push(currentGroup);
+                        currentGroup = null;
+                    }
+                    continue;
+                }
+
+                if (lineData.hasInline) {
+                    if (currentGroup) {
+                        lineGroups.push(currentGroup);
+                    }
+                    
+                    let lineStartTime = t;
+                    const firstInline = getFirstInlineTime(text);
+                    if (firstInline != null) {
+                        lineStartTime = Math.max(0, firstInline - delay);
+                    }
+
+                    const nextMainLine = filteredLines.find(l => l.time > t && l.hasInline);
+                    if (nextMainLine) {
+                        const lastInline = getLastInlineTime(text);
+                        const nextFirst = getFirstInlineTime(nextMainLine.text);
+                        if (nextFirst != null) {
+                            const nextTime = Math.max(0, nextFirst - delay);
+                            if (lastInline != null && lastInline >= nextTime) {
+                                text = replaceLastInlineTime(text, nextTime - 0.010);
+                            }
+                        }
+                    }
+
+                    const lastInline = getLastInlineTime(text);
+                    const endTime = lastInline != null ? lastInline : lineStartTime + 0.5;
+
+                    currentGroup = {
+                        mainLine: {
+                            time: lineStartTime,
+                            text: text,
+                            endTime: endTime
+                        },
+                        translations: []
+                    };
+                } else if (isTranslation) {
+                    if (currentGroup) {
+                        currentGroup.translations.push({
+                            time: currentGroup.mainLine.time,
+                            text: text
+                        });
+                    }
+                }
+            }
+
+            if (currentGroup) {
+                lineGroups.push(currentGroup);
+            }
+
+            // ====== 生成结果 ======
+            const result = [];
+            let lastEndTime = null;
+
+            for (let i = 0; i < lineGroups.length; i++) {
+                const group = lineGroups[i];
+                const mainLine = group.mainLine;
+                const mainStartTime = mainLine.time;
+                const mainEndTime = mainLine.endTime;
+
+                if (lastEndTime != null && (mainStartTime - lastEndTime) > gapThreshold) {
+                    const dotStartTime = lastEndTime + 0.01;
+                    const firstDotTime = lastEndTime + delay;
+                    const lastDotTime = mainStartTime - 0.1;
+                    
+                    if (firstDotTime < lastDotTime) {
+                        const duration = lastDotTime - firstDotTime;
+                        const times = [
+                            firstDotTime,
+                            firstDotTime + duration / 3,
+                            firstDotTime + duration * 2 / 3,
+                            lastDotTime
+                        ];
+                        
+                        result.push(`[${formatTime(dotStartTime)}]` +
+                            `<${formatTime(times[0])}>● ` +
+                            `<${formatTime(times[1])}>● ` +
+                            `<${formatTime(times[2])}>● ` +
+                            `<${formatTime(times[3])}>`);
+                    } else {
+                        result.push(`[${formatTime(dotStartTime)}]<${formatTime(lastDotTime)}>●`);
+                    }
+                }
+
+                result.push(`[${formatTime(mainStartTime)}]${mainLine.text}`);
+
+                for (const trans of group.translations) {
+                    result.push(`[${formatTime(trans.time)}]${trans.text}`);
+                }
+
+                let nextGroupStartTime = null;
+                if (i + 1 < lineGroups.length) {
+                    nextGroupStartTime = lineGroups[i + 1].mainLine.time;
+                }
+
+                if (nextGroupStartTime != null && (nextGroupStartTime - mainEndTime) > gapThreshold) {
+                    const dotStartTime = mainEndTime + 0.01;
+                    const firstDotTime = mainEndTime + delay;
+                    const lastDotTime = nextGroupStartTime - 0.1;
+                    
+                    if (firstDotTime < lastDotTime) {
+                        const duration = lastDotTime - firstDotTime;
+                        const times = [
+                            firstDotTime,
+                            firstDotTime + duration / 3,
+                            firstDotTime + duration * 2 / 3,
+                            lastDotTime
+                        ];
+                        
+                        result.push(`[${formatTime(dotStartTime)}]` +
+                            `<${formatTime(times[0])}>● ` +
+                            `<${formatTime(times[1])}>● ` +
+                            `<${formatTime(times[2])}>● ` +
+                            `<${formatTime(times[3])}>`);
+                        
+                        lastEndTime = lastDotTime;
+                    } else {
+                        result.push(`[${formatTime(dotStartTime)}]<${formatTime(lastDotTime)}>●`);
+                        lastEndTime = lastDotTime;
+                    }
+                } else {
+                    lastEndTime = mainEndTime;
+                }
+            }
+
+            document.getElementById("output").textContent = result.join("\n");
+        }
+
+        // ============================================================
+        // 辅助操作
+        // ============================================================
+        function copyOutput() {
+            const text = document.getElementById("output").textContent;
+            if (!text.trim()) {
+                alert("没有可复制内容");
+                return;
+            }
+            navigator.clipboard.writeText(text).catch(() => {
+                alert("复制失败");
+            });
+        }
+
+        function clearAll() {
+            document.getElementById("input").value = "";
+            document.getElementById("output").textContent = "";
+        }
+
+        function downloadLRC() {
+            const text = document.getElementById("output").textContent;
+            if (!text.trim()) {
+                alert("请先生成歌词");
+                return;
+            }
+            const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "extended_lrc_v29_trad_simp.lrc";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // 绑定事件
+        document.getElementById("input").addEventListener("input", processLRC);
+        document.getElementById("delay").addEventListener("input", processLRC);
+        document.getElementById("gapThreshold").addEventListener("input", processLRC);
+        document.getElementById("filterEnable").addEventListener("change", processLRC);
+        document.getElementById("filterKeywords").addEventListener("input", processLRC);
+
+        window.addEventListener("DOMContentLoaded", function() {
+            processLRC();
+        });
+    </script>
+
+</body>
+</html>
