@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>批量重命名为 CRC32</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+    background: #1a1a2e;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 40px 20px;
+    color: #e0e0e0;
+  }
+
+  .container { width: 100%; max-width: 860px; }
+
+  h1 {
+    text-align: center;
+    font-size: 1.8rem;
+    margin-bottom: 6px;
+    background: linear-gradient(90deg, #00d2ff, #3a7bd5);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .subtitle { text-align: center; color: #666; margin-bottom: 28px; font-size: 0.9rem; }
+
+  /* 上传区 */
+  .upload-area {
+    border: 2px dashed #3a3a6a;
+    border-radius: 14px;
+    padding: 48px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s;
+    background: rgba(255,255,255,0.02);
+    margin-bottom: 20px;
+  }
+  .upload-area:hover, .upload-area.dragover {
+    border-color: #3a7bd5;
+    background: rgba(58,123,213,0.06);
+  }
+  .upload-area .icon { font-size: 2.8rem; margin-bottom: 10px; }
+  .upload-area .text { color: #999; }
+  .upload-area .text span { color: #3a7bd5; text-decoration: underline; cursor: pointer; }
+  .upload-area .hint { color: #555; font-size: 0.82rem; margin-top: 6px; }
+  #fileInput { display: none; }
+
+  /* 进度条 */
+  .progress-bar {
+    height: 3px; background: rgba(255,255,255,0.05);
+    border-radius: 2px; margin-bottom: 18px; overflow: hidden; display: none;
+  }
+  .progress-bar.active { display: block; }
+  .progress-fill {
+    height: 100%; width: 0%;
+    background: linear-gradient(90deg, #00d2ff, #3a7bd5);
+    transition: width 0.2s;
+  }
+
+  /* 工具栏 */
+  .toolbar {
+    display: none; gap: 10px; margin-bottom: 16px;
+    align-items: center; flex-wrap: wrap;
+  }
+  .toolbar.active { display: flex; }
+
+  .toolbar button {
+    padding: 9px 18px; border: none; border-radius: 8px;
+    cursor: pointer; font-size: 0.9rem; font-weight: 600;
+    transition: all 0.2s;
+  }
+  .btn-down { background: linear-gradient(135deg, #00b09b, #96c93d); color: #fff; }
+  .btn-down:hover { box-shadow: 0 3px 12px rgba(0,176,155,0.35); transform: translateY(-1px); }
+  .btn-clear { background: rgba(255,255,255,0.06); color: #aaa; border: 1px solid #333 !important; }
+  .btn-clear:hover { color: #ff6b6b; border-color: #ff6b6b !important; }
+  .file-count { margin-left: auto; color: #666; font-size: 0.85rem; }
+
+  /* 列表 */
+  .file-list { display: flex; flex-direction: column; gap: 6px; }
+
+  .file-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 11px 16px; border-radius: 8px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.04);
+    transition: all 0.2s;
+  }
+  .file-item:hover { background: rgba(255,255,255,0.06); }
+  .file-item.done { border-color: rgba(0,176,155,0.2); }
+
+  .file-idx {
+    width: 24px; height: 24px; border-radius: 50%;
+    background: rgba(58,123,213,0.15); color: #3a7bd5;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.75rem; font-weight: 700; flex-shrink: 0;
+  }
+
+  .file-info { flex: 1; min-width: 0; }
+  .file-old { font-size: 0.82rem; color: #777; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .file-new { font-size: 0.92rem; font-weight: 600; color: #00d2ff; margin-top: 2px; word-break: break-all; }
+  .file-new .hash { font-family: 'Consolas', 'Courier New', monospace; }
+  .file-new .ext { color: #96c93d; }
+
+  .file-size { color: #555; font-size: 0.78rem; flex-shrink: 0; text-align: right; min-width: 60px; }
+
+  .file-status {
+    width: 22px; height: 22px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .spinner {
+    width: 16px; height: 16px;
+    border: 2px solid #333; border-top-color: #3a7bd5;
+    border-radius: 50%; animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .btn-dl {
+    padding: 4px 12px; border-radius: 5px; border: 1px solid rgba(0,176,155,0.3);
+    background: rgba(0,176,155,0.1); color: #96c93d;
+    font-size: 0.78rem; cursor: pointer; flex-shrink: 0;
+    transition: all 0.2s; display: none;
+  }
+  .btn-dl.show { display: inline-block; }
+  .btn-dl:hover { background: rgba(0,176,155,0.25); }
+
+  .empty {
+    text-align: center; padding: 50px 20px; color: #444;
+  }
+  .empty .icon { font-size: 2.5rem; margin-bottom: 8px; }
+
+  @media (max-width: 600px) {
+    h1 { font-size: 1.3rem; }
+    .file-item { padding: 9px 10px; gap: 8px; }
+    .file-size { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>📁 文件批量重命名为 CRC32</h1>
+  <p class="subtitle">选择文件 → 计算 CRC32 → 下载文件</p>
+
+  <div class="upload-area" id="uploadArea">
+    <div class="icon">📤</div>
+    <div class="text">拖拽文件到这里，或 <span>点击选择</span></div>
+    <div class="hint">支持任意类型，可多选</div>
+    <input type="file" id="fileInput" multiple>
+  </div>
+
+  <div class="progress-bar" id="progressBar"><div class="progress-fill" id="progressFill"></div></div>
+
+  <div class="toolbar" id="toolbar">
+    <button class="btn-down" onclick="downloadAll()">📦 批量下载 ZIP</button>
+    <button class="btn-clear" onclick="clearAll()">🗑️ 清空</button>
+    <span class="file-count" id="fileCount"></span>
+  </div>
+
+  <div class="file-list" id="fileList">
+    <div class="empty" id="emptyState">
+      <div class="icon">📂</div>
+      <div>暂无文件</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ---------- CRC32 ----------
+const T = new Uint32Array(256);
+for (let i = 0; i < 256; i++) {
+  let c = i;
+  for (let j = 0; j < 8; j++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+  T[i] = c;
+}
+
+function crc32(buf) {
+  let c = 0xFFFFFFFF;
+  const d = new Uint8Array(buf);
+  for (let i = 0; i < d.length; i++) c = T[(c ^ d[i]) & 0xFF] ^ (c >>> 8);
+  return ((c ^ 0xFFFFFFFF) >>> 0).toString(16).padStart(8, '0');
+}
+
+// ---------- 状态 ----------
+let entries = []; // { file, hash, newName, blob }
+
+const $uploadArea  = document.getElementById('uploadArea');
+const $fileInput   = document.getElementById('fileInput');
+const $fileList    = document.getElementById('fileList');
+const $emptyState  = document.getElementById('emptyState');
+const $toolbar     = document.getElementById('toolbar');
+const $fileCount   = document.getElementById('fileCount');
+const $progressBar = document.getElementById('progressBar');
+const $progressFill= document.getElementById('progressFill');
+
+// ---------- 事件 ----------
+$uploadArea.addEventListener('click', () => $fileInput.click());
+$uploadArea.addEventListener('dragover', e => { e.preventDefault(); $uploadArea.classList.add('dragover'); });
+$uploadArea.addEventListener('dragleave', () => $uploadArea.classList.remove('dragover'));
+$uploadArea.addEventListener('drop', e => {
+  e.preventDefault();
+  $uploadArea.classList.remove('dragover');
+  if (e.dataTransfer.files.length) processFiles(e.dataTransfer.files);
+});
+$fileInput.addEventListener('change', () => {
+  if ($fileInput.files.length) processFiles($fileInput.files);
+});
+
+// ---------- 核心 ----------
+async function processFiles(fileList) {
+  const files = Array.from(fileList);
+  const start = entries.length;
+
+  for (const f of files) entries.push({ file: f, hash: null, newName: null, blob: null });
+
+  $emptyState.style.display = 'none';
+  $toolbar.classList.add('active');
+  renderItems(start);
+  $progressBar.classList.add('active');
+
+  for (let i = start; i < entries.length; i++) {
+    setStatus(i, 'spin');
+    try {
+      const buf = await readBuf(entries[i].file);
+      const hash = crc32(buf);
+      const ext = getExt(entries[i].file.name);
+      entries[i].hash = hash;
+      entries[i].newName = ext ? `${hash}.${ext}` : hash;
+      entries[i].blob = new Blob([buf], { type: entries[i].file.type });
+      updateName(i);
+      setStatus(i, 'done');
+    } catch {
+      entries[i].hash = 'error';
+      entries[i].newName = '读取失败';
+      updateName(i);
+      setStatus(i, 'err');
+    }
+    $progressFill.style.width = ((i - start + 1) / files.length * 100) + '%';
+  }
+
+  $progressBar.classList.remove('active');
+  $progressFill.style.width = '0%';
+  countDone();
+}
+
+function readBuf(file) {
+  return new Promise((ok, no) => {
+    const r = new FileReader();
+    r.onload = () => ok(r.result);
+    r.onerror = no;
+    r.readAsArrayBuffer(file);
+  });
+}
+
+function getExt(name) {
+  const i = name.lastIndexOf('.');
+  return i > 0 ? name.substring(i + 1).toLowerCase() : '';
+}
+
+// ---------- 渲染 ----------
+function renderItems(from) {
+  for (let i = from; i < entries.length; i++) {
+    const e = entries[i];
+    const div = document.createElement('div');
+    div.className = 'file-item';
+    div.id = 'fi-' + i;
+    div.innerHTML = `
+      <div class="file-idx">${i + 1}</div>
+      <div class="file-info">
+        <div class="file-old" title="${esc(e.file.name)}">${esc(e.file.name)}</div>
+        <div class="file-new" id="fn-${i}">计算中…</div>
+      </div>
+      <div class="file-size">${fmtSize(e.file.size)}</div>
+      <div class="file-status" id="fs-${i}"><div class="spinner"></div></div>
+      <button class="btn-dl" id="fd-${i}" onclick="dlOne(${i})">下载</button>
+    `;
+    $fileList.appendChild(div);
+  }
+}
+
+function updateName(i) {
+  const e = entries[i];
+  const el = document.getElementById('fn-' + i);
+  if (!el) return;
+  if (e.hash === 'error') {
+    el.textContent = '读取失败';
+    el.style.color = '#ff6b6b';
+    return;
+  }
+  const ext = getExt(e.file.name);
+  el.innerHTML = ext
+    ? `<span class="hash">${e.hash}</span><span class="ext">.${esc(ext)}</span>`
+    : `<span class="hash">${e.hash}</span>`;
+}
+
+function setStatus(i, s) {
+  const el = document.getElementById('fs-' + i);
+  const dl = document.getElementById('fd-' + i);
+  const item = document.getElementById('fi-' + i);
+  if (!el) return;
+  if (s === 'spin') {
+    el.innerHTML = '<div class="spinner"></div>';
+  } else if (s === 'done') {
+    el.textContent = '✅';
+    dl.classList.add('show');
+    item.classList.add('done');
+  } else {
+    el.textContent = '❌';
+  }
+}
+
+function countDone() {
+  const n = entries.filter(e => e.blob).length;
+  $fileCount.textContent = `${n} / ${entries.length} 个就绪`;
+}
+
+// ---------- 下载 ----------
+function dlOne(i) {
+  const e = entries[i];
+  if (!e.blob) return;
+  save(e.blob, e.newName);
+}
+
+async function downloadAll() {
+  const ready = entries.filter(e => e.blob);
+  if (!ready.length) return;
+  if (ready.length === 1) { save(ready[0].blob, ready[0].newName); return; }
+
+  $progressBar.classList.add('active');
+
+  if (typeof JSZip === 'undefined') {
+    await new Promise((ok, no) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js';
+      s.onload = ok; s.onerror = no;
+      document.head.appendChild(s);
+    });
+  }
+
+  const zip = new JSZip();
+  const used = {};
+
+  ready.forEach((e, idx) => {
+    let name = e.newName;
+    if (used[name]) {
+      used[name]++;
+      const dot = name.lastIndexOf('.');
+      name = dot > 0 ? `${name.substring(0, dot)}_${used[name]}${name.substring(dot)}` : `${name}_${used[name]}`;
+    } else {
+      used[name] = 1;
+    }
+    zip.file(name, e.blob);
+    $progressFill.style.width = ((idx + 1) / ready.length * 90) + '%';
+  });
+
+  const blob = await zip.generateAsync({ type: 'blob' });
+  save(blob, 'crc32_files.zip');
+  $progressBar.classList.remove('active');
+  $progressFill.style.width = '0%';
+}
+
+function save(blob, name) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(a.href);
+}
+
+// ---------- 工具 ----------
+function clearAll() {
+  entries = [];
+  $fileList.innerHTML = '';
+  $fileList.appendChild($emptyState);
+  $emptyState.style.display = 'block';
+  $toolbar.classList.remove('active');
+  $fileInput.value = '';
+}
+
+function fmtSize(b) {
+  if (b < 1024) return b + ' B';
+  if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+  if (b < 1073741824) return (b / 1048576).toFixed(1) + ' MB';
+  return (b / 1073741824).toFixed(2) + ' GB';
+}
+
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+</script>
+</body>
+</html>

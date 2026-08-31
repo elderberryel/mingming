@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0, user-scalable=yes">
+<title>照片解析器</title>
+
+<script src="https://cdn.jsdelivr.net/npm/exifr@7.1.3/dist/full.umd.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/exifreader@4.23.5/dist/exif-reader.min.js"></script>
+
+<style>
+*{ box-sizing: border-box; }
+body{
+    margin:0;
+    background:#0f1117;
+    color:#eef;
+    font-family: 'Segoe UI', Roboto, system-ui, -apple-system, sans-serif;
+    font-size:14px;
+}
+header{
+    padding:15px;
+    text-align:center;
+    font-size:22px;
+    font-weight:bold;
+    background:#161b22;
+    border-bottom:1px solid #2d333b;
+    position: sticky;
+    top:0;
+    z-index:100;
+}
+.container{ padding:15px; }
+.upload{
+    border:2px dashed #4a5568;
+    border-radius:20px;
+    padding:30px 15px;
+    text-align:center;
+    cursor:pointer;
+    transition:0.2s ease;
+    background: #0b0e14;
+    font-size:1rem;
+}
+.upload:hover{
+    border-color:#3b82f6;
+    background:#1e2433;
+}
+input[type="file"]{ display:none; }
+.preview{ margin-top:20px; text-align:center; }
+.preview img{
+    max-width:100%;
+    max-height:300px;
+    border-radius:16px;
+    box-shadow:0 10px 20px rgba(0,0,0,0.5);
+    object-fit: contain;
+    background:#0f1117;
+}
+.card{
+    background:#161b22;
+    border-radius:20px;
+    padding:15px;
+    margin-top:15px;
+    box-shadow:0 5px 15px rgba(0,0,0,0.3);
+    border:1px solid #2d3748;
+}
+.card h2{
+    margin-top:0;
+    margin-bottom:12px;
+    color:#38bdf8;
+    font-size:1.3rem;
+    border-left:3px solid #38bdf8;
+    padding-left:10px;
+}
+pre{
+    white-space:pre-wrap;
+    word-break:break-word;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size:12px;
+    background:#0c0f15;
+    padding:10px;
+    border-radius:12px;
+    overflow-x: auto;
+    color:#cbd5e6;
+}
+.loading{ color:#2dd4bf; animation:pulse 1.2s infinite; }
+@keyframes pulse{
+    0%{ opacity:0.5; }
+    100%{ opacity:1; }
+}
+button, .key-btn{
+    background:#1f2a3e;
+    border:none;
+    color:white;
+    padding:10px 15px;
+    border-radius:25px;
+    cursor:pointer;
+    font-size:0.9rem;
+    font-weight:500;
+    transition:0.2s;
+    margin-top:8px;
+    margin-right:8px;
+    border:1px solid #334155;
+    width:100%;
+}
+button:hover, .key-btn:hover{
+    background:#2d3a5e;
+    border-color:#5b8cbc;
+}
+input.key-input{
+    background:#0f1117;
+    border:1px solid #334155;
+    border-radius:20px;
+    padding:12px 15px;
+    color:white;
+    width:100%;
+    font-size:0.9rem;
+    margin:10px 0;
+    font-family: monospace;
+}
+.key-control{
+    background:#10141c;
+    border-radius:18px;
+    padding:12px;
+    margin-bottom:12px;
+}
+.address-result{
+    background:#0c0f15;
+    border-radius:15px;
+    padding:12px;
+    font-size:13px;
+    line-height:1.4;
+}
+.status-badge{
+    background:#1e293b;
+    border-radius:15px;
+    padding:4px 12px;
+    display:inline-block;
+    font-size:11px;
+    margin-bottom:8px;
+}
+.coord-info{
+    font-size:11px;
+    color:#9ca3af;
+    margin-top:8px;
+}
+.success-box{
+    background:#052e16;
+    border:1px solid #15803d;
+    border-radius:12px;
+    padding:12px;
+    margin-top:12px;
+    font-size:13px;
+    color:#4ade80;
+}
+.lib-badge{
+    display:inline-block;
+    padding:2px 8px;
+    border-radius:8px;
+    font-size:10px;
+    font-weight:bold;
+}
+.lib-exifr{ background:#1e3a5f; color:#60a5fa; }
+.lib-exifreader{ background:#3b1f5e; color:#c084fc; }
+</style>
+</head>
+<body>
+
+<header>📸 照片解析器</header>
+
+<div class="container">
+
+<div class="upload" id="uploadBox">
+    📂 点击上传照片 (支持JPG/PNG/HEIC)
+    <input type="file" id="fileInput" accept="image/*">
+</div>
+
+<div class="preview">
+    <img id="previewImg" alt="预览区域">
+</div>
+
+<!-- 库状态 -->
+<div style="text-align:center; margin-top:10px;">
+    <span id="exifrStatus" class="lib-badge lib-exifr">Exifr: 检测中...</span>
+    <span id="exifreaderStatus" class="lib-badge lib-exifreader">ExifReader: 检测中...</span>
+</div>
+
+<div class="card">
+<h2>📄 基础信息</h2>
+<pre id="basicInfo">等待图片...</pre>
+</div>
+
+<div class="card">
+<h2>🗺️ EXIF & 坐标</h2>
+<pre id="exifInfo">暂无EXIF数据</pre>
+</div>
+
+<div class="card">
+<h2>📍 地址解析</h2>
+<div class="key-control">
+    <div style="font-size:13px; margin-bottom:8px;">🔑 腾讯地图 Key (可选)</div>
+    <input type="text" id="tencentKeyInput" class="key-input" placeholder="输入腾讯Key显示详细地址">
+    <div style="font-size:11px; color:#6b7280; margin:5px 0;">
+        👉 <a href="https://lbs.qq.com/dev/console/application/mine" target="_blank" style="color:#60a5fa;">申请Key</a> (选择Web服务API)
+    </div>
+    <button id="saveKeyBtn" class="key-btn">💾 保存Key</button>
+    <button id="manualReverseBtn" class="key-btn">🔄 获取地址</button>
+</div>
+
+<div id="reverseGeoContainer">
+    <div class="status-badge" id="geoStatusIcon">🌐 等待GPS坐标</div>
+    <div id="geoAddressDisplay" class="address-result">
+        <span style="color:#6c86a3;">上传含GPS照片后自动解析</span>
+    </div>
+    <div id="coordDebug" class="coord-info"></div>
+</div>
+
+<canvas id="canvas" style="display:none;"></canvas>
+
+<script>
+// ========== DOM 元素 ==========
+const uploadBox = document.getElementById('uploadBox');
+const fileInput = document.getElementById('fileInput');
+const previewImg = document.getElementById('previewImg');
+const basicInfo = document.getElementById('basicInfo');
+const exifInfo = document.getElementById('exifInfo');
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const tencentKeyInput = document.getElementById('tencentKeyInput');
+const saveKeyBtn = document.getElementById('saveKeyBtn');
+const manualReverseBtn = document.getElementById('manualReverseBtn');
+const geoAddressDisplay = document.getElementById('geoAddressDisplay');
+const geoStatusIcon = document.getElementById('geoStatusIcon');
+const coordDebugSpan = document.getElementById('coordDebug');
+
+let currentGcjLng = null;
+let currentGcjLat = null;
+let hasValidGpsCoord = false;
+let currentKey = '';
+
+const STORAGE_KEY_TENCENT = 'tencent_key_mobile';
+
+// ========== 库检测 ==========
+const LIB_STATUS = {
+    EXIFR: typeof exifr !== 'undefined',
+    EXIFREADER: typeof ExifReader !== 'undefined'
+};
+
+function updateLibStatus() {
+    document.getElementById('exifrStatus').textContent = `Exifr: ${LIB_STATUS.EXIFR ? '✅' : '❌'}`;
+    document.getElementById('exifreaderStatus').textContent = `ExifReader: ${LIB_STATUS.EXIFREADER ? '✅' : '❌'}`;
+}
+
+// ========== 地图链接 ==========
+function generateMapLinks(lat, lng) {
+    return `
+        <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
+            <a href="https://uri.amap.com/marker?position=${lng},${lat}&name=照片位置" 
+               target="_blank" 
+               style="background:#1a472a; color:white; padding:10px 15px; border-radius:15px; text-decoration:none; font-size:12px; flex:1; text-align:center;">
+                🗺️ 高德
+            </a>
+            <a href="https://api.map.baidu.com/marker?location=${lat},${lng}&title=照片位置&output=html&coord_type=gcj02&zoom=15" 
+               target="_blank" 
+               style="background:#1a365d; color:white; padding:10px 15px; border-radius:15px; text-decoration:none; font-size:12px; flex:1; text-align:center;">
+                🗺️ 百度
+            </a>
+            <a href="https://apis.map.qq.com/uri/v1/marker?marker=coord:${lat},${lng};title:照片位置" 
+               target="_blank" 
+               style="background:#1e3a5f; color:white; padding:10px 15px; border-radius:15px; text-decoration:none; font-size:12px; flex:1; text-align:center;">
+                🗺️ 腾讯
+            </a>
+        </div>
+    `;
+}
+
+// ========== 代理请求 ==========
+async function fetchWithProxy(url) {
+    const proxies = [
+        `https://cors-anywhere.herokuapp.com/${url}`,
+        `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+        `https://corsproxy.io/?${encodeURIComponent(url)}`
+    ];
+    
+    for (const proxyUrl of proxies) {
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000);
+            
+            const response = await fetch(proxyUrl, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                signal: controller.signal
+            });
+            
+            clearTimeout(timeoutId);
+            
+            if (response.ok) {
+                const text = await response.text();
+                return JSON.parse(text);
+            }
+        } catch (err) {
+            continue;
+        }
+    }
+    
+    throw new Error('所有代理都失败');
+}
+
+// ========== 逆地理编码 ==========
+async function reverseGeocodeWithProxy(lng, lat) {
+    if (lng === null || lat === null || isNaN(lng) || isNaN(lat)) {
+        geoAddressDisplay.innerHTML = '<span style="color:#fbbf24;">⏳ 未获取到GPS坐标</span>';
+        return false;
+    }
+    
+    if (!currentKey) {
+        geoAddressDisplay.innerHTML = `
+            <div class="success-box">
+                ✅ <strong>检测到GPS坐标</strong><br><br>
+                坐标: ${lng.toFixed(6)}, ${lat.toFixed(6)}<br>
+                输入腾讯Key可解析详细地址
+            </div>
+            ${generateMapLinks(lat, lng)}
+        `;
+        geoStatusIcon.innerText = '📍 坐标就绪';
+        return true;
+    }
+    
+    geoAddressDisplay.innerHTML = '<span class="loading">🔍 解析地址中...</span>';
+    
+    try {
+        const apiUrl = `https://apis.map.qq.com/ws/geocoder/v1/?location=${lat},${lng}&key=${currentKey}&get_poi=1`;
+        const data = await fetchWithProxy(apiUrl);
+        
+        if (data.status === 0 && data.result) {
+            const addr = data.result;
+            const formattedAddress = addr.formatted_addresses?.recommend || addr.address;
+            
+            let html = `<div style="font-weight:600; margin-bottom:6px;">🏠 ${formattedAddress}</div>`;
+            
+            if (addr.address_component) {
+                const c = addr.address_component;
+                html += `<div style="font-size:11px; color:#9bb5d4;">${c.province || ''} ${c.city || ''} ${c.district || ''}<br>${c.street || ''} ${c.street_number || ''}</div>`;
+            }
+            
+            html += `<div style="font-size:10px; margin-top:8px; color:#7e8cac;">📍 ${lng.toFixed(6)}, ${lat.toFixed(6)}</div>`;
+            html += generateMapLinks(lat, lng);
+            
+            geoAddressDisplay.innerHTML = html;
+            geoStatusIcon.innerText = '✅ 地址解析成功';
+            return true;
+        } else {
+            throw new Error(data.message || '解析失败');
+        }
+    } catch (err) {
+        geoAddressDisplay.innerHTML = `
+            <div style="color:#f97316;">⚠️ 地址解析失败: ${err.message}</div>
+            <div style="font-size:12px; color:#9ca3af;">坐标: ${lng.toFixed(6)}, ${lat.toFixed(6)}</div>
+            ${generateMapLinks(lat, lng)}
+        `;
+        return false;
+    }
+}
+
+function saveKey() {
+    const key = tencentKeyInput.value.trim();
+    if (!key) {
+        localStorage.removeItem(STORAGE_KEY_TENCENT);
+        currentKey = '';
+        geoAddressDisplay.innerHTML = '<span style="color:#facc15;">🔑 Key已清空</span>';
+        return;
+    }
+    
+    localStorage.setItem(STORAGE_KEY_TENCENT, key);
+    currentKey = key;
+    geoStatusIcon.innerText = '✅ Key已保存';
+    
+    if (hasValidGpsCoord) {
+        reverseGeocodeWithProxy(currentGcjLng, currentGcjLat);
+    } else {
+        geoAddressDisplay.innerHTML = '<span style="color:#6c86a3;">Key已保存，上传GPS照片后自动解析</span>';
+    }
+}
+
+async function manualReverse() {
+    if (!hasValidGpsCoord) {
+        geoAddressDisplay.innerHTML = '<span style="color:#ffb347;">📡 当前照片无GPS坐标</span>';
+        return;
+    }
+    await reverseGeocodeWithProxy(currentGcjLng, currentGcjLat);
+}
+
+// ========== 基础信息 ==========
+function showBasic(file) {
+    basicInfo.textContent = 
+`📛 文件名: ${file.name}
+📦 大小: ${(file.size/1024/1024).toFixed(2)} MB
+📐 尺寸: ${previewImg.naturalWidth}×${previewImg.naturalHeight}
+🎞️ 类型: ${file.type || 'image/jpeg'}
+📅 最后修改: ${new Date(file.lastModified).toLocaleString()}`;
+}
+
+// ========== GPS 工具函数 ==========
+function convertGPS(gps, ref) {
+    if (!Array.isArray(gps) || gps.length < 3) return NaN;
+    
+    let d, m, s;
+    
+    if (typeof gps[0] === 'number') {
+        [d, m, s] = gps;
+    } else if (typeof gps[0] === 'object') {
+        if (gps[0].value !== undefined) {
+            d = gps[0].value / (gps[0].denominator || 1);
+            m = gps[1].value / (gps[1].denominator || 1);
+            s = gps[2].value / (gps[2].denominator || 1);
+        } else if (Array.isArray(gps[0])) {
+            d = gps[0][0] / (gps[0][1] || 1);
+            m = gps[1][0] / (gps[1][1] || 1);
+            s = gps[2][0] / (gps[2][1] || 1);
+        }
+    }
+    
+    if (isNaN(d) || isNaN(m) || isNaN(s)) return NaN;
+    
+    let val = d + m / 60 + s / 3600;
+    if (ref === 'S' || ref === 'W') val *= -1;
+    return val;
+}
+
+function toDMS(dec, posSymbol, negSymbol) {
+    const deg = Math.floor(Math.abs(dec));
+    const min = Math.floor((Math.abs(dec) - deg) * 60);
+    const sec = ((Math.abs(dec) - deg - min / 60) * 3600).toFixed(2);
+    return `${dec >= 0 ? posSymbol : negSymbol} ${deg}°${min}′${sec}″`;
+}
+
+function inChina(lat, lon) {
+    return lon > 73.66 && lon < 135.05 && lat > 3.86 && lat < 53.55;
+}
+
+function wgs84togcj02(lat, lon) {
+    const pi = 3.14159265358979324;
+    const a = 6378245.0;
+    const ee = 0.00669342162296594323;
+    let dLat = transformLat(lon - 105.0, lat - 35.0);
+    let dLon = transformLon(lon - 105.0, lat - 35.0);
+    let radLat = lat / 180.0 * pi;
+    let magic = Math.sin(radLat);
+    magic = 1 - ee * magic * magic;
+    let sqrtMagic = Math.sqrt(magic);
+    dLat = (dLat * 180.0) / ((a * (1 - ee)) / (magic * sqrtMagic) * pi);
+    dLon = (dLon * 180.0) / (a / sqrtMagic * Math.cos(radLat) * pi);
+    return [lat + dLat, lon + dLon];
+}
+
+function transformLat(x, y) {
+    const pi = 3.14159265358979324;
+    return -100 + 2*x + 3*y + 0.2*y*y + 0.1*x*y + 0.2*Math.sqrt(Math.abs(x))
+           + (20*Math.sin(6*x*pi)+20*Math.sin(2*x*pi))*2/3
+           + (20*Math.sin(y*pi)+40*Math.sin(y/3*pi))*2/3
+           + (160*Math.sin(y/12*pi)+320*Math.sin(y/30*pi))*2/3;
+}
+
+function transformLon(x, y) {
+    const pi = 3.14159265358979324;
+    return 300 + x + 2*y + 0.1*x*x + 0.1*x*y + 0.1*Math.sqrt(Math.abs(x))
+           + (20*Math.sin(6*x*pi)+20*Math.sin(2*x*pi))*2/3
+           + (20*Math.sin(x*pi)+40*Math.sin(x/3*pi))*2/3
+           + (150*Math.sin(x/12*pi)+300*Math.sin(x/30*pi))*2/3;
+}
+
+// ========== EXIF 解析（二级回退） ==========
+async function parseEXIF(file) {
+    console.log('开始EXIF解析...');
+    
+    let result = null;
+    
+    // 一级: Exifr
+    if (LIB_STATUS.EXIFR) {
+        try {
+            const tags = await exifr.parse(file, { 
+                tiff: true, exif: true, gps: true, 
+                translateKeys: true, reviveValues: true 
+            });
+            
+            if (tags && (tags.GPSLatitude || tags.latitude)) {
+                result = {
+                    lib: 'Exifr',
+                    data: tags,
+                    gps: {
+                        lat: tags.GPSLatitude || tags.latitude,
+                        lon: tags.GPSLongitude || tags.longitude,
+                        latRef: tags.GPSLatitudeRef || (tags.latitude >= 0 ? 'N' : 'S'),
+                        lonRef: tags.GPSLongitudeRef || (tags.longitude >= 0 ? 'E' : 'W')
+                    }
+                };
+                console.log('✅ Exifr 成功');
+            }
+        } catch (err) {
+            console.warn('Exifr 失败:', err.message);
+        }
+    }
+    
+    // 二级: ExifReader
+    if (!result && LIB_STATUS.EXIFREADER) {
+        try {
+            const tags = await ExifReader.load(file);
+            
+            if (tags && tags.GPSLatitude) {
+                result = {
+                    lib: 'ExifReader',
+                    data: tags,
+                    gps: {
+                        lat: tags.GPSLatitude?.value || tags.GPSLatitude,
+                        lon: tags.GPSLongitude?.value || tags.GPSLongitude,
+                        latRef: String(tags.GPSLatitudeRef?.value || tags.GPSLatitudeRef || 'N').charAt(0),
+                        lonRef: String(tags.GPSLongitudeRef?.value || tags.GPSLongitudeRef || 'E').charAt(0)
+                    }
+                };
+                console.log('✅ ExifReader 成功');
+            }
+        } catch (err) {
+            console.warn('ExifReader 失败:', err.message);
+        }
+    }
+    
+    if (!result) {
+        exifInfo.textContent = '⚠️ 未找到EXIF数据或GPS信息\n\n可能原因:\n1. 照片不含GPS信息\n2. 照片被压缩/编辑过\n3. 照片来自社交软件传输';
+        return;
+    }
+    
+    // 格式化EXIF显示
+    let text = `📡 解析库: ${result.lib}\n\n`;
+    
+    const nameMap = {
+        Make: '品牌', Model: '型号', DateTimeOriginal: '拍摄时间',
+        FNumber: '光圈', ExposureTime: '快门', ISOSpeedRatings: 'ISO',
+        FocalLength: '焦距', Software: '软件', WhiteBalance: '白平衡',
+        Flash: '闪光灯', Orientation: '方向'
+    };
+    
+    for (let key in result.data) {
+        if (key === 'MakerNote' || key === 'thumbnail' || key === 'GPSLatitude' || 
+            key === 'GPSLongitude' || key === 'GPSLatitudeRef' || key === 'GPSLongitudeRef') continue;
+        
+        const cn = nameMap[key] || key;
+        let value = result.data[key];
+        
+        if (value === undefined || value === null) continue;
+        if (typeof value === 'object' && value.value !== undefined) value = value.value;
+        if (Array.isArray(value)) value = value.join(', ');
+        
+        const strValue = String(value);
+        if (strValue.length > 80) value = strValue.substring(0, 80) + '...';
+        
+        text += `${cn}: ${value}\n`;
+    }
+    
+    // 处理GPS
+    const { gps } = result;
+    const wgsLat = convertGPS(Array.isArray(gps.lat) ? gps.lat : [gps.lat], gps.latRef);
+    const wgsLon = convertGPS(Array.isArray(gps.lon) ? gps.lon : [gps.lon], gps.lonRef);
+    
+    console.log('GPS坐标:', { wgsLat, wgsLon });
+    
+    if (isNaN(wgsLat) || isNaN(wgsLon) || (wgsLat === 0 && wgsLon === 0)) {
+        text += `\n⚠️ GPS坐标无效\n`;
+    } else {
+        let latFinal = wgsLat, lonFinal = wgsLon;
+        let isChinaArea = inChina(wgsLat, wgsLon);
+        
+        if (isChinaArea) {
+            const [gcjLat, gcjLon] = wgs84togcj02(wgsLat, wgsLon);
+            latFinal = gcjLat;
+            lonFinal = gcjLon;
+            text += `\n🔁 坐标已转换(适配国内地图)\n`;
+        }
+        
+        text += `\n📍 纬度: ${toDMS(latFinal, 'N', 'S')}\n📍 经度: ${toDMS(lonFinal, 'E', 'W')}\n`;
+        
+        if (isChinaArea) {
+            currentGcjLat = latFinal;
+            currentGcjLng = lonFinal;
+        } else {
+            currentGcjLat = wgsLat;
+            currentGcjLng = wgsLon;
+        }
+        hasValidGpsCoord = true;
+        coordDebugSpan.innerHTML = `📍 ${currentGcjLng?.toFixed(6)}, ${currentGcjLat?.toFixed(6)}`;
+        
+        geoAddressDisplay.innerHTML = `
+            <div class="success-box">
+                ✅ <strong>GPS坐标</strong> <span class="lib-badge lib-${result.lib === 'Exifr' ? 'exifr' : 'exifreader'}">${result.lib}</span><br><br>
+                坐标: ${currentGcjLng?.toFixed(6)}, ${currentGcjLat?.toFixed(6)}
+            </div>
+            ${generateMapLinks(currentGcjLat, currentGcjLng)}
+        `;
+        geoStatusIcon.innerText = '📍 坐标就绪';
+        
+        if (currentKey) {
+            setTimeout(() => reverseGeocodeWithProxy(currentGcjLng, currentGcjLat), 500);
+        }
+    }
+    
+    exifInfo.textContent = text;
+}
+
+// ========== UI 重置 ==========
+function resetUIForNewImage() {
+    exifInfo.textContent = '解析中...';
+    basicInfo.textContent = '加载中...';
+    currentGcjLng = null;
+    currentGcjLat = null;
+    hasValidGpsCoord = false;
+    geoAddressDisplay.innerHTML = '<span style="color:#6c86a3;">🔄 解析中...</span>';
+    geoStatusIcon.innerText = '🌐 等待';
+    coordDebugSpan.innerHTML = '';
+}
+
+// ========== 文件处理 ==========
+async function handleFile(file) {
+    if (!file) return;
+    
+    if (!LIB_STATUS.EXIFR && !LIB_STATUS.EXIFREADER) {
+        exifInfo.textContent = '❌ 未加载EXIF解析库，请刷新页面重试';
+        return;
+    }
+    
+    resetUIForNewImage();
+    
+    const url = URL.createObjectURL(file);
+    previewImg.src = url;
+    
+    previewImg.onload = async () => {
+        canvas.width = previewImg.naturalWidth;
+        canvas.height = previewImg.naturalHeight;
+        ctx.drawImage(previewImg, 0, 0);
+        showBasic(file);
+        await parseEXIF(file);
+        URL.revokeObjectURL(url);
+    };
+    
+    previewImg.onerror = () => {
+        basicInfo.textContent = '图片加载失败';
+    };
+}
+
+// ========== 事件绑定 ==========
+uploadBox.onclick = () => fileInput.click();
+
+uploadBox.addEventListener('dragover', e => {
+    e.preventDefault();
+    uploadBox.style.borderColor = '#3b82f6';
+});
+
+uploadBox.addEventListener('dragleave', () => {
+    uploadBox.style.borderColor = '#4a5568';
+});
+
+uploadBox.addEventListener('drop', e => {
+    e.preventDefault();
+    uploadBox.style.borderColor = '#4a5568';
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) handleFile(file);
+    else alert('请选择图片文件');
+});
+
+fileInput.onchange = () => {
+    if (fileInput.files[0]) handleFile(fileInput.files[0]);
+};
+
+// ========== 初始化 ==========
+document.addEventListener('DOMContentLoaded', function() {
+    updateLibStatus();
+    
+    const savedKey = localStorage.getItem(STORAGE_KEY_TENCENT);
+    if (savedKey) {
+        tencentKeyInput.value = savedKey;
+        currentKey = savedKey;
+    }
+    
+    saveKeyBtn.addEventListener('click', saveKey);
+    manualReverseBtn.addEventListener('click', manualReverse);
+});
+</script>
+</body>
+</html>

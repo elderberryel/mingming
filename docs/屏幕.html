@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>屏幕比例计算器 v2 超强版</title>
+  <style>
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    :root{
+      --bg1:#0f172a;
+      --bg2:#1e293b;
+      --card:rgba(255,255,255,.08);
+      --card2:rgba(255,255,255,.06);
+      --border:rgba(255,255,255,.12);
+      --text:#fff;
+      --sub:#cbd5e1;
+      --muted:#94a3b8;
+      --primary:#3b82f6;
+      --primary2:#2563eb;
+      --ok:#22c55e;
+      --warn:#f59e0b;
+    }
+    body{
+      margin:0;
+      font-family:"Microsoft YaHei",Arial,sans-serif;
+      background:linear-gradient(135deg,var(--bg1),var(--bg2));
+      color:var(--text);
+      min-height:100vh;
+      padding:16px;
+    }
+    .wrap{
+      width:100%;
+      max-width:760px;
+      margin:0 auto;
+    }
+    .card{
+      background:var(--card);
+      backdrop-filter: blur(12px);
+      border:1px solid var(--border);
+      border-radius:18px;
+      padding:18px;
+      box-shadow:0 10px 30px rgba(0,0,0,.28);
+      margin-bottom:16px;
+    }
+    h1{
+      margin:0 0 8px;
+      font-size:26px;
+      text-align:center;
+    }
+    .desc{
+      text-align:center;
+      color:var(--sub);
+      font-size:13px;
+      margin-bottom:18px;
+    }
+    .grid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:12px;
+    }
+    .grid-3{
+      display:grid;
+      grid-template-columns:1fr 1fr 1fr;
+      gap:10px;
+    }
+    .field label{
+      display:block;
+      margin-bottom:8px;
+      font-size:14px;
+      color:#e2e8f0;
+    }
+    .field input{
+      width:100%;
+      height:46px;
+      border:none;
+      outline:none;
+      border-radius:12px;
+      padding:0 14px;
+      font-size:16px;
+      background:rgba(255,255,255,.12);
+      color:#fff;
+    }
+    .field input::placeholder{ color:var(--muted); }
+    .btns{
+      display:grid;
+      grid-template-columns:repeat(4,1fr);
+      gap:10px;
+      margin-top:14px;
+    }
+    button{
+      height:44px;
+      border:none;
+      border-radius:12px;
+      font-size:14px;
+      font-weight:bold;
+      cursor:pointer;
+      transition:.18s;
+      color:#fff;
+    }
+    .btn-main{ background:var(--primary); }
+    .btn-main:hover{ background:var(--primary2); }
+    .btn-sub{ background:rgba(255,255,255,.12); }
+    .btn-sub:hover{ background:rgba(255,255,255,.18); }
+    .title{
+      font-size:16px;
+      font-weight:bold;
+      margin-bottom:12px;
+    }
+    .result-grid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:12px;
+    }
+    .item{
+      background:var(--card2);
+      border:1px solid rgba(255,255,255,.08);
+      border-radius:14px;
+      padding:14px;
+    }
+    .item .k{
+      font-size:13px;
+      color:var(--muted);
+      margin-bottom:6px;
+    }
+    .item .v{
+      font-size:22px;
+      font-weight:bold;
+      word-break:break-all;
+      line-height:1.25;
+    }
+    .item .v.small{
+      font-size:16px;
+    }
+    .quick{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      margin-top:14px;
+    }
+    .quick button{
+      height:36px;
+      padding:0 12px;
+      border-radius:10px;
+      background:rgba(255,255,255,.1);
+      font-size:13px;
+    }
+    .tag{
+      display:inline-block;
+      padding:4px 10px;
+      border-radius:999px;
+      font-size:12px;
+      font-weight:bold;
+      background:rgba(34,197,94,.15);
+      color:#86efac;
+      border:1px solid rgba(34,197,94,.2);
+    }
+    .tag.warn{
+      background:rgba(245,158,11,.15);
+      color:#fcd34d;
+      border-color:rgba(245,158,11,.2);
+    }
+    .footer{
+      margin-top:10px;
+      color:var(--muted);
+      font-size:12px;
+      line-height:1.7;
+    }
+    textarea{
+      width:100%;
+      min-height:110px;
+      resize:vertical;
+      border:none;
+      outline:none;
+      border-radius:12px;
+      padding:12px;
+      background:rgba(255,255,255,.12);
+      color:#fff;
+      font-size:14px;
+    }
+    .ok{
+      color:#86efac;
+      font-size:13px;
+      margin-top:8px;
+      display:none;
+    }
+    @media (max-width:640px){
+      .grid,.result-grid,.grid-3,.btns{
+        grid-template-columns:1fr;
+      }
+      h1{ font-size:22px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+
+    <div class="card">
+      <h1>屏幕比例计算器 v2 超强版</h1>
+      <div class="desc">手动计算 + 自动读取设备信息 + PPI 计算 + 一键复制</div>
+
+      <div class="grid">
+        <div class="field">
+          <label for="width">宽度（px）</label>
+          <input id="width" type="number" inputmode="numeric" placeholder="例如 2400">
+        </div>
+        <div class="field">
+          <label for="height">高度（px）</label>
+          <input id="height" type="number" inputmode="numeric" placeholder="例如 1080">
+        </div>
+      </div>
+
+      <div class="grid" style="margin-top:12px;">
+        <div class="field">
+          <label for="inch">屏幕尺寸（英寸，可选，用于计算 PPI）</label>
+          <input id="inch" type="number" step="0.01" inputmode="decimal" placeholder="例如 6.67">
+        </div>
+        <div class="field">
+          <label for="diag">对角线像素（自动）</label>
+          <input id="diag" type="text" readonly placeholder="自动计算">
+        </div>
+      </div>
+
+      <div class="btns">
+        <button class="btn-main" onclick="calcManual()">计算比例</button>
+        <button class="btn-sub" onclick="useScreenSize()">使用屏幕分辨率</button>
+        <button class="btn-sub" onclick="useViewportSize()">使用浏览器窗口</button>
+        <button class="btn-sub" onclick="swapWH()">交换宽高</button>
+        <button class="btn-sub" onclick="copyResult()">复制结果</button>
+        <button class="btn-sub" onclick="refreshDeviceInfo()">刷新设备信息</button>
+        <button class="btn-sub" onclick="clearAll()">清空</button>
+        <button class="btn-sub" onclick="fillDemo()">示例填充</button>
+      </div>
+
+      <div class="quick">
+        <button onclick="setPreset(1920,1080)">1920×1080</button>
+        <button onclick="setPreset(2560,1440)">2560×1440</button>
+        <button onclick="setPreset(3840,2160)">3840×2160</button>
+        <button onclick="setPreset(2400,1080)">2400×1080</button>
+        <button onclick="setPreset(2340,1080)">2340×1080</button>
+        <button onclick="setPreset(3200,1440)">3200×1440</button>
+        <button onclick="setPreset(1280,800)">1280×800</button>
+        <button onclick="setPreset(1024,768)">1024×768</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="title">计算结果</div>
+      <div class="result-grid">
+        <div class="item">
+          <div class="k">最简比例</div>
+          <div class="v" id="simpleRatio">-</div>
+        </div>
+        <div class="item">
+          <div class="k">小数比例</div>
+          <div class="v" id="decimalRatio">-</div>
+        </div>
+        <div class="item">
+          <div class="k">常见比例判断</div>
+          <div class="v small" id="commonRatio">-</div>
+        </div>
+        <div class="item">
+          <div class="k">屏幕方向</div>
+          <div class="v small" id="orientationText">-</div>
+        </div>
+        <div class="item">
+          <div class="k">对角线像素</div>
+          <div class="v small" id="diagText">-</div>
+        </div>
+        <div class="item">
+          <div class="k">PPI（需填写英寸）</div>
+          <div class="v small" id="ppiText">-</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="title">当前设备 / 浏览器信息</div>
+      <div class="result-grid">
+        <div class="item">
+          <div class="k">物理屏幕分辨率（screen）</div>
+          <div class="v small" id="screenSize">-</div>
+        </div>
+        <div class="item">
+          <div class="k">浏览器可视区域（inner）</div>
+          <div class="v small" id="viewportSize">-</div>
+        </div>
+        <div class="item">
+          <div class="k">设备像素比（DPR）</div>
+          <div class="v small" id="dprText">-</div>
+        </div>
+        <div class="item">
+          <div class="k">设备方向</div>
+          <div class="v small" id="deviceOrientation">-</div>
+        </div>
+        <div class="item">
+          <div class="k">屏幕可用区域（avail）</div>
+          <div class="v small" id="availSize">-</div>
+        </div>
+        <div class="item">
+          <div class="k">像素深度</div>
+          <div class="v small" id="pixelDepth">-</div>
+        </div>
+      </div>
+      <div class="footer">
+        注：某些手机浏览器返回的是 CSS 像素，不一定等于面板真实物理像素。<br>
+        想看“更接近真实”的效果时，可结合 DPR 一起判断。
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="title">复制结果预览</div>
+      <textarea id="resultText" readonly></textarea>
+      <div class="ok" id="copyOk">已复制到剪贴板</div>
+    </div>
+
+  </div>
+
+  <script>
+    const $ = id => document.getElementById(id);
+
+    const widthEl = $("width");
+    const heightEl = $("height");
+    const inchEl = $("inch");
+    const diagInputEl = $("diag");
+
+    function gcd(a, b) {
+      a = Math.abs(Math.round(a));
+      b = Math.abs(Math.round(b));
+      while (b !== 0) {
+        let t = b;
+        b = a % b;
+        a = t;
+      }
+      return a || 1;
+    }
+
+    function approxCommonRatio(w, h) {
+      const r = w / h;
+      const common = [
+        { name: "4:3", value: 4/3 },
+        { name: "3:2", value: 3/2 },
+        { name: "5:3", value: 5/3 },
+        { name: "16:10", value: 16/10 },
+        { name: "16:9", value: 16/9 },
+        { name: "17:9", value: 17/9 },
+        { name: "18:9（2:1）", value: 18/9 },
+        { name: "19:9", value: 19/9 },
+        { name: "19.5:9", value: 19.5/9 },
+        { name: "20:9", value: 20/9 },
+        { name: "21:9", value: 21/9 },
+        { name: "32:9", value: 32/9 }
+      ];
+
+      let best = null;
+      let minDiff = Infinity;
+      for (const item of common) {
+        const diff = Math.abs(r - item.value);
+        if (diff < minDiff) {
+          minDiff = diff;
+          best = item;
+        }
+      }
+      return minDiff < 0.035 ? best.name : "非标准常见比例";
+    }
+
+    function getOrientation(w, h) {
+      if (!w || !h) return "-";
+      if (w > h) return "横屏";
+      if (w < h) return "竖屏";
+      return "正方形";
+    }
+
+    function calcDiagonalPixels(w, h) {
+      return Math.sqrt(w * w + h * h);
+    }
+
+    function calcPPI(w, h, inch) {
+      if (!inch || inch <= 0) return null;
+      return calcDiagonalPixels(w, h) / inch;
+    }
+
+    function renderResult(w, h) {
+      if (!w || !h || w <= 0 || h <= 0) {
+        $("simpleRatio").textContent = "请输入有效宽高";
+        $("decimalRatio").textContent = "-";
+        $("commonRatio").textContent = "-";
+        $("orientationText").textContent = "-";
+        $("diagText").textContent = "-";
+        $("ppiText").textContent = "-";
+        diagInputEl.value = "";
+        updateResultText();
+        return;
+      }
+
+      const d = gcd(w, h);
+      const rw = Math.round(w) / d;
+      const rh = Math.round(h) / d;
+      const decimal = (w / h).toFixed(3);
+      const common = approxCommonRatio(w, h);
+      const orientation = getOrientation(w, h);
+      const diagPx = calcDiagonalPixels(w, h);
+      const inch = parseFloat(inchEl.value);
+      const ppi = calcPPI(w, h, inch);
+
+      $("simpleRatio").textContent = `${rw}:${rh}`;
+      $("decimalRatio").textContent = `${decimal}:1`;
+      $("commonRatio").textContent = common;
+      $("orientationText").textContent = orientation;
+      $("diagText").textContent = `${Math.round(diagPx)} px`;
+      $("ppiText").textContent = ppi ? `${ppi.toFixed(2)} PPI` : "未填写英寸";
+      diagInputEl.value = `${Math.round(diagPx)} px`;
+
+      updateResultText();
+    }
+
+    function calcManual() {
+      const w = parseFloat(widthEl.value);
+      const h = parseFloat(heightEl.value);
+      renderResult(w, h);
+    }
+
+    function setPreset(w, h) {
+      widthEl.value = w;
+      heightEl.value = h;
+      renderResult(w, h);
+    }
+
+    function fillDemo() {
+      widthEl.value = 2400;
+      heightEl.value = 1080;
+      inchEl.value = 6.67;
+      renderResult(2400, 1080);
+    }
+
+    function swapWH() {
+      const t = widthEl.value;
+      widthEl.value = heightEl.value;
+      heightEl.value = t;
+      if (widthEl.value && heightEl.value) calcManual();
+    }
+
+    function clearAll() {
+      widthEl.value = "";
+      heightEl.value = "";
+      inchEl.value = "";
+      diagInputEl.value = "";
+      $("simpleRatio").textContent = "-";
+      $("decimalRatio").textContent = "-";
+      $("commonRatio").textContent = "-";
+      $("orientationText").textContent = "-";
+      $("diagText").textContent = "-";
+      $("ppiText").textContent = "-";
+      $("resultText").value = "";
+      $("copyOk").style.display = "none";
+    }
+
+    function useScreenSize() {
+      widthEl.value = screen.width;
+      heightEl.value = screen.height;
+      renderResult(screen.width, screen.height);
+    }
+
+    function useViewportSize() {
+      widthEl.value = window.innerWidth;
+      heightEl.value = window.innerHeight;
+      renderResult(window.innerWidth, window.innerHeight);
+    }
+
+    function getDeviceOrientationText() {
+      const w = screen.width;
+      const h = screen.height;
+      return getOrientation(w, h);
+    }
+
+    function refreshDeviceInfo() {
+      $("screenSize").textContent = `${screen.width} × ${screen.height}`;
+      $("viewportSize").textContent = `${window.innerWidth} × ${window.innerHeight}`;
+      $("dprText").textContent = `${window.devicePixelRatio || 1}`;
+      $("deviceOrientation").textContent = getDeviceOrientationText();
+      $("availSize").textContent = `${screen.availWidth} × ${screen.availHeight}`;
+      $("pixelDepth").textContent = `${screen.pixelDepth || "-"} bit`;
+      updateResultText();
+    }
+
+    function updateResultText() {
+      const text = [
+        "=== 屏幕比例计算结果 ===",
+        `输入宽高: ${widthEl.value || "-"} × ${heightEl.value || "-"}`,
+        `最简比例: ${$("simpleRatio").textContent}`,
+        `小数比例: ${$("decimalRatio").textContent}`,
+        `常见比例判断: ${$("commonRatio").textContent}`,
+        `方向: ${$("orientationText").textContent}`,
+        `对角线像素: ${$("diagText").textContent}`,
+        `PPI: ${$("ppiText").textContent}`,
+        "",
+        "=== 当前设备信息 ===",
+        `物理屏幕(screen): ${$("screenSize").textContent}`,
+        `浏览器窗口(inner): ${$("viewportSize").textContent}`,
+        `DPR: ${$("dprText").textContent}`,
+        `设备方向: ${$("deviceOrientation").textContent}`,
+        `可用区域(avail): ${$("availSize").textContent}`,
+        `像素深度: ${$("pixelDepth").textContent}`
+      ].join("\n");
+
+      $("resultText").value = text;
+    }
+
+    async function copyResult() {
+      try {
+        const text = $("resultText").value;
+        if (!text.trim()) {
+          updateResultText();
+        }
+        await navigator.clipboard.writeText($("resultText").value);
+        $("copyOk").style.display = "block";
+        setTimeout(() => $("copyOk").style.display = "none", 1800);
+      } catch (e) {
+        alert("复制失败，可能是浏览器限制。可手动长按文本框复制。");
+      }
+    }
+
+    widthEl.addEventListener("input", () => {
+      if (widthEl.value && heightEl.value) calcManual();
+    });
+
+    heightEl.addEventListener("input", () => {
+      if (widthEl.value && heightEl.value) calcManual();
+    });
+
+    inchEl.addEventListener("input", () => {
+      if (widthEl.value && heightEl.value) calcManual();
+    });
+
+    window.addEventListener("resize", () => {
+      refreshDeviceInfo();
+    });
+
+    window.addEventListener("orientationchange", () => {
+      setTimeout(refreshDeviceInfo, 200);
+    });
+
+    refreshDeviceInfo();
+    updateResultText();
+  </script>
+</body>
+</html>ฅ^˃̵ ֊ ˂̵^ฅ

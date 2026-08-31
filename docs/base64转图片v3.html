@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>Base64 转图片 v3.0</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+body { font-family: Arial; background: #111; color: #fff; text-align: center; padding: 20px; }
+.box { border: 2px dashed #666; padding: 30px; margin: 20px auto; max-width: 520px; }
+.box.dragover { border-color: #0af; }
+textarea { width: 90%; height: 100px; background: #222; color: #fff; border: none; padding: 10px; }
+img { max-width: 100%; margin-top: 10px; border-radius: 10px; }
+.item { margin-top: 20px; border-top: 1px solid #333; padding-top: 10px; }
+#status { margin-top: 10px; color: #aaa; }
+</style>
+</head>
+<body>
+
+<h2>Base64 转图片 V3.0</h2>
+
+<div class="box" id="dropZone">
+    <p>拖拽文件 / ZIP包 或</p>
+    <input type="file" id="fileInput" multiple>
+
+    <p>或粘贴：</p>
+    <textarea id="inputText"></textarea>
+
+    <div id="status"></div>
+</div>
+
+<button onclick="downloadZip()">打包下载ZIP</button>
+<button onclick="downloadAll()">逐个下载</button>
+
+<div id="result"></div>
+
+<script>
+let images = [];
+const imageExt = /\.(png|jpg|jpeg|webp|gif|svg)$/i;
+
+document.getElementById('fileInput').addEventListener('change', loadFiles);
+
+async function loadFiles() {
+    const files = document.getElementById('fileInput').files;
+    if (!files.length) return;
+
+    images = [];
+    document.getElementById("result").innerHTML = "";
+
+    for (let file of files) {
+        setStatus(`处理 ${file.name}`);
+
+        if (file.name.endsWith('.zip')) {
+            await handleZip(file);
+        } else if (imageExt.test(file.name)) {
+            handleDirectImage(file);
+        } else {
+            await handleFile(file);
+        }
+    }
+
+    setStatus("全部完成 ✅");
+}
+
+// ZIP
+async function handleZip(file) {
+    const zip = await JSZip.loadAsync(file);
+
+    for (let name in zip.files) {
+        const entry = zip.files[name];
+        if (entry.dir) continue;
+
+        if (name.endsWith('.zip')) {
+            const blob = await entry.async('blob');
+            await handleZip(blob);
+        } else if (imageExt.test(name)) {
+            const blob = await entry.async('blob');
+            handleBlobImage(blob, name);
+        } else {
+            const text = await entry.async('string');
+            processOne(text, name);
+        }
+    }
+}
+
+function handleFile(file) {
+    return new Promise(resolve => {
+        let reader = new FileReader();
+        reader.onload = e => {
+            processOne(e.target.result, file.name);
+            resolve();
+        };
+        reader.readAsText(file);
+    });
+}
+
+function handleDirectImage(file) {
+    const url = URL.createObjectURL(file);
+    images.push({ blob: file, name: file.name });
+    addToPage(url, file.name);
+}
+
+function handleBlobImage(blob, name) {
+    const url = URL.createObjectURL(blob);
+    images.push({ blob, name });
+    addToPage(url, name);
+}
+
+// 🚀 全解析引擎
+function processOne(raw, name) {
+    let text = (raw || "").toString();
+
+    let matches = text.match(/(?:data:[^;]+;base64,)?([A-Za-z0-9+/]{100,}={0,2})/g);
+
+    if (!matches) return;
+
+    matches.forEach((chunk, index) => {
+        let base64 = chunk;
+
+        if (base64.startsWith("data:")) {
+            base64 = base64.split(",")[1] || "";
+        }
+
+        let clean = base64.replace(/\s+/g, '');
+        while (clean.length % 4 !== 0) clean += '=';
+
+        try {
+            let byteChars = atob(clean);
+            let byteArray = new Uint8Array(byteChars.length);
+
+            for (let i = 0; i < byteChars.length; i++) {
+                byteArray[i] = byteChars.charCodeAt(i);
+            }
+
+            let mime = detectMime(clean);
+            let ext = mime.split('/')[1] || "png";
+
+            let blob = new Blob([byteArray], { type: mime });
+
+            handleBlobImage(blob, name + "_" + index + "." + ext);
+
+        } catch (e) {}
+    });
+}
+
+function detectMime(b64) {
+    if (b64.startsWith("iVBOR")) return "image/png";
+    if (b64.startsWith("/9j/")) return "image/jpeg";
+    if (b64.startsWith("UklGR")) return "image/webp";
+    if (b64.startsWith("R0lGOD")) return "image/gif";
+    if (b64.startsWith("PHN2Zy")) return "image/svg+xml";
+    return "image/png";
+}
+
+function addToPage(url, name) {
+    const div = document.createElement("div");
+    div.className = "item";
+
+    let img = document.createElement("img");
+    img.src = url;
+
+    div.appendChild(document.createTextNode(name));
+    div.appendChild(document.createElement("br"));
+    div.appendChild(img);
+
+    document.getElementById("result").appendChild(div);
+}
+
+async function downloadZip() {
+    const zip = new JSZip();
+
+    for (let img of images) {
+        zip.file(img.name, img.blob);
+    }
+
+    const content = await zip.generateAsync({ type: "blob" });
+
+    let a = document.createElement("a");
+    a.href = URL.createObjectURL(content);
+    a.download = "images.zip";
+    a.click();
+}
+
+async function downloadAll() {
+    const delay = 300;
+
+    for (let i = 0; i < images.length; i++) {
+        const img = images[i];
+
+        let a = document.createElement("a");
+        a.href = URL.createObjectURL(img.blob);
+        a.download = img.name;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+
+        setStatus(`下载中 ${i+1}/${images.length}`);
+        await new Promise(r => setTimeout(r, delay));
+    }
+
+    setStatus("下载完成 ✅");
+}
+
+function setStatus(t) {
+    document.getElementById("status").innerText = t;
+}
+</script>
+
+</body>
+</html>ฅ^˃̵ ֊ ˂̵^ฅ
