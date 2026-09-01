@@ -18,7 +18,6 @@
     'use strict';
 
     const hideSelectors = [
-        // ------
         '.top-bars .flip-card',
         '.top-bars div:has(> .ant-divider-vertical)',
         '.top-bars div:has(> div[style*="font-size: 20px"])',
@@ -101,6 +100,10 @@
         'zi.tools': [
             'footer',
             '#sidebar'
+        ],
+        'yxssp.com': [
+            'div.td-scroll-up + div.td-menu-background',
+            '.td-menu-background'
         ]
     };
 
@@ -114,7 +117,6 @@
 
     const TRACKING_TAGS = 'img,iframe,script,link,object,embed';
 
-    // ===== GitHub Banner Killer =====
     function isGitHub() {
         const h = location.hostname.toLowerCase();
         return h === 'github.com' || h.endsWith('.github.com');
@@ -644,7 +646,6 @@
         googleCleanSearch();
         watchSpa();
 
-        // GitHub Banner 尽早清一次（document-start 时 body 可能还没有）
         killGitHubBanners();
 
         try {
