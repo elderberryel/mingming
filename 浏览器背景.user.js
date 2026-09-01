@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         浏览器背景
 // @namespace    https://viayoo.com/
-// @version      5.0
+// @version      5.1
 // @description  浏览器背景
 // @author       明明
 // @match        *://*/*
@@ -235,6 +235,22 @@ input:not(.translate-ui input),textarea,select,[type="text"],[type="search"],[ty
 button:hover,[role="option"]:hover,div[class*="suggest"] li:hover,div[class*="suggest"] div:hover,[id*="search-result"] .search-result:hover,[id*="search-result"] a:hover{background-color:${xHoverBg}!important;}`;
     }
 
+    function getMobileBarCSS() {
+        return `
+header.mobile-bar,.mobile-bar,[class*="mobile-bar"],
+.mobile-bar::before,.mobile-bar::after,
+.mobile-bar .mb-btn,.mobile-bar .mb-name,.mobile-bar .mb-burger,.mobile-bar .mb-theme{
+  background:transparent!important;
+  background-color:transparent!important;
+  background-image:none!important;
+  box-shadow:none!important;
+  border-color:transparent!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+}
+.mobile-bar .mb-btn svg,.mobile-bar .mb-name{color:inherit!important;}`;
+    }
+
     function getXSpecificCSS() {
         return `
 [data-testid="primaryColumn"] div:has(nav[aria-live="polite"][role="navigation"]),
@@ -401,7 +417,8 @@ nav[aria-live="polite"][role="navigation"] div[role="tab"]{background-color:tran
             + `:root,[class*="bg-[rgb(var(--bg-tertiary))]"],[class*="bg-[rgb(var(--bg-secondary))]"],[class*="bg-[rgb(var(--bg-primary))]"],[class*="bg-[rgb(var(--bg-"]{--bg-tertiary:transparent!important;--bg-secondary:transparent!important;--bg-primary:transparent!important;background:transparent!important;background-color:transparent!important;background-image:none!important;box-shadow:none!important;}`
             + `[class*="bg-[rgb(var(--bg-tertiary))]"],[class*="bg-[rgb(var(--bg-secondary))]"],[class*="bg-[rgb(var(--bg-primary))]"]{border-color:rgba(255,255,255,0.3)!important;}`
             + `.btn-close{box-sizing:content-box!important;width:1em!important;height:1em!important;padding:.25em!important;background:transparent url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23000'%3e%3cpath d='M.293.293a1 1 0 0 1 1.414 0L8 6.586 14.293.293a1 1 0 1 1 1.414 1.414L9.414 8l6.293 6.293a1 1 0 0 1-1.414 1.414L8 9.414l-6.293 6.293a1 1 0 0 1-1.414-1.414L6.586 8 .293 1.707a1 1 0 0 1 0-1.414z'/%3e%3c/svg%3e") center/1em auto no-repeat!important;border:0!important;border-radius:.375rem!important;opacity:.7!important;}`
-            + `.btn-close-white{filter:invert(1) grayscale(100%) brightness(200%)!important;}`;
+            + `.btn-close-white{filter:invert(1) grayscale(100%) brightness(200%)!important;}`
+            + getMobileBarCSS();
         if (isXSite()) css += getXSpecificCSS();
         if (isTiebaSite()) css += getTiebaCSS();
         return css;
@@ -415,6 +432,7 @@ nav[aria-live="polite"][role="navigation"] div[role="tab"]{background-color:tran
         if (el.id === 'tuPanel' || el.id === 'tuBtn') return true;
         if (el.classList && (el.classList.contains('GlobalNav') || el.classList.contains('UnderlineNav') || el.classList.contains('LocalNavigation'))) return true;
         if (el.classList && (el.classList.contains('apple-navbar') || el.classList.contains('segmented-control'))) return true;
+        if (el.classList && el.classList.contains('mobile-bar')) return true;
         if (typeof el.className === 'string' && (el.className.includes('UnderlineNav') || el.className.includes('GlobalNav'))) return true;
         try { if (el.matches && el.matches(CAPTCHA_CSS_SELECTOR)) return true; if (el.closest && el.closest(CAPTCHA_CSS_SELECTOR)) return true; } catch (e) {}
         if (el.tagName === 'IFRAME') { const src = el.src || ''; if (src.includes('challenges.cloudflare.com') || src.includes('hcaptcha.com') || src.includes('recaptcha')) return true; }
@@ -852,8 +870,7 @@ nav[aria-live="polite"][role="navigation"] div[role="tab"]{background-color:tran
 
         function collapsePanel() {
             panel.style.display = 'none'; advPanel.style.display = 'none'; advBtn.textContent = '⚙️ 高级设置 ▼';
-            if (protectTimer) clearTimeout(protectTimer); panel.style.pointerEvents = ''; panel.style.opacity = ''
-            
+            if (protectTimer) clearTimeout(protectTimer); panel.style.pointerEvents = ''; panel.style.opacity = '';
         }
         _closeFloatPanel = collapsePanel;
 
