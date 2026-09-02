@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         元素隐藏
 // @namespace    http://tampermonkey.net/
-// @version      2.0
+// @version      2.1
 // @description  元素隐藏
 // @author       明明
 // @match        *://*/*
@@ -93,7 +93,16 @@
 
         '.ad-incontent-rectangle',
         '.ad-blank.ad-blank--fullwidth',
-        'div:has(> .ad-blanks-wrapper)'
+        'div:has(> .ad-blanks-wrapper)',
+
+        // 右下角固定广告弹窗（Tailwind class + data-cl-spot）
+        'div[data-cl-spot]',
+        'div:has(> div[data-cl-spot])',
+        'div:has(> div > div > div[data-cl-spot])',
+        'div.fixed.bottom-0.right-0:has(div[data-cl-spot])',
+        'div.fixed.bottom-0.right-0.z-50[style*="backdrop-filter"]',
+        'div.fixed:has(> div.relative > button[aria-label="閉じる"])',
+        'div[class*="w-\\[300px\\]"][class*="h-\\[250px\\]"]:has(> div > div[data-cl-spot])'
     ];
 
     const domainHideSelectors = {
@@ -109,7 +118,13 @@
 
     const removeSelectors = [
         'div[class*="video_content_wrapper"] video',
-        '.n2EyapLU_video_content_wrapper video'
+        '.n2EyapLU_video_content_wrapper video',
+
+        // 右下角固定广告弹窗：先删外层容器，再兜底删残留广告位
+        'div.fixed.bottom-0.right-0:has(div[data-cl-spot])',
+        'div.fixed:has(> div.relative > button[aria-label="閉じる"])',
+        'div[class*="w-\\[300px\\]"][class*="h-\\[250px\\]"]:has(> div > div[data-cl-spot])',
+        'div[data-cl-spot]'
     ];
 
     // 追踪像素域名正则
@@ -155,7 +170,7 @@
     })();
 
     function removeNodes(root = document) {
-        // 删除广告 video
+        // 删除广告 video / 广告容器
         for (const sel of removeSelectors) {
             let nodes;
             try {
@@ -225,8 +240,9 @@
     function runDynamicTasks() {
         removeNodes();
         hideLuckyButton();
-        killGitHubBanners();   
-        
+        killGitHubBanners();
+
+
     }
 
     const DEFAULTS = {
