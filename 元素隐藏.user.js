@@ -12,7 +12,6 @@
 // @grant        GM_xmlhttpRequest
 // @grant        GM_registerMenuCommand
 // @connect      raw.githubusercontent.com
-// @homepageURL  https://elderberryel.github.io/mingming/
 // @updateURL    https://elderberryel.github.io/mingming/%E5%85%83%E7%B4%A0%E9%9A%90%E8%97%8F.user.js
 // @downloadURL  https://elderberryel.github.io/mingming/%E5%85%83%E7%B4%A0%E9%9A%90%E8%97%8F.user.js
 // ==/UserScript==
