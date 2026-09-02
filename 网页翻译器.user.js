@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         网页翻译器 (AI增强版)
 // @description  谷歌/微软/腾讯/DeepSeek/GLM 多引擎翻译，支持双语对照、API配置、配置导入导出
-// @version      9.0
+// @version      2.0
 // @match        *://*/*
 // @grant        GM_xmlhttpRequest
 // @grant        GM_addStyle
@@ -111,6 +111,7 @@
   const MS_BATCH_SIZE = 25;
   const DEFAULT_BATCH_SIZE = 50;
 
+  // 单一状态更新入口
   let statusEl = null;
   function updateStatus(msg) {
     if (statusEl) statusEl.textContent = msg + ' · 缓存: ' + cache.size;
@@ -258,6 +259,7 @@
 
   const cache = new Map(Object.entries(cacheData));
 
+  // 缓存 key 加入引擎 + 目标语言前缀，切换语言/引擎无需清空缓存
   function cacheKey(text) { return currentEngine + '\u0000' + targetLang + '\u0000' + text; }
 
   function cacheGet(text) { return cache.get(cacheKey(text)); }
@@ -272,6 +274,7 @@
     cacheModified = true;
   }
 
+  // 空闲时写入避免卡顿；卸载时同步保存
   function saveCache(immediate) {
     if (!cacheModified) return;
     const doSave = () => {
@@ -346,7 +349,7 @@
         if (r.status !== 200) throw new Error(`${engineName} Error: ${r.status}`);
         const data = JSON.parse(r.responseText);
         if (data.error) throw new Error(`${engineName} API: ${data.error.message}`);
-        
+        // 对解析结果做校验，缺失/空的译文逐条补翻，保证与原文对齐
         const parsed = parseNumberedResponse(data.choices[0].message.content.trim(), batch.length);
         for (let k = 0; k < parsed.length; k++) {
           if (!parsed[k]) {
@@ -680,7 +683,338 @@
     return _langRegex[lang];
   }
 
-  function isTargetLang(text) { if (!text || !text.trim()) return true; const lang = targetLang.split('-')[0]; const re = getLangRegex(lang); return re ? re.test(text.trim()) : false; }
+  function isTargetLang(text) { if (!text || !text.trim()) return true; const lang = targetLang.split('-')[0]; const re = getLangRegex(lang); return re ? re.test(text.trim()) : false; } 
+
+  const PRE_WHITELIST_IDS = new Set(['exifInfo']);
+
+  function isTranslatablePre(el) {
+    return !!el && el.nodeType === Node.ELEMENT_NODE && el.tagName === 'PRE' && !!el.id && PRE_WHITELIST_IDS.has(el.id);
+  }
+
+  const EXIF_KEY_MAP = {
+    ImageWidth: '图像宽度', ImageHeight: '图像高度', ImageLength: '图像高度',
+    ExifImageWidth: 'Exif 图像宽度', ExifImageHeight: 'Exif 图像高度',
+    PixelXDimension: '像素宽度', PixelYDimension: '像素高度',
+    ResolutionUnit: '分辨率单位', XResolution: '水平分辨率', YResolution: '垂直分辨率',
+    FocalPlaneResolutionUnit: '焦平面分辨率单位', FocalPlaneXResolution: '焦平面水平分辨率', FocalPlaneYResolution: '焦平面垂直分辨率',
+    Make: '品牌', Model: '型号', Software: '软件', HostComputer: '设备',
+    LensMake: '镜头品牌', LensModel: '镜头型号', LensInfo: '镜头信息', LensSerialNumber: '镜头序列号',
+    BodySerialNumber: '机身序列号', SerialNumber: '序列号', OwnerName: '所有者', Artist: '作者',
+    Copyright: '版权', ImageDescription: '图像描述', UserComment: '用户备注', ImageUniqueID: '图像唯一标识',
+    Orientation: '方向', YCbCrPositioning: 'YCbCr 定位', YCbCrSubSampling: 'YCbCr 子采样',
+    Compression: '压缩方式', PhotometricInterpretation: '色彩解释', BitsPerSample: '位深',
+    SamplesPerPixel: '每像素采样数', PlanarConfiguration: '平面配置',
+    ModifyDate: '修改时间', CreateDate: '创建时间', DateTimeOriginal: '拍摄时间',
+    DateTimeDigitized: '数字化时间', DateTime: '时间', OffsetTime: '时区偏移',
+    OffsetTimeOriginal: '拍摄时区偏移', OffsetTimeDigitized: '数字化时区偏移',
+    SubSecTime: '亚秒时间', SubSecTimeOriginal: '原始亚秒时间', SubSecTimeDigitized: '数字化亚秒时间',
+    ISO: 'ISO 感光度', ISOSpeedRatings: 'ISO 感光度', PhotographicSensitivity: 'ISO 感光度',
+    SensitivityType: '感光度类型', RecommendedExposureIndex: '推荐曝光指数', StandardOutputSensitivity: '标准输出灵敏度',
+    ExposureTime: '快门速度', ShutterSpeedValue: '快门速度值', FNumber: '光圈',
+    ApertureValue: '光圈值', MaxApertureValue: '最大光圈值', BrightnessValue: '亮度值',
+    ExposureProgram: '曝光程序', ExposureMode: '曝光模式',
+    ExposureCompensation: '曝光补偿', ExposureBiasValue: '曝光补偿',
+    MeteringMode: '测光模式', LightSource: '光源', Flash: '闪光灯', FlashEnergy: '闪光强度',
+    WhiteBalance: '白平衡', FocalLength: '焦距', FocalLengthIn35mmFormat: '等效 35mm 焦距',
+    DigitalZoomRatio: '数码变焦倍数', SensingMethod: '感光元件类型', FileSource: '文件来源',
+    SceneType: '场景类型', SceneCaptureType: '场景拍摄类型', CustomRendered: '自定义渲染',
+    GainControl: '增益控制', Contrast: '对比度', Saturation: '饱和度', Sharpness: '锐度',
+    SubjectDistance: '主体距离', SubjectDistanceRange: '主体距离范围', SubjectArea: '主体区域',
+    ColorSpace: '色彩空间', ComponentsConfiguration: '分量配置', CompressedBitsPerPixel: '每像素压缩位数',
+    ExifVersion: 'Exif 版本', FlashpixVersion: 'Flashpix 版本', InteropIndex: '互操作索引', InteropVersion: '互操作版本',
+    ThumbnailOffset: '缩略图偏移', ThumbnailLength: '缩略图大小',
+    GPSVersionID: 'GPS 版本', GPSLatitude: 'GPS 纬度', GPSLatitudeRef: 'GPS 纬度基准',
+    GPSLongitude: 'GPS 经度', GPSLongitudeRef: 'GPS 经度基准',
+    GPSAltitude: 'GPS 海拔', GPSAltitudeRef: 'GPS 海拔基准',
+    GPSTimeStamp: 'GPS 时间戳', GPSDateStamp: 'GPS 日期', GPSProcessingMethod: 'GPS 定位方式',
+    GPSMapDatum: 'GPS 大地基准', GPSSpeed: 'GPS 速度', GPSSpeedRef: 'GPS 速度单位',
+    GPSTrack: 'GPS 航向', GPSTrackRef: 'GPS 航向基准', GPSImgDirection: 'GPS 拍摄方向',
+    GPSImgDirectionRef: 'GPS 拍摄方向基准', GPSDOP: 'GPS 精度因子', GPSSatellites: 'GPS 卫星数',
+    GPSStatus: 'GPS 状态', GPSMeasureMode: 'GPS 测量模式',
+    latitude: '纬度', longitude: '经度', altitude: '海拔'
+  };
+
+  const EXIF_KEEP_VALUE_KEYS = new Set([
+    'Make', 'Model', 'Software', 'HostComputer', 'LensMake', 'LensModel', 'LensInfo',
+    'LensSerialNumber', 'BodySerialNumber', 'SerialNumber', 'OwnerName', 'Artist',
+    'Copyright', 'ImageUniqueID', 'InteropIndex', 'InteropVersion',
+    'ExifVersion', 'FlashpixVersion', 'GPSVersionID', 'GPSProcessingMethod',
+    'ComponentsConfiguration', 'GPSMapDatum', 'GPSSatellites'
+  ]);
+
+  // 枚举值词典，键为规范化后的小写形式
+  const EXIF_VALUE_MAP = {
+    'inches': '英寸', 'inch': '英寸', 'cm': '厘米', 'centimeters': '厘米', 'centimeter': '厘米',
+    'none': '无', 'unknown': '未知', 'not defined': '未定义', 'undefined': '未定义',
+    'auto': '自动', 'manual': '手动', 'normal': '标准', 'standard': '标准',
+    'low': '低', 'high': '高', 'soft': '柔和', 'hard': '强烈',
+    'off': '关闭', 'on': '开启', 'yes': '是', 'no': '否', 'other': '其他',
+    'normal program': '标准程序', 'program ae': '程序自动', 'program': '程序自动',
+    'aperture-priority ae': '光圈优先', 'aperture priority': '光圈优先',
+    'shutter speed priority ae': '快门优先', 'shutter priority': '快门优先',
+    'manual exposure': '手动曝光', 'bulb': 'B 门',
+    'creative (slow speed)': '创意（慢速）', 'action (high speed)': '运动（高速）',
+    'portrait': '人像', 'portrait mode': '人像模式', 'landscape': '风景', 'landscape mode': '风景模式',
+    'one-chip color area sensor': '单芯片彩色区域传感器',
+    'two-chip color area sensor': '双芯片彩色区域传感器',
+    'three-chip color area sensor': '三芯片彩色区域传感器',
+    'color sequential area sensor': '色彩顺序区域传感器',
+    'color sequential linear sensor': '色彩顺序线性传感器',
+    'trilinear sensor': '三线性传感器',
+    'monochrome area sensor': '单色区域传感器', 'monochrome linear sensor': '单色线性传感器',
+    'centerweightedaverage': '中央重点测光', 'center-weighted average': '中央重点测光',
+    'center weighted average': '中央重点测光', 'average': '平均测光',
+    'spot': '点测光', 'multispot': '多点测光', 'multi-spot': '多点测光',
+    'pattern': '分区测光', 'multi-segment': '分区测光', 'partial': '部分测光',
+    'directly photographed': '直接拍摄', 'not a directly photographed image': '非直接拍摄图像',
+    'digital still camera': '数码相机', 'film scanner': '胶片扫描仪', 'reflection print scanner': '反射稿扫描仪',
+    'flash did not fire': '未闪光',
+    'flash did not fire, compulsory flash mode': '未闪光（强制闪光模式）',
+    'flash did not fire, auto mode': '未闪光（自动模式）',
+    'flash did not fire, compulsory flash suppression': '未闪光（强制关闭闪光）',
+    'no flash function': '无闪光功能',
+    'flash fired': '已闪光',
+    'flash fired, compulsory flash mode': '已闪光（强制闪光模式）',
+    'flash fired, auto mode': '已闪光（自动模式）',
+    'flash fired, red-eye reduction': '已闪光（防红眼）',
+    'off, did not fire': '关闭，未闪光', 'on, fired': '开启，已闪光',
+    'auto, did not fire': '自动，未闪光', 'auto, fired': '自动，已闪光',
+    'daylight': '日光', 'fine weather': '晴天', 'cloudy weather': '阴天', 'cloudy': '阴天',
+    'shade': '阴影', 'shadow': '阴影', 'fluorescent': '荧光灯',
+    'daylight fluorescent': '日光型荧光灯', 'day white fluorescent': '中性白荧光灯',
+    'cool white fluorescent': '冷白荧光灯', 'white fluorescent': '白色荧光灯',
+    'warm white fluorescent': '暖白荧光灯',
+    'tungsten': '白炽灯', 'tungsten (incandescent light)': '白炽灯',
+    'flash': '闪光灯', 'standard light a': '标准光源 A', 'standard light b': '标准光源 B',
+    'standard light c': '标准光源 C', 'iso studio tungsten': 'ISO 影棚白炽灯',
+    'other light source': '其他光源',
+    'srgb': 'sRGB', 'uncalibrated': '未校准', 'adobe rgb': 'Adobe RGB',
+    'auto white balance': '自动白平衡', 'manual white balance': '手动白平衡',
+    'horizontal (normal)': '水平（正常）', 'rotate 90 cw': '顺时针旋转 90°',
+    'rotate 180': '旋转 180°', 'rotate 270 cw': '顺时针旋转 270°',
+    'mirror horizontal': '水平镜像', 'mirror vertical': '垂直镜像',
+    'mirror horizontal and rotate 90 cw': '水平镜像并顺时针旋转 90°',
+    'mirror horizontal and rotate 270 cw': '水平镜像并顺时针旋转 270°',
+    'night scene': '夜景', 'close view': '近景', 'distant view': '远景', 'macro': '微距',
+    'no gain': '无增益', 'low gain up': '低增益提升', 'high gain up': '高增益提升',
+    'low gain down': '低增益降低', 'high gain down': '高增益降低',
+    'normal process': '标准处理', 'custom process': '自定义处理',
+    'above sea level': '海平面以上', 'below sea level': '海平面以下',
+    'measurement in progress': '测量中', 'measurement interoperability': '测量有效',
+    '2-dimensional measurement': '二维测量', '3-dimensional measurement': '三维测量',
+    'km/h': '公里/小时', 'mph': '英里/小时', 'knots': '节',
+    'magnetic north': '磁北', 'true north': '真北',
+    'north': '北', 'south': '南', 'east': '东', 'west': '西'
+  };
+
+  const HAS_LATIN_WORD = /\p{Script=Latin}{2,}/u;
+
+  // Date.prototype.toString 风格（Sun Jul 19 2026 ...）与 ISO 风格
+  const DATE_TOSTRING_RE = /^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2}\s+\d{4}\b/;
+  const DATE_ISO_RE = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2})?/;
+
+  function localizeDateValue(value) {
+    if (!DATE_TOSTRING_RE.test(value) && !DATE_ISO_RE.test(value)) return null;
+    const d = new Date(value);
+    if (isNaN(d.getTime())) return null;
+    try {
+      const s = new Intl.DateTimeFormat(targetLang, {
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', second: '2-digit',
+        hour12: false, timeZoneName: 'short'
+      }).format(d);
+      return s === value ? null : s;
+    } catch (_) { return null; }
+  }
+
+  function normalizeExifValue(v) { return v.trim().toLowerCase().replace(/\s+/g, ' '); }
+  function exifDictEnabled() { return targetLang === 'zh-CN' || targetLang === 'zh'; }
+
+  function lookupExifKey(key) {
+    if (!exifDictEnabled()) return null;
+    if (Object.prototype.hasOwnProperty.call(EXIF_KEY_MAP, key)) return EXIF_KEY_MAP[key];
+    const lower = key.toLowerCase();
+    for (const k in EXIF_KEY_MAP) { if (k.toLowerCase() === lower) return EXIF_KEY_MAP[k]; }
+    return null;
+  }
+
+  function lookupExifValue(value) {
+    if (!exifDictEnabled()) return null;
+    const norm = normalizeExifValue(value);
+    return Object.prototype.hasOwnProperty.call(EXIF_VALUE_MAP, norm) ? EXIF_VALUE_MAP[norm] : null;
+  }
+
+  const EXIF_KV_RE = /^([^:：]+)([:：][ \t]*)([\s\S]*)$/;
+
+  function splitIndent(line) {
+    const m = line.match(/^([ \t]*)([\s\S]*?)([ \t]*)$/);
+    return { prefix: m[1], core: m[2], suffix: m[3] };
+  }
+
+  // token: {lit:'...'} 字面量 | {src:'...', out:null} 待引擎翻译
+  // 返回 null 表示整行无需改动
+  function planExifLine(line) {
+    const { prefix, core, suffix } = splitIndent(line);
+    if (!core) return null;
+
+    const kv = core.match(EXIF_KV_RE);
+    const tokens = [];
+    let localChanged = false, pending = 0;
+
+    if (!kv) {
+    	
+      if (!HAS_LATIN_WORD.test(core) || isTargetLang(core)) return null;
+      tokens.push({ src: core, out: null });
+      return { prefix, suffix, tokens };
+    }
+
+    const rawKey = kv[1], sep = kv[2], rawValue = kv[3];
+
+    // --- 键 ---
+    let keyTranslatedLocally = false, keyIsForeign = false;
+    if (!HAS_LATIN_WORD.test(rawKey) || isTargetLang(rawKey)) {
+      tokens.push({ lit: rawKey });
+    } else {
+      keyIsForeign = true;
+      const mapped = lookupExifKey(rawKey.trim());
+      if (mapped) {
+        tokens.push({ lit: rawKey.replace(rawKey.trim(), mapped) });
+        localChanged = true; keyTranslatedLocally = true;
+      } else {
+        tokens.push({ src: rawKey, out: null });
+        pending++;
+      }
+    }
+
+    tokens.push({ lit: sep });
+
+    // --- 值 ---
+    const dateStr = localizeDateValue(rawValue.trim());
+    const dictStr = dateStr ? null : lookupExifValue(rawValue);
+
+    if (dateStr) {
+      tokens.push({ lit: rawValue.replace(rawValue.trim(), dateStr) });
+      localChanged = true;
+    } else if (dictStr && dictStr !== rawValue.trim()) {
+      tokens.push({ lit: rawValue.replace(rawValue.trim(), dictStr) });
+      localChanged = true;
+    } else if (
+      EXIF_KEEP_VALUE_KEYS.has(rawKey.trim()) ||          // 品牌/软件/序列号等专有名词
+      !HAS_LATIN_WORD.test(rawValue) ||                    // 纯数字、坐标、时间戳、版本号
+      !/\s/.test(rawValue.trim()) ||                       // 单词元（Exifr / D65 / R98 / vivo）
+      !keyIsForeign                                        // 键已是目标语言 → 页面已本地化，保守保留
+    ) {
+      tokens.push({ lit: rawValue });
+    } else {
+      tokens.push({ src: rawValue, out: null });
+      pending++;
+    }
+
+    if (!localChanged && pending === 0) return null;
+    void keyTranslatedLocally;
+    return { prefix, suffix, tokens };
+  }
+
+  function renderExifPlan(plan) {
+    let out = '';
+    for (const t of plan.tokens) {
+      out += (t.src !== undefined) ? (t.out !== null && t.out !== undefined ? t.out : t.src) : t.lit;
+    }
+    return plan.prefix + out + plan.suffix;
+  }
+
+  let suppressMutations = false;
+
+  function applyExifJob(job) {
+    const lines = job.original.split('\n');
+    for (let i = 0; i < job.plans.length; i++) {
+      const plan = job.plans[i];
+      if (plan) lines[i] = renderExifPlan(plan);
+    }
+    const rendered = lines.join('\n');
+    if (rendered === job.original) return false;
+
+    const node = job.node, parent = node.parentElement;
+    if (!parent) return false;
+
+    if (node._tuOriginalText === undefined) node._tuOriginalText = job.original;
+    translatedNodes.add(node);
+
+    suppressMutations = true;
+    try {
+      if (displayMode === 'bilingual') {
+        let el = node._tuBiEl;
+        if (!el || !el.isConnected) {
+          el = document.createElement('span');
+          el.className = 'tu-bi';
+          node._tuBiEl = el;
+          if (node.nextSibling) parent.insertBefore(el, node.nextSibling); else parent.appendChild(el);
+        }
+        el.textContent = '\n' + rendered;
+      } else {
+        node.textContent = rendered;
+      }
+    } finally {
+      suppressMutations = false;
+    }
+    return true;
+  }
+
+  async function processExifPre(pre) {
+    if (!pre || !pre.isConnected) return;
+    if (displayMode === 'original') return;
+
+    const jobs = [];
+    const walker = document.createTreeWalker(pre, NodeFilter.SHOW_TEXT, null);
+    while (walker.nextNode()) {
+      const node = walker.currentNode;
+      const parent = node.parentElement;
+      if (parent && parent.classList && parent.classList.contains('tu-bi')) continue;
+
+      // 始终以原文为基准重新规划，二次写回不会叠加
+      const original = node._tuOriginalText !== undefined ? node._tuOriginalText : node.textContent;
+      if (!original || original.indexOf('\n') === -1 && !HAS_LATIN_WORD.test(original)) continue;
+
+      const lines = original.split('\n');
+      const plans = lines.map(planExifLine);
+      if (!plans.some(Boolean)) continue;
+      jobs.push({ node, original, lines, plans });
+    }
+    if (jobs.length === 0) return;
+
+    // 第一遍：本地词典 + 日期本地化，立即写回，不依赖网络
+    for (const job of jobs) applyExifJob(job);
+
+    // 第二遍：词典未覆盖的片段交给翻译引擎
+    const texts = [], metas = [];
+    for (const job of jobs) {
+      for (const plan of job.plans) {
+        if (!plan) continue;
+        for (const t of plan.tokens) {
+          if (t.src !== undefined && (t.out === null || t.out === undefined)) { texts.push(t.src); metas.push(t); }
+        }
+      }
+    }
+    if (texts.length === 0) return;
+
+    const results = await batchTranslate(texts);
+    let any = false;
+    for (let i = 0; i < metas.length; i++) {
+      if (results[i]) { metas[i].out = results[i]; any = true; }
+    }
+    if (!any) return;
+    for (const job of jobs) applyExifJob(job);
+  }
+
+  function collectExifPres(root) {
+    const out = [];
+    if (!root || root.nodeType !== Node.ELEMENT_NODE) return out;
+    if (isTranslatablePre(root)) out.push(root);
+    if (root.querySelectorAll) {
+      for (const el of root.querySelectorAll('pre')) { if (isTranslatablePre(el)) out.push(el); }
+    }
+    return out;
+  }
 
   function collectTextNodes(root) {
     const nodes = [];
@@ -704,6 +1038,7 @@
   const pendingQueue = [];
   let processTimer = null;
 
+  // 跟踪已翻译节点/元素，还原时无需全树扫描
   const translatedNodes = new Set();
   const translatedElements = new Set();
 
@@ -741,13 +1076,16 @@
       const meta = metas[i];
       if (meta.type === 'text') {
         const parent = meta.node.parentElement; if (!parent || meta.node._tuTranslated) continue;
-        if (!meta.node._tuOriginalText) meta.node._tuOriginalText = meta.node.textContent;
+        if (meta.node._tuOriginalText === undefined) meta.node._tuOriginalText = meta.node.textContent;
         meta.node._tuTranslated = true;
         translatedNodes.add(meta.node);
-        if (displayMode === 'bilingual') {
-          const s = document.createElement('span'); s.className = 'tu-bi'; s.textContent = results[i];
-          if (meta.node.nextSibling) parent.insertBefore(s, meta.node.nextSibling); else parent.appendChild(s);
-        } else { meta.node.textContent = results[i]; }
+        suppressMutations = true;
+        try {
+          if (displayMode === 'bilingual') {
+            const s = document.createElement('span'); s.className = 'tu-bi'; s.textContent = results[i];
+            if (meta.node.nextSibling) parent.insertBefore(s, meta.node.nextSibling); else parent.appendChild(s);
+          } else { meta.node.textContent = results[i]; }
+        } finally { suppressMutations = false; }
       } else {
         if (meta.el.dataset.translated) continue;
         meta.el.dataset.originalPlaceholder = meta.el.placeholder; meta.el.placeholder = results[i]; meta.el.dataset.translated = '1';
@@ -758,6 +1096,10 @@
 
   function scanAndObserve(root) {
     if (!visibilityObserver) initObserver();
+
+    // EXIF 块不走可见性队列，直接处理，避免时序问题导致被静默跳过
+    collectExifPres(root).forEach(pre => { processExifPre(pre).catch(e => console.warn('[EXIF]', e)); });
+
     const nodes = collectTextNodes(root);
     const parents = new Set();
     nodes.forEach(node => { const p = node.parentElement; if (p) parents.add(p); });
@@ -769,14 +1111,19 @@
     if (visibilityObserver) { visibilityObserver.disconnect(); visibilityObserver = null; }
     pendingQueue.length = 0;
     if (processTimer) { clearTimeout(processTimer); processTimer = null; }
-    document.querySelectorAll('.tu-bi').forEach(el => el.remove());
+    suppressMutations = true;
+    try {
+      document.querySelectorAll('.tu-bi').forEach(el => el.remove());
 
-    translatedNodes.forEach(node => {
-      if (node._tuOriginalText !== undefined) {
-        try { node.textContent = node._tuOriginalText; } catch (_) {}
-        node._tuTranslated = false; delete node._tuOriginalText;
-      }
-    });
+      translatedNodes.forEach(node => {
+        if (node._tuOriginalText !== undefined) {
+          try { node.textContent = node._tuOriginalText; } catch (_) {}
+          node._tuTranslated = false;
+          delete node._tuOriginalText;
+          delete node._tuBiEl;
+        }
+      });
+    } finally { suppressMutations = false; }
     translatedNodes.clear();
     translatedElements.forEach(el => {
       if (el.dataset && el.dataset.originalPlaceholder) { el.placeholder = el.dataset.originalPlaceholder; delete el.dataset.originalPlaceholder; }
@@ -792,17 +1139,36 @@
   function initMutationObserver() {
     if (mutationObserver) mutationObserver.disconnect();
     mutationObserver = new MutationObserver((mutations) => {
-      if (!autoMode) return;
-      for (const m of mutations) { for (const node of m.addedNodes) { if (node.nodeType === Node.ELEMENT_NODE && !shouldSkip(node)) { pendingMutationRoots.add(node); } } }
+      if (!autoMode || suppressMutations) return;
+      for (const m of mutations) {
+
+        if (m.type === 'characterData') {
+          const p = m.target.parentElement;
+          if (p && isTranslatablePre(p)) pendingMutationRoots.add(p);
+          continue;
+        }
+        for (const node of m.addedNodes) {
+          if (node.nodeType === Node.ELEMENT_NODE) {
+            if (isTranslatablePre(node) || !shouldSkip(node)) pendingMutationRoots.add(node);
+          } else if (node.nodeType === Node.TEXT_NODE) {
+            // pre.textContent = '...' 只会新增文本节点，此前这里被整个漏掉
+            const p = node.parentElement;
+            if (p && isTranslatablePre(p)) pendingMutationRoots.add(p);
+          }
+        }
+      }
       if (pendingMutationRoots.size > 0 && !mutationRafId) {
         mutationRafId = setTimeout(() => {
           mutationRafId = null;
           const roots = [...pendingMutationRoots]; pendingMutationRoots.clear();
-          if (roots.length > 5) scanAndObserve(document.body); else roots.forEach(r => scanAndObserve(r));
+          const pres = roots.filter(isTranslatablePre);
+          const others = roots.filter(r => !isTranslatablePre(r));
+          pres.forEach(p => { processExifPre(p).catch(e => console.warn('[EXIF]', e)); });
+          if (others.length > 5) scanAndObserve(document.body); else others.forEach(r => scanAndObserve(r));
         }, 200);
       }
     });
-    mutationObserver.observe(document.body, { childList: true, subtree: true });
+    mutationObserver.observe(document.body, { childList: true, subtree: true, characterData: true });
   }
 
   function buildLangOptions() {
@@ -897,6 +1263,7 @@
       delete el.dataset.translated;
     });
 
+    // 只在保存的引擎需要自动探测时才探测，保留用户手动选择
     if (_engine === 'microsoft' || _engine === 'google') {
       currentEngine = await detectEngineAuto();
     } else {
@@ -940,6 +1307,8 @@
         a .tu-bi, span .tu-bi, em .tu-bi, strong .tu-bi, b .tu-bi, i .tu-bi, label .tu-bi, small .tu-bi, sub .tu-bi, sup .tu-bi, u .tu-bi{display:inline;border-left:none;padding-left:0;margin-top:0;margin-left:5px;font-size:0.88em}
         a .tu-bi::before, span .tu-bi::before, em .tu-bi::before, strong .tu-bi::before, b .tu-bi::before, i .tu-bi::before, label .tu-bi::before, small .tu-bi::before, sub .tu-bi::before, sup .tu-bi::before, u .tu-bi::before{content:"("}
         a .tu-bi::after, span .tu-bi::after, em .tu-bi::after, strong .tu-bi::after, b .tu-bi::after, i .tu-bi::after, label .tu-bi::after, small .tu-bi::after, sub .tu-bi::after, sup .tu-bi::after, u .tu-bi::after{content:")"}
+        pre .tu-bi{display:block;border-left:2px solid #5a7cbf;padding-left:8px;margin-top:0;font-size:1em}
+        pre .tu-bi::before, pre .tu-bi::after{content:none}
         .tu-panel::-webkit-scrollbar{width:5px}
         .tu-panel::-webkit-scrollbar-track{background:#1e222a;border-radius:10px}
         .tu-panel::-webkit-scrollbar-thumb{background:#525c72;border-radius:10px}
