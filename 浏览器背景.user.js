@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         浏览器背景
-// @version      5.2
+// @version      5.3
 // @description  浏览器背景
 // @author       明明
 // @match        *://*/*
@@ -88,10 +88,30 @@
         saveGMBackup(cacheKey, imageDataUrl); if (originalFilename) saveOriginalFilename(cacheKey, originalFilename); return cacheKey;
     }
     function saveGMBackup(key, dataUrl) { try { setValue(GM_BACKUP_PREFIX + key, dataUrl); } catch (e) {} }
+
     async function getImage(key) {
-        if (CACHE_AVAILABLE) { try { const cache = await caches.open(CACHE_NAME); const response = await cache.match(new Request('/' + key)); if (response) return URL.createObjectURL(await response.blob()); } catch (e) {} }
-        const backup = getValue(GM_BACKUP_PREFIX + key, ''); return (backup && backup.startsWith('data:image/')) ? backup : null;
+        if (CACHE_AVAILABLE) {
+            try {
+                const cache = await caches.open(CACHE_NAME);
+                const response = await cache.match(new Request('/' + key));
+                if (response) return URL.createObjectURL(await response.blob());
+            } catch (e) {}
+        }
+        const backup = getValue(GM_BACKUP_PREFIX + key, '');
+        if (backup && backup.startsWith('data:image/')) {
+            // 有站点会在加载时清空 Cache Storage，这里从 GM 备份回写一份
+            if (CACHE_AVAILABLE) {
+                try {
+                    const cache = await caches.open(CACHE_NAME);
+                    const blob = dataUrlToBlob(backup);
+                    await cache.put(new Request('/' + key), new Response(blob, { headers: { 'Content-Type': blob.type || 'image/jpeg' } }));
+                } catch (e) {}
+            }
+            return backup;
+        }
+        return null;
     }
+
     async function deleteImage(key) {
         if (CACHE_AVAILABLE) { try { await caches.open(CACHE_NAME).then(c => c.delete(new Request('/' + key))); } catch (e) {} }
         try { GM_deleteValue(GM_BACKUP_PREFIX + key); } catch (e) {} deleteFilenameRecord(key);
@@ -188,6 +208,21 @@ td,th,thead,tbody,tfoot,.rounded-top-2,.rounded-bottom-2,.rounded-2{background:t
 .GlobalNav,.UnderlineNav,.LocalNavigation,[class*="UnderlineNav"],[class*="GlobalNav"]{backdrop-filter:none!important;-webkit-backdrop-filter:none!important;}`;
     }
 
+    // 高特异性根容器加固：压过站点 #root / html.dark body 这类带 !important 的实色背景
+    function getRootHardenCSS() {
+        return `
+html:root,html:root body,html:root #root,html:root #app,html:root #__next,html:root #root>div{
+  background:transparent!important;background-color:transparent!important;background-image:none!important;
+}
+html:root,html:root .dark,html:root [data-theme]{
+  --background:transparent!important;--card:transparent!important;--popover:transparent!important;
+  --sidebar:transparent!important;--color-background:transparent!important;--color-card:transparent!important;
+  --color-popover:transparent!important;--color-sidebar:transparent!important;
+}
+[data-slot^="sidebar"]{background:transparent!important;background-color:transparent!important;
+  backdrop-filter:none!important;-webkit-backdrop-filter:none!important;box-shadow:none!important;}`;
+    }
+
     function getThemeCSS(theme) {
         if (theme === 1) return `input:not(.translate-ui input),div,font,h1,h2,h3,h4,h5,h6,p,li,span:not(.tu-bi),label,strong,em{color:#ddd!important;} a:not([style]){color:#98DD98!important;} textarea,pre,code{color:#fff!important;}`;
         return `input:not(.translate-ui input),div,h1,h2,h3,h4,h5,h6,p,li,span:not(.tu-bi),label,strong,em{color:#222!important;} a:not([style]){color:#98DD98!important;} textarea,pre,code{color:#000!important;}`;
@@ -234,7 +269,8 @@ input:not(.translate-ui input),textarea,select,[type="text"],[type="search"],[ty
   box-shadow:none!important;
   border-color:${xDropdownBorder}!important;
 }
-button:hover,[role="option"]:hover,div[class*="suggest"] li:hover,div[class*="suggest"] div:hover,[id*="search-result"] .search-result:hover,[id*="search-result"] a:hover{background-color:${xHoverBg}!important;}`;
+button:hover,[role="option"]:hover,div[class*="suggest"] li:hover,div[class*="suggest"] div:hover,[id*="search-result"] .search-result:hover,[id*="search-result"] a:hover{background-color:${xHoverBg}!important;}
+[data-slot^="sidebar"]{background:transparent!important;background-color:transparent!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;box-shadow:none!important;}`;
     }
 
     function getMobileBarCSS() {
@@ -423,11 +459,15 @@ nav[aria-live="polite"][role="navigation"] div[role="tab"]{background-color:tran
             + getMobileBarCSS();
         if (isXSite()) css += getXSpecificCSS();
         if (isTiebaSite()) css += getTiebaCSS();
+        css += getRootHardenCSS();
         return css;
     }
 
     function isExcludedElement(el) {
         if (!el || !el.nodeType) return false;
+        // shadcn/ui sidebar 全家桶：走通用透明规则，不做弹层增强
+        const _slot = el.getAttribute && el.getAttribute('data-slot');
+        if (_slot && _slot.indexOf('sidebar') === 0) return true;
         if (el.id === 'goTopBottom' || el.id === 'tbSettingsBtn' || el.id === 'tbSettingsPanel') return true;
         if (el.classList && (el.classList.contains('tb-settings-btn') || el.classList.contains('tb-settings-panel'))) return true;
         if (el.classList && el.classList.contains('translate-ui')) return true;
@@ -449,7 +489,34 @@ nav[aria-live="polite"][role="navigation"] div[role="tab"]{background-color:tran
         (document.head || document.documentElement).appendChild(s); cachedNativeBlurStyle = s;
     }
 
-    function ensureStyleNode() { if (cachedStyleNode && document.contains(cachedStyleNode)) return cachedStyleNode; let s = document.getElementById(STYLE_ID); if (!s) { s = document.createElement('style'); s.id = STYLE_ID; (document.head || document.documentElement).appendChild(s); } cachedStyleNode = s; return s; }
+    function styleFollowedBySiteSheet(node) {
+        let sib = node.nextSibling;
+        while (sib) {
+            if (sib.nodeType === 1) {
+                const tag = sib.tagName;
+                if (tag === 'LINK' && (sib.getAttribute('rel') || '').toLowerCase().indexOf('stylesheet') > -1) return true;
+                if (tag === 'STYLE' && sib.id !== NATIVE_BLUR_STYLE_ID) return true;
+            }
+            sib = sib.nextSibling;
+        }
+        return false;
+    }
+
+    function ensureStyleNode() {
+        let s = cachedStyleNode;
+        if (!s || !document.contains(s)) {
+            s = document.getElementById(STYLE_ID);
+            if (!s) { s = document.createElement('style'); s.id = STYLE_ID; }
+            (document.head || document.documentElement).appendChild(s);
+            cachedStyleNode = s;
+            return s;
+        }
+        // document-start 注入时 head 为空，站点样式表随后才排到我们后面；
+        // 同特异性 + 同为 !important 时后者胜，所以必须保持在末尾
+        if (styleFollowedBySiteSheet(s)) (document.head || document.documentElement).appendChild(s);
+        return s;
+    }
+
     function removeStyle() { const s = cachedStyleNode || document.getElementById(STYLE_ID); if (s) { s.remove(); cachedStyleNode = null; } const nb = cachedNativeBlurStyle || document.getElementById(NATIVE_BLUR_STYLE_ID); if (nb) { nb.remove(); cachedNativeBlurStyle = null; } }
 
     async function preloadImage() {
