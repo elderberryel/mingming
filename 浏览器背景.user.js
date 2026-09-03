@@ -1,6 +1,7 @@
 // ==UserScript==
 // @name         浏览器背景
-// @version      5.3
+// @namespace    明明
+// @version      5.5
 // @description  浏览器背景
 // @author       明明
 // @match        *://*/*
@@ -43,11 +44,13 @@
     const STYLE_ID = 'vie-browser-bg-style-v89', FLOAT_ID = 'vie-browser-bg-float-v89', NATIVE_BLUR_STYLE_ID = 'vie-browser-bg-native-blur-style-v89';
     const CACHE_NAME = 'vie-browser-bg-images-v1', CACHE_PREFIX = '[cache:local]', GM_BACKUP_PREFIX = 'Vie背景图片备份_', GM_FILENAME_MAP = 'Vie背景图片文件名映射';
     const COMPRESS_THRESHOLD = 1000 * 1024, COMPRESS_TARGET = 1000 * 1024, MAX_IMAGE_WIDTH = 1600, MAX_IMAGE_HEIGHT = 2560, MAX_FILE_SIZE = 15 * 1024 * 1024;
+    // 图片就位前 / 解码期间的兜底底色，避免露出站点或 UA 的白底
+    const SKELETON_BG = '#999999';
 
     let cachedStyleNode = null, cachedFloatNode = null, cachedNativeBlurStyle = null;
     const overlayMarked = new WeakSet(), overlayLastApplied = new WeakMap();
     let overlayRafPending = false, overlayScanTimer = null, _liveOverlayBlur = null, _liveOverlayAlpha = null, floatShouldExist = false, _livePreviewConfig = null;
-    let captchaActive = false;
+    let captchaActive = false, _captchaEnterTimer = null;
 
     const CAPTCHA_SELECTORS = ['iframe[src*="challenges.cloudflare.com"]', 'iframe[src*="hcaptcha.com"]', 'iframe[src*="recaptcha.net"]', 'iframe[src*="recaptcha"]', '.cf-turnstile', '.h-captcha', '.g-recaptcha'];
     const CAPTCHA_CSS_SELECTOR = CAPTCHA_SELECTORS.join(',');
@@ -55,7 +58,7 @@
     const SPA_WHITELIST = ['pixiv.net', 'twitter.com', 'x.com', 'fanbox.cc'];
 
     let configCache = null, configCacheTime = 0; const CONFIG_CACHE_TTL = 500;
-    let _currentImageUrl = null, _currentObjectUrl = null, _imageReady = false, _imageReadyCallbacks = [];
+    let _currentImageUrl = null, _currentObjectUrl = null, _currentCacheKey = null, _imageReady = false, _imageReadyCallbacks = [];
 
     function invalidateConfig() { configCache = null; configCacheTime = 0; }
 
@@ -187,9 +190,10 @@
     function getBackgroundCSS(cfg, finalUrl) {
         const darkMask = clamp(1 - cfg.opacity, 0, 0.9);
         const imgUrl = finalUrl || '';
+        // background-color 垫在所有 background-image 之下，图片解码完成前显示它而不是白底
         let bgCss = imgUrl
-            ? `html::before{content:""!important;position:fixed!important;inset:0!important;z-index:-2147483647!important;pointer-events:none!important;background-image:linear-gradient(rgba(0,0,0,${darkMask}),rgba(0,0,0,${darkMask})),url("${imgUrl}")!important;background-repeat:no-repeat!important;background-position:center!important;background-size:100% 100%,cover!important;opacity:1!important;filter:blur(${cfg.blur}px)!important;transform:translateZ(0)!important;}`
-            : `html::before{content:""!important;position:fixed!important;inset:0!important;z-index:-2147483647!important;pointer-events:none!important;background:transparent!important;opacity:0!important;}`;
+            ? `html::before{content:""!important;position:fixed!important;inset:0!important;z-index:-2147483647!important;pointer-events:none!important;background-color:${SKELETON_BG}!important;background-image:linear-gradient(rgba(0,0,0,${darkMask}),rgba(0,0,0,${darkMask})),url("${imgUrl}")!important;background-repeat:no-repeat!important;background-position:center!important;background-size:100% 100%,cover!important;opacity:1!important;filter:blur(${cfg.blur}px)!important;transform:translateZ(0)!important;}`
+            : `html::before{content:""!important;position:fixed!important;inset:0!important;z-index:-2147483647!important;pointer-events:none!important;background:${SKELETON_BG}!important;background-image:none!important;opacity:1!important;filter:blur(${cfg.blur}px)!important;transform:translateZ(0)!important;}`;
         return `html,body{background:transparent!important;background-color:transparent!important;background-image:none!important;}
 #bgCanvas{display:none!important;}
 ${bgCss}
@@ -208,7 +212,6 @@ td,th,thead,tbody,tfoot,.rounded-top-2,.rounded-bottom-2,.rounded-2{background:t
 .GlobalNav,.UnderlineNav,.LocalNavigation,[class*="UnderlineNav"],[class*="GlobalNav"]{backdrop-filter:none!important;-webkit-backdrop-filter:none!important;}`;
     }
 
-    // 高特异性根容器加固：压过站点 #root / html.dark body 这类带 !important 的实色背景
     function getRootHardenCSS() {
         return `
 html:root,html:root body,html:root #root,html:root #app,html:root #__next,html:root #root>div{
@@ -221,6 +224,21 @@ html:root,html:root .dark,html:root [data-theme]{
 }
 [data-slot^="sidebar"]{background:transparent!important;background-color:transparent!important;
   backdrop-filter:none!important;-webkit-backdrop-filter:none!important;box-shadow:none!important;}`;
+    }
+
+    function getSkeletonCSS(cfg) {
+        return `html,body{background:transparent!important;background-color:transparent!important;background-image:none!important;}
+html::before{content:""!important;position:fixed!important;inset:0!important;z-index:-2147483647!important;pointer-events:none!important;background:${SKELETON_BG}!important;opacity:1!important;filter:blur(${cfg.blur}px)!important;transform:translateZ(0)!important;}`
+            + getRootHardenCSS();
+    }
+
+    function applySkeletonStyle() {
+        if (captchaActive) return;
+        const cfg = mergeConfig(getHost());
+        if (!cfg.enabled) return;
+        const s = ensureStyleNode();
+        if (s.textContent) return;
+        s.textContent = getSkeletonCSS(cfg);
     }
 
     function getThemeCSS(theme) {
@@ -481,12 +499,17 @@ nav[aria-live="polite"][role="navigation"] div[role="tab"]{background-color:tran
         return false;
     }
 
+    // 复用节点、只在内容变化时改 textContent：反复 remove + create 会让弹层玻璃效果一闪
     function applyNativeBlur(blurAmount, theme) {
-        const old = cachedNativeBlurStyle || document.getElementById(NATIVE_BLUR_STYLE_ID);
-        if (old) { old.remove(); cachedNativeBlurStyle = null; }
-        if (blurAmount <= 0) return;
-        let s = document.createElement('style'); s.id = NATIVE_BLUR_STYLE_ID; s.textContent = getNativeBlurCSS(blurAmount, theme);
-        (document.head || document.documentElement).appendChild(s); cachedNativeBlurStyle = s;
+        const css = blurAmount <= 0 ? '' : getNativeBlurCSS(blurAmount, theme);
+        let s = cachedNativeBlurStyle || document.getElementById(NATIVE_BLUR_STYLE_ID);
+        if (!css) { if (s) { s.remove(); cachedNativeBlurStyle = null; } return; }
+        if (!s || !document.contains(s)) {
+            s = document.createElement('style'); s.id = NATIVE_BLUR_STYLE_ID;
+            (document.head || document.documentElement).appendChild(s);
+            cachedNativeBlurStyle = s;
+        }
+        if (s.textContent !== css) s.textContent = css;
     }
 
     function styleFollowedBySiteSheet(node) {
@@ -503,17 +526,21 @@ nav[aria-live="polite"][role="navigation"] div[role="tab"]{background-color:tran
     }
 
     function ensureStyleNode() {
+        const parent = document.head || document.documentElement;
         let s = cachedStyleNode;
         if (!s || !document.contains(s)) {
             s = document.getElementById(STYLE_ID);
             if (!s) { s = document.createElement('style'); s.id = STYLE_ID; }
-            (document.head || document.documentElement).appendChild(s);
+            parent.appendChild(s);
             cachedStyleNode = s;
             return s;
         }
-        // document-start 注入时 head 为空，站点样式表随后才排到我们后面；
-        // 同特异性 + 同为 !important 时后者胜，所以必须保持在末尾
-        if (styleFollowedBySiteSheet(s)) (document.head || document.documentElement).appendChild(s);
+
+        if (styleFollowedBySiteSheet(s)) {
+            parent.appendChild(s);
+            const nb = cachedNativeBlurStyle || document.getElementById(NATIVE_BLUR_STYLE_ID);
+            if (nb && document.contains(nb)) parent.appendChild(nb);
+        }
         return s;
     }
 
@@ -521,9 +548,13 @@ nav[aria-live="polite"][role="navigation"] div[role="tab"]{background-color:tran
 
     async function preloadImage() {
         const cfg = mergeConfig(getHost());
-        if (!cfg.enabled) { _imageReady = true; setCurrentImageUrl(null); notifyImageReady(); return; }
+        if (!cfg.enabled) { _imageReady = true; _currentCacheKey = null; setCurrentImageUrl(null); notifyImageReady(); return; }
         if (isCacheKey(cfg.url)) {
-            const imgUrl = await getImage(extractCacheKey(cfg.url));
+            const key = extractCacheKey(cfg.url);
+
+            if (key === _currentCacheKey && _currentObjectUrl) { _imageReady = true; notifyImageReady(); return; }
+            const imgUrl = await getImage(key);
+            _currentCacheKey = key;
             setCurrentImageUrl(imgUrl || null);
         } else if (isDataImageUrl(cfg.url)) {
             const cacheKey = await storeImage(cfg.url, null, 'migrated_image.jpg');
@@ -532,29 +563,42 @@ nav[aria-live="polite"][role="navigation"] div[role="tab"]{background-color:tran
                 if (getSiteConfig(getHost()) && getSiteConfig(getHost()).url === cfg.url) setSiteConfig(getHost(), Object.assign({}, getSiteConfig(getHost()), { url: newUrl }));
                 else setValue(KEYS.url, newUrl);
                 invalidateConfig();
+                _currentCacheKey = cacheKey;
                 setCurrentImageUrl(cfg.url);
             }
         } else {
+            _currentCacheKey = null;
             setCurrentImageUrl(cfg.url);
         }
         _imageReady = true; notifyImageReady();
     }
+
     function applyStyle() {
         if (captchaActive) return;
         const host = getHost(), cfg = mergeConfig(host);
-        if (!cfg.enabled) { removeStyle(); setCurrentImageUrl(null); return; }
+        if (!cfg.enabled) { removeStyle(); setCurrentImageUrl(null); _currentCacheKey = null; return; }
         let effective = cfg, finalUrl = _currentImageUrl || '';
         if (_livePreviewConfig) {
             effective = Object.assign({}, cfg, _livePreviewConfig, { enabled: true });
             finalUrl = isCacheKey(effective.url) ? (_currentImageUrl || '') : (effective.url || '');
         }
+        const css = buildCSS(effective, finalUrl);
         const s = ensureStyleNode();
-        s.textContent = buildCSS(effective, finalUrl);
+        // 内容没变就不动，重复赋值会让浏览器重新解析整张样式表
+        if (s.textContent !== css) s.textContent = css;
         applyNativeBlur(effective.nativeElementBlur, effective.theme);
         stripXHeaderBlur();
     }
     async function applyStyleFull() { if (!_imageReady) await preloadImage(); applyStyle(); }
-    function applyAgain() { invalidateConfig(); _imageReady = false; applyStyleFull(); requestOverlayApply(); setTimeout(applyStyleFull, 100); setTimeout(applyStyleFull, 500); }
+
+    function applyAgain() {
+        invalidateConfig();
+        // 只是让 preloadImage 重新比对 url；图没变时会走复用分支，不会 revoke
+        _imageReady = false;
+        applyStyleFull();
+        requestOverlayApply();
+    }
+
     function setGlobal(key, value) { invalidateConfig(); setValue(key, value); applyAgain(); }
     function updateCurrentSiteConfig(patch) { invalidateConfig(); setSiteConfig(getHost(), Object.assign({}, getSiteConfig(getHost()) || {}, patch)); applyAgain(); }
     function toggleCurrentSiteInList() {
@@ -601,10 +645,18 @@ nav[aria-live="polite"][role="navigation"] div[role="tab"]{background-color:tran
         const title = (document.title || '').toLowerCase();
         if (/just a moment|attention required|cloudflare|please wait|checking your browser|verify you are human/.test(title)) { if (!captchaActive) { captchaActive = true; removeStyle(); } return; }
         const found = findVisibleCaptcha();
-        if (found && !captchaActive) {
-            captchaActive = true;
-            removeStyle();
-        } else if (!found && captchaActive) {
+        if (found) {
+            // 加载初期验证码 iframe 可能瞬时出现，立刻 removeStyle 会闪一次白，延迟复核
+            if (!captchaActive && !_captchaEnterTimer) {
+                _captchaEnterTimer = setTimeout(() => {
+                    _captchaEnterTimer = null;
+                    if (!captchaActive && findVisibleCaptcha()) { captchaActive = true; removeStyle(); }
+                }, 500);
+            }
+            return;
+        }
+        if (_captchaEnterTimer) { clearTimeout(_captchaEnterTimer); _captchaEnterTimer = null; }
+        if (captchaActive) {
             setTimeout(() => {
                 if (!findVisibleCaptcha() && captchaActive) {
                     captchaActive = false;
@@ -850,7 +902,7 @@ nav[aria-live="polite"][role="navigation"] div[role="tab"]{background-color:tran
         if (!cfg.floatVisible) { floatShouldExist = false; return; }
 
         const existing = cachedFloatNode || document.getElementById(FLOAT_ID);
-        if (existing && (document.documentElement.contains(existing) || document.body.contains(existing))) {
+        if (existing && (document.documentElement.contains(existing) || (document.body && document.body.contains(existing)))) {
             floatShouldExist = true; cachedFloatNode = existing; fixFloatPosition(existing); return;
         }
         if (existing) { try { existing.remove(); } catch (e) {} }
@@ -946,7 +998,8 @@ nav[aria-live="polite"][role="navigation"] div[role="tab"]{background-color:tran
                 pc.theme = v.theme;
                 let fu = pc.url; if (isCacheKey(fu)) fu = _currentImageUrl || '';
                 _livePreviewConfig = pc;
-                ensureStyleNode().textContent = buildCSS(pc, fu);
+                const css = buildCSS(pc, fu), sn = ensureStyleNode();
+                if (sn.textContent !== css) sn.textContent = css;
                 applyNativeBlur(v.nb, pc.theme);
                 stripXHeaderBlur();
                 _liveOverlayBlur = v.ob; _liveOverlayAlpha = v.oa; forceOverlayApply();
@@ -1046,7 +1099,7 @@ nav[aria-live="polite"][role="navigation"] div[role="tab"]{background-color:tran
     }
 
     function fixFloatPosition(el) { if(!el) return; const r=el.getBoundingClientRect(); const fp=safePos({right:window.innerWidth-r.right,bottom:window.innerHeight-r.bottom}); if(parseInt(el.style.right)!==fp.right||parseInt(el.style.bottom)!==fp.bottom){ el.style.right=fp.right+'px'; el.style.bottom=fp.bottom+'px'; } }
-    function ensureFloatAlive() { if(!floatShouldExist) return; const cfg=mergeConfig(getHost()); if(!cfg.floatVisible) return; const el=cachedFloatNode||document.getElementById(FLOAT_ID); if(!el||!(document.body.contains(el)||document.documentElement.contains(el))){ cachedFloatNode=null; createFloat(); } else { cachedFloatNode=el; fixFloatPosition(el); } }
+    function ensureFloatAlive() { if(!floatShouldExist) return; const cfg=mergeConfig(getHost()); if(!cfg.floatVisible) return; const el=cachedFloatNode||document.getElementById(FLOAT_ID); if(!el||!((document.body&&document.body.contains(el))||document.documentElement.contains(el))){ cachedFloatNode=null; createFloat(); } else { cachedFloatNode=el; fixFloatPosition(el); } }
 
     let _globalListenersBound = false;
     function bindGlobalListeners() {
@@ -1062,6 +1115,7 @@ nav[aria-live="polite"][role="navigation"] div[role="tab"]{background-color:tran
     }
 
     floatShouldExist = getGlobalConfig().floatVisible;
+    applySkeletonStyle();
     applyStyleFull();
     bindGlobalListeners();
 
