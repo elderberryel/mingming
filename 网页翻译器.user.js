@@ -15,7 +15,8 @@
 // @connect      api.deepseek.com
 // @connect      open.bigmodel.cn
 // @run-at       document-end
-// @namespace    https://github.com/elderberryel/mingming
+// @updateURL    https://raw.githubusercontent.com/elderberryel/mingming/main/%E7%BD%91%E9%A1%B5%E7%BF%BB%E8%AF%91%E5%99%A8.user.js
+// @downloadURL  https://raw.githubusercontent.com/elderberryel/mingming/main/%E7%BD%91%E9%A1%B5%E7%BF%BB%E8%AF%91%E5%99%A8.user.js
 // ==/UserScript==
 
 (async()=>{
