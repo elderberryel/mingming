@@ -40,7 +40,7 @@
         siteConfigMap: 'Vie背景站点配置'
     };
 
-    const DEFAULTS = { url: 'https://im.gurl.eu.org/file/AgACAgEAAxkDAAEBp_1qmih0cKuixFJVVL37VIdQdW95pAACFgxrG95F0EQR6lJDI44cmAEAAwIAA3cAAz0E.jpeg', theme: 1, opacity: 0.69, blur: 0, enabled: true, floatVisible: true, listMode: 'blacklist', floatPos: { right: 10, bottom: 90 }, nativeElementBlur: 10, overlayBlur: 10, overlayAlpha: 0.10 };
+    const DEFAULTS = { url: 'https://im.gurl.eu.org/file/AgACAgEAAxkDAAEBp_1qmih0cKuixFJVVL37VIdQdW95pAACFgxrG95F0EQR6lJDI44cmAEAAwIAA3cAAz0E.jpeg', theme: 1, opacity: 0.50, blur: 0, enabled: true, floatVisible: true, listMode: 'blacklist', floatPos: { right: 10, bottom: 90 }, nativeElementBlur: 10, overlayBlur: 10, overlayAlpha: 0.10 };
     const STYLE_ID = 'vie-browser-bg-style-v89', FLOAT_ID = 'vie-browser-bg-float-v89', NATIVE_BLUR_STYLE_ID = 'vie-browser-bg-native-blur-style-v89';
     const CACHE_NAME = 'vie-browser-bg-images-v1', CACHE_PREFIX = '[cache:local]', GM_BACKUP_PREFIX = 'Vie背景图片备份_', GM_FILENAME_MAP = 'Vie背景图片文件名映射';
     const COMPRESS_THRESHOLD = 1000 * 1024, COMPRESS_TARGET = 1000 * 1024, MAX_IMAGE_WIDTH = 1600, MAX_IMAGE_HEIGHT = 2560, MAX_FILE_SIZE = 15 * 1024 * 1024;
