@@ -159,9 +159,7 @@
     <pre id="output"></pre>
 
     <script>
-        // ============================================================
         // 核心功能：解析时间标签
-        // ============================================================
         function parseTimeTag(line) {
             const m = line.match(/\[(\d{2}):(\d{2})\.(\d{2,3})]/);
             if (!m) return null;
@@ -216,9 +214,7 @@
             return text.slice(0, start) + `<${formatTime(newSec)}>` + text.slice(end);
         }
 
-        // ============================================================
         // 智能过滤函数（繁简兼容）
-        // ============================================================
         function processLineText(line, keywords) {
             // 移除时间标签，得到歌词部分
             let lyricPart = line.replace(/\[[^\]]*\]/g, '');
@@ -243,8 +239,7 @@
                 
                 // 检查关键词是否在规范化后的文本中
                 if (normalizedText.includes(normalizedKeyword)) {
-                    // 进一步检查：关键词后面应该跟冒号或空格或直接跟内容
-                    // 避免误删包含"词"或"曲"的歌词
+                    
                     if (normalizedKeyword === '词' || normalizedKeyword === '曲') {
                         // 只有当"词"或"曲"在开头或后面跟冒号时才过滤
                         const regex = new RegExp(`(^|\\s)${normalizedKeyword}\\s*[:：]`);
@@ -266,9 +261,7 @@
             };
         }
 
-        // ============================================================
         // 主处理函数
-        // ============================================================
         function processLRC() {
             const input = document.getElementById("input").value;
             if (!input.trim()) {
@@ -456,9 +449,8 @@
             document.getElementById("output").textContent = result.join("\n");
         }
 
-        // ============================================================
         // 辅助操作
-        // ============================================================
+
         function copyOutput() {
             const text = document.getElementById("output").textContent;
             if (!text.trim()) {
