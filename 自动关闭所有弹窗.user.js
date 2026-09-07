@@ -9,6 +9,8 @@
 // @match        https://supxh.xin/*
 // @match        https://*.supxh.xin/*
 // @grant        none
+// @updateURL    https://github.com/eldhttps://elderberryel.github.io/mingming/%E8%87%AA%E5%8A%A8%E5%85%B3%E9%97%AD%E6%89%80%E6%9C%89%E5%BC%B9%E7%AA%97.user.jserberryel/mingming/blob/main/%E7%BD%91%E9%A1%B5%E7%BF%BB%E8%AF%91%E5%99%A8.user.js
+// @downloadURL  https://github.com/eldhttps://elderberryel.github.io/mingming/%E8%87%AA%E5%8A%A8%E5%85%B3%E9%97%AD%E6%89%80%E6%9C%89%E5%BC%B9%E7%AA%97.user.jserberryel/mingming/blob/main/%E7%BD%91%E9%A1%B5%E7%BF%BB%E8%AF%91%E5%99%A8.user.js
 // ==/UserScript==
 
 (function () {
