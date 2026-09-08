@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         元素隐藏
-// @namespace    http://tampermonkey.net/
+// @namespace    https://github.com/elderberryel/mingming
 // @version      2.1
 // @description  元素隐藏
 // @author       明明
