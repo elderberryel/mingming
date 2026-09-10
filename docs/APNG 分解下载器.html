@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>APNG 分解下载器</title>
+<style>
+  *{box-sizing:border-box}
+  body{
+    margin:0;padding:24px;min-height:100vh;
+    font-family:system-ui,-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    background:#0f1115;color:#e6e9ef;
+  }
+  .wrap{max-width:1100px;margin:0 auto}
+  h1{font-size:20px;margin:0 0 6px}
+  .sub{color:#8b93a7;font-size:13px;margin:0 0 22px}
+
+  .drop{
+    border:2px dashed #2b3140;border-radius:14px;padding:44px 20px;text-align:center;
+    cursor:pointer;transition:.18s;background:#141821;
+  }
+  .drop:hover,.drop.over{border-color:#4f8cff;background:#161c2b}
+  .drop p{margin:6px 0;color:#c3cad9}
+  .drop .hint{font-size:12px;color:#6e7789}
+  .drop .big{font-size:34px;line-height:1}
+
+  .hidden{display:none!important}
+
+  .info{background:#141821;border:1px solid #232936;border-radius:12px;padding:16px;margin-top:18px}
+  .info-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+  .info-grid div{display:flex;flex-direction:column;gap:4px}
+  .info-grid span{font-size:12px;color:#7d8698}
+  .info-grid b{font-size:14px;font-weight:600;word-break:break-all}
+
+  .actions{
+    display:flex;flex-wrap:wrap;gap:12px;align-items:center;
+    margin-top:16px;padding:14px 16px;background:#141821;
+    border:1px solid #232936;border-radius:12px;
+  }
+  .actions label{display:flex;align-items:center;gap:6px;font-size:13px;color:#aab3c5;cursor:pointer}
+  button{
+    font:inherit;font-size:13px;padding:9px 18px;border-radius:9px;border:1px solid #2f3span;
+    border:1px solid #2f3646;background:#1c2230;color:#e6e9ef;cursor:pointer;transition:.15s;
+  }
+  button:hover{background:#242c3d;border-color:#3d4761}
+  button.primary{background:#3b6fd4;border-color:#3b6fd4}
+  button.primary:hover{background:#4a80e8}
+
+  .frames{margin-top:20px;display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px}
+  .frame{
+    background:#141821;border:1px solid #232936;border-radius:12px;overflow:hidden;
+    display:flex;flex-direction:column;
+  }
+  .thumb{
+    height:130px;display:flex;align-items:center;justify-content:center;padding:10px;
+    background-image:
+      linear-gradient(45deg,#1b202b 25%,transparent 25%),
+      linear-gradient(-45deg,#1b202b 25%,transparent 25%),
+      linear-gradient(45deg,transparent 75%,#1b202b 75%),
+      linear-gradient(-45deg,transparent 75%,#1b202b 75%);
+    background-size:16px 16px;
+    background-position:0 0,0 8px,8px -8px,-8px 0;
+    background-color:#151a23;
+  }
+  .thumb img{max-width:100%;max-height:110px;image-rendering:pixelated;display:block}
+  .meta{padding:10px 12px;font-size:12px;color:#98a1b3;display:flex;flex-direction:column;gap:3px}
+  .meta .idx{color:#e6e9ef;font-weight:600;font-size:13px;margin-bottom:2px}
+  .frame .dl{margin:0 10px 10px;padding:7px;font-size:12px;text-align:center}
+
+  .toast{
+    position:fixed;left:50%;bottom:28px;transform:translateX(-50%);
+    background:#1e2532;border:1px solid #313a4d;padding:10px 18px;border-radius:10px;
+    font-size:13px;color:#dfe4ee;opacity:0;pointer-events:none;transition:.25s;
+  }
+  .toast.show{opacity:1}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>APNG 分解下载器</h1>
+  <p class="sub">把 APNG 动画拆成一张张独立的 PNG 帧，可预览、单帧下载或打包 ZIP。全部在本地浏览器完成，不会上传任何数据。</p>
+
+  <div class="drop" id="drop">
+    <input type="file" id="file" accept="image/png,image/apng,.png,.apng" hidden>
+    <p class="big">🖼️</p>
+    <p>点击选择，或把 APNG 文件拖到这里</p>
+    <p class="hint">支持 .png / .apng</p>
+  </div>
+
+  <div class="info hidden" id="info"></div>
+
+  <div class="actions hidden" id="actions">
+    <label><input type="checkbox" id="composite"> 合成到完整画布尺寸（处理偏移/dispose/blend）</label>
+    <button class="primary" id="btnZip">打包下载 ZIP</button>
+    <button id="btnEach">逐个下载</button>
+  </div>
+
+  <div class="frames" id="frames"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* =========================================================
+   基础工具
+   ========================================================= */
+const PNG_SIG = new Uint8Array([0x89,0x50,0x4E,0x47,0x0D,0x0A,0x1A,0x0A]);
+const EMPTY = new Uint8Array(0);
+
+const u16 = (d,o) => (d[o] << 8) | d[o+1];
+const u32 = (d,o) => ((d[o] << 24) | (d[o+1] << 16) | (d[o+2] << 8) | d[o+3]) >>> 0;
+
+const CRC_TABLE = (() => {
+  const t = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+    t[n] = c >>> 0;
+  }
+  return t;
+})();
+
+function crc32(data) {
+  let c = 0xFFFFFFFF;
+  for (let i = 0; i < data.length; i++) c = CRC_TABLE[(c ^ data[i]) & 0xFF] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+
+function concatBytes(list) {
+  let total = 0;
+  for (const b of list) total += b.length;
+  const out = new Uint8Array(total);
+  let off = 0;
+  for (const b of list) { out.set(b, off); off += b.length; }
+  return out;
+}
+
+function makeChunk(type, data) {
+  const len = data.length;
+  const buf = new Uint8Array(12 + len);
+  const dv = new DataView(buf.buffer);
+  dv.setUint32(0, len);
+  buf[4] = type.charCodeAt(0);
+  buf[5] = type.charCodeAt(1);
+  buf[6] = type.charCodeAt(2);
+  buf[7] = type.charCodeAt(3);
+  buf.set(data, 8);
+  dv.setUint32(8 + len, crc32(buf.subarray(4, 8 + len)));
+  return buf;
+}
+
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+/* =========================================================
+   PNG 块解析
+   ========================================================= */
+function parseChunks(bytes) {
+  for (let i = 0; i < 8; i++) {
+    if (bytes[i] !== PNG_SIG[i]) throw new Error('不是有效的 PNG 文件');
+  }
+  const chunks = [];
+  const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  let off = 8;
+  while (off + 8 <= bytes.length) {
+    const len = dv.getUint32(off);
+    const type = String.fromCharCode(bytes[off+4], bytes[off+5], bytes[off+6], bytes[off+7]);
+    if (off + 12 + len > bytes.length) throw new Error('文件数据不完整或已损坏');
+    chunks.push({ type, data: bytes.subarray(off + 8, off + 8 + len) });
+    off += 12 + len;
+    if (type === 'IEND') break;
+  }
+  return chunks;
+}
+
+function parseFcTL(d) {
+  return {
+    seq: u32(d, 0),
+    width: u32(d, 4),
+    height: u32(d, 8),
+    x: u32(d, 12),
+    y: u32(d, 16),
+    delayNum: u16(d, 20),
+    delayDen: u16(d, 22),
+    dispose: d[24],
+    blend: d[25]
+  };
+}
+
+/* =========================================================
+   解析 APNG -> 帧列表
+   ========================================================= */
+function parseAPNG(arrayBuffer) {
+  const bytes = new Uint8Array(arrayBuffer);
+  const chunks = parseChunks(bytes);
+
+  const ihdrChunk = chunks.find(c => c.type === 'IHDR');
+  if (!ihdrChunk) throw new Error('缺少 IHDR 块，不是有效的 PNG');
+  const ihdr = ihdrChunk.data;
+  const width  = u32(ihdr, 0);
+  const height = u32(ihdr, 4);
+
+  const acTL = chunks.find(c => c.type === 'acTL');
+  if (!acTL) throw new Error('这不是 APNG（没有找到 acTL 动画控制块）');
+
+  const numFrames = u32(acTL.data, 0);
+  const numPlays  = u32(acTL.data, 4);
+
+  // 收集需要保留的辅助块（按 PNG 规范要求的先后顺序）
+  const AUX_ORDER = ['cHRM','gAMA','iCCP','sBIT','sRGB','PLTE','tRNS','hIST','bKGD','pHYs'];
+  const aux = [];
+  for (const type of AUX_ORDER) {
+    for (const c of chunks) {
+      if (c.type === type) aux.push([type, c.data]);
+    }
+  }
+
+  // 判断 IDAT 是否属于第一帧（第一个 fcTL 出现在第一个 IDAT 之前）
+  const firstFctl = chunks.findIndex(c => c.type === 'fcTL');
+  const firstIdat = chunks.findIndex(c => c.type === 'IDAT');
+  const idatInFrame0 = firstFctl !== -1 && firstIdat !== -1 && firstIdat > firstFctl;
+
+  const frames = [];
+  let cur = null;
+  for (const c of chunks) {
+    if (c.type === 'fcTL') {
+      cur = { fctl: parseFcTL(c.data), parts: [] };
+      frames.push(cur);
+    } else if (c.type === 'IDAT') {
+      if (idatInFrame0 && frames.length === 1) frames[0].parts.push(c.data);
+    } else if (c.type === 'fdAT') {
+      if (cur) cur.parts.push(c.data.subarray(4)); // 去掉 4 字节序号
+    }
+  }
+
+  if (frames.length === 0) throw new Error('没有解析到任何动画帧');
+
+  return { width, height, numFrames, numPlays, ihdr, aux, frames };
+}
+
+/* =========================================================
+   把一帧重建成独立的 PNG 文件
+   ========================================================= */
+function buildFramePNG(frame, ihdr, aux) {
+  const w = frame.fctl.width;
+  const h = frame.fctl.height;
+
+  const newIhdr = new Uint8Array(13);
+  const dv = new DataView(newIhdr.buffer);
+  dv.setUint32(0, w);
+  dv.setUint32(4, h);
+  newIhdr[8]  = ihdr[8];   // bit depth
+  newIhdr[9]  = ihdr[9];   // color type
+  newIhdr[10] = ihdr[10];  // compression
+  newIhdr[11] = ihdr[11];  // filter
+  newIhdr[12] = ihdr[12];  // interlace
+
+  const parts = [PNG_SIG, makeChunk('IHDR', newIhdr)];
+  for (const [type, data] of aux) parts.push(makeChunk(type, data));
+
+  const idat = concatBytes(frame.parts);
+  const MAX = 65536;
+  for (let i = 0; i < idat.length; i += MAX) {
+    parts.push(makeChunk('IDAT', idat.subarray(i, Math.min(i + MAX, idat.length))));
+  }
+  parts.push(makeChunk('IEND', EMPTY));
+
+  return concatBytes(parts);
+}
+
+/* =========================================================
+   ZIP 打包（store 模式，无压缩）
+   ========================================================= */
+function buildZip(files) {
+  const enc = new TextEncoder();
+  const localParts = [];
+  const centralParts = [];
+  let offset = 0;
+
+  for (const f of files) {
+    const nameBytes = enc.encode(f.name);
+    const data = f.data;
+    const crc = crc32(data);
+    const size = data.length;
+
+    // 本地文件头
+    const local = new Uint8Array(30 + nameBytes.length);
+    const ldv = new DataView(local.buffer);
+    ldv.setUint32(0, 0x04034b50, true);
+    ldv.setUint16(4, 20, true);
+    ldv.setUint16(6, 0x0800, true);   // UTF-8 文件名
+    ldv.setUint16(8, 0, true);        // 存储方式
+    ldv.setUint16(10, 0, true);
+    ldv.setUint16(12, 0x2821, true);
+    ldv.setUint32(14, crc, true);
+    ldv.setUint32(18, size, true);
+    ldv.setUint32(22, size, true);
+    ldv.setUint16(26, nameBytes.length, true);
+    ldv.setUint16(28, 0, true);
+    local.set(nameBytes, 30);
+
+    localParts.push(local, data);
+
+    // 中央目录项
+    const cen = new Uint8Array(46 + nameBytes.length);
+    const cdv = new DataView(cen.buffer);
+    cdv.setUint32(0, 0x02014b50, true);
+    cdv.setUint16(4, 20, true);
+    cdv.setUint16(6, 20, true);
+    cdv.setUint16(8, 0x0800, true);
+    cdv.setUint16(10, 0, true);
+    cdv.setUint16(12, 0, true);
+    cdv.setUint16(14, 0x2821, true);
+    cdv.setUint32(16, crc, true);
+    cdv.setUint32(20, size, true);
+    cdv.setUint32(24, size, true);
+    cdv.setUint16(28, nameBytes.length, true);
+    cdv.setUint16(30, 0, true);
+    cdv.setUint16(32, 0, true);
+    cdv.setUint16(34, 0, true);
+    cdv.setUint16(36, 0, true);
+    cdv.setUint32(38, 0, true);
+    cdv.setUint32(42, offset, true);
+    cen.set(nameBytes, 46);
+
+    centralParts.push(cen);
+    offset += local.length + size;
+  }
+
+  const centralSize = centralParts.reduce((a, b) => a + b.length, 0);
+
+  const end = new Uint8Array(22);
+  const edv = new DataView(end.buffer);
+  edv.setUint32(0, 0x06054b50, true);
+  edv.setUint16(4, 0, true);
+  edv.setUint16(6, 0, true);
+  edv.setUint16(8, files.length, true);
+  edv.setUint16(10, files.length, true);
+  edv.setUint32(12, centralSize, true);
+  edv.setUint32(16, offset, true);
+  edv.setUint16(20, 0, true);
+
+  return new Blob([...localParts, ...centralParts, end], { type: 'application/zip' });
+}
+
+/* =========================================================
+   Canvas 合成（把帧偏移 / dispose / blend 应用到完整画布）
+   ========================================================= */
+function loadImage(blob) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('帧图像加载失败')); };
+    img.src = url;
+  });
+}
+
+async function compositeFrames(state) {
+  const cw = state.width, ch = state.height;
+  const canvas = document.createElement('canvas');
+  canvas.width = cw;
+  canvas.height = ch;
+  const ctx = canvas.getContext('2d');
+
+  const out = [];
+  let snapshot = null;      // dispose=PREVIOUS 用的快照
+  let prevDispose = -1;
+  let prevRect = null;
+
+  for (let i = 0; i < state.frames.length; i++) {
+    const f = state.frames[i].fctl;
+
+    // 1. 执行上一帧的 dispose
+    if (prevRect) {
+      if (prevDispose === 1) {
+        ctx.clearRect(prevRect.x, prevRect.y, prevRect.w, prevRect.h);
+      } else if (prevDispose === 2 && snapshot) {
+        ctx.putImageData(snapshot, 0, 0);
+      }
+    }
+
+    // 2. 若本帧 dispose=PREVIOUS，先保存画布
+    if (f.dispose === 2) snapshot = ctx.getImageData(0, 0, cw, ch);
+
+    // 3. 绘制本帧
+    const img = await loadImage(state.frames[i].blob);
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(f.x, f.y, f.width, f.height);
+    ctx.clip();
+    ctx.globalCompositeOperation = (f.blend === 1) ? 'source-over' : 'copy';
+    ctx.drawImage(img, f.x, f.y, f.width, f.height);
+    ctx.restore();
+
+    const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
+    out.push(blob);
+
+    prevDispose = f.dispose;
+    prevRect = { x: f.x, y: f.y, w: f.width, h: f.height };
+  }
+  return out;
+}
+
+/* =========================================================
+   下载辅助
+   ========================================================= */
+function saveBlob(blob, name) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 8000);
+}
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+/* =========================================================
+   主流程
+   ========================================================= */
+let APP = null;
+let compositeCache = null;
+
+const dropEl    = document.getElementById('drop');
+const fileEl    = document.getElementById('file');
+const infoEl    = document.getElementById('info');
+const framesEl  = document.getElementById('frames');
+const actionsEl = document.getElementById('actions');
+const compositeEl = document.getElementById('composite');
+
+const DISPOSE_NAME = { 0: 'NONE', 1: 'BACKGROUND', 2: 'PREVIOUS' };
+const BLEND_NAME   = { 0: 'SOURCE', 1: 'OVER' };
+
+dropEl.addEventListener('click', () => fileEl.click());
+fileEl.addEventListener('change', e => {
+  const f = e.target.files[0];
+  if (f) handleFile(f);
+  fileEl.value = '';
+});
+
+['dragenter', 'dragover'].forEach(ev =>
+  dropEl.addEventListener(ev, e => { e.preventDefault(); dropEl.classList.add('over'); }));
+['dragleave', 'drop'].forEach(ev =>
+  dropEl.addEventListener(ev, e => { e.preventDefault(); dropEl.classList.remove('over'); }));
+
+dropEl.addEventListener('drop', e => {
+  const f = e.dataTransfer.files[0];
+  if (f) handleFile(f);
+});
+
+async function handleFile(file) {
+  compositeCache = null;
+  try {
+    const buf = await file.arrayBuffer();
+    const state = parseAPNG(buf);
+    state.fileName = file.name;
+    state.baseName = file.name.replace(/\.(png|apng)$/i, '') || 'frame';
+
+    state.frames.forEach(f => {
+      f.bytes = buildFramePNG(f, state.ihdr, state.aux);
+      f.blob = new Blob([f.bytes], { type: 'image/png' });
+      f.url = URL.createObjectURL(f.blob);
+    });
+
+    APP = state;
+    render();
+    toast(`解析成功，共 ${state.frames.length} 帧`);
+  } catch (err) {
+    console.error(err);
+    alert('解析失败：' + err.message);
+  }
+}
+
+function render() {
+  const s = APP;
+  infoEl.classList.remove('hidden');
+  actionsEl.classList.remove('hidden');
+
+  infoEl.innerHTML = `
+    <div class="info-grid">
+      <div><span>文件名</span><b>${esc(s.fileName)}</b></div>
+      <div><span>画布尺寸</span><b>${s.width} × ${s.height}</b></div>
+      <div><span>帧数</span><b>${s.frames.length}${s.numFrames !== s.frames.length ? `（声明 ${s.numFrames}）` : ''}</b></div>
+      <div><span>循环次数</span><b>${s.numPlays === 0 ? '无限循环' : s.numPlays + ' 次'}</b></div>
+    </div>
+  `;
+
+  framesEl.innerHTML = s.frames.map((f, i) => {
+    const c = f.fctl;
+    const den = c.delayDen || 100;
+    const delayMs = (c.delayNum / den * 1000);
+    return `
+      <div class="frame">
+        <div class="thumb"><img src="${f.url}" alt="frame ${i}"></div>
+        <div class="meta">
+          <div class="idx">#${i}（序号 ${c.seq}）</div>
+          <div>尺寸：${c.width} × ${c.height}</div>
+          <div>偏移：(${c.x}, ${c.y})</div>
+          <div>延迟：${delayMs.toFixed(0)} ms（${c.delayNum}/${c.delayDen || 100}）</div>
+          <div>dispose：${DISPOSE_NAME[c.dispose] ?? c.dispose}</div>
+          <div>blend：${BLEND_NAME[c.blend] ?? c.blend}</div>
+        </div>
+        <button class="dl" data-i="${i}">下载此帧</button>
+      </div>
+    `;
+  }).join('');
+
+  framesEl.querySelectorAll('button.dl').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const i = +btn.dataset.i;
+      saveBlob(APP.frames[i].blob, `${APP.baseName}_frame_${String(i).padStart(3, '0')}.png`);
+    });
+  });
+}
+
+async function getOutputs() {
+  if (compositeEl.checked) {
+    if (!compositeCache) {
+      toast('正在合成帧…');
+      compositeCache = await compositeFrames(APP);
+    }
+    return compositeCache;
+  }
+  return APP.frames.map(f => f.blob);
+}
+
+document.getElementById('btnZip').addEventListener('click', async () => {
+  if (!APP) return;
+  try {
+    const blobs = await getOutputs();
+    const files = [];
+    for (let i = 0; i < blobs.length; i++) {
+      const data = new Uint8Array(await blobs[i].arrayBuffer());
+      files.push({ name: `${APP.baseName}_frame_${String(i).padStart(3, '0')}.png`, data });
+    }
+    const zip = buildZip(files);
+    saveBlob(zip, `${APP.baseName}_frames.zip`);
+    toast(`已打包 ${files.length} 帧`);
+  } catch (e) {
+    console.error(e);
+    alert('打包失败：' + e.message);
+  }
+});
+
+document.getElementById('btnEach').addEventListener('click', async () => {
+  if (!APP) return;
+  try {
+    const blobs = await getOutputs();
+    for (let i = 0; i < blobs.length; i++) {
+      saveBlob(blobs[i], `${APP.baseName}_frame_${String(i).padStart(3, '0')}.png`);
+      await sleep(180); // 降低被浏览器拦截的概率
+    }
+    toast(`已开始下载 ${blobs.length} 个文件`);
+  } catch (e) {
+    console.error(e);
+    alert('下载失败：' + e.message);
+  }
+});
+
+compositeEl.addEventListener('change', () => { compositeCache = null; });
+</script>
+</body>
+</html>
