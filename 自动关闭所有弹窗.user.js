@@ -1,23 +1,73 @@
 // ==UserScript==
-// @name         自动关闭所有弹窗 v1.0
+// @name         自动关闭所有弹窗 v1.2
 // @namespace    https://github.com/elderberryel/mingming
-// @version      1.0
-// @description  supxh.xin 上始终运行；其他网站只运行 3 秒后自动退出
+// @version      1.2
+// @description  supxh.xin / 52pokemon.cc 上始终运行；其他网站只运行 3 秒后自动退出（菜单可手动添加始终运行站点）
 // @author       明明
 // @match        https://free.supxh.xin/*
 // @match        *://*/*
 // @match        https://supxh.xin/*
 // @match        https://*.supxh.xin/*
-// @grant        none
-// @updateURL    https://github.com/eldhttps://elderberryel.github.io/mingming/%E8%87%AA%E5%8A%A8%E5%85%B3%E9%97%AD%E6%89%80%E6%9C%89%E5%BC%B9%E7%AA%97.user.jserberryel/mingming/blob/main/%E7%BD%91%E9%A1%B5%E7%BF%BB%E8%AF%91%E5%99%A8.user.js
-// @downloadURL  https://github.com/eldhttps://elderberryel.github.io/mingming/%E8%87%AA%E5%8A%A8%E5%85%B3%E9%97%AD%E6%89%80%E6%9C%89%E5%BC%B9%E7%AA%97.user.jserberryel/mingming/blob/main/%E7%BD%91%E9%A1%B5%E7%BF%BB%E8%AF%91%E5%99%A8.user.js
+// @match        https://web4.52pokemon.cc/*
+// @grant        GM_getValue
+// @grant        GM_setValue
+// @grant        GM_registerMenuCommand
+// @updateURL    https://elderberryel.github.io/mingming/自动关闭所有弹窗.user.js
+// @downloadURL  https://elderberryel.github.io/mingming/自动关闭所有弹窗.user.js
 // ==/UserScript==
 
 (function () {
   'use strict';
 
-  // ============ 关键判断 ============
-  const IS_SUPXH = /(^|\.)supxh\.xin$/i.test(location.hostname);
+  // ============ 始终运行站点判断 ============
+  // 内置始终运行站点（无法通过菜单移除）
+  const BUILTIN_HOSTS = [
+    /(^|\.)supxh\.xin$/i,
+    /(^|\.)52pokemon\.cc$/i
+  ];
+
+  const STORAGE_KEY = 'autoclose_always_on_hosts';
+
+  function loadCustomHosts() {
+    try {
+      let raw = '';
+      if (typeof GM_getValue !== 'undefined') {
+        raw = GM_getValue(STORAGE_KEY, '');
+      } else {
+        raw = localStorage.getItem(STORAGE_KEY) || '';
+      }
+      if (!raw) return [];
+      if (Array.isArray(raw)) return raw.filter(Boolean);
+      return String(raw).split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+    } catch (_) { return []; }
+  }
+
+  function saveCustomHosts(list) {
+    const raw = list.join('\n');
+    try {
+      if (typeof GM_setValue !== 'undefined') GM_setValue(STORAGE_KEY, raw);
+      else localStorage.setItem(STORAGE_KEY, raw);
+    } catch (_) {}
+  }
+
+  function matchHost(patterns, host) {
+    host = String(host || '').toLowerCase();
+    return patterns.some(p => {
+      if (p instanceof RegExp) return p.test(host);
+      const s = String(p).toLowerCase().trim().replace(/^\*\./, '').replace(/^\./, '');
+      if (!s) return false;
+      return host === s || host.endsWith('.' + s);
+    });
+  }
+
+  function isBuiltinHost(host) { return matchHost(BUILTIN_HOSTS, host); }
+
+  function isAlwaysOnHost(host) {
+    return isBuiltinHost(host) || matchHost(loadCustomHosts(), host);
+  }
+
+  // 当前站点是否始终运行（可被菜单动态修改）
+  let alwaysOn = isAlwaysOnHost(location.hostname);
 
   // ============ 配置 ============
   const SCAN_MS = 250;
@@ -26,7 +76,7 @@
   const MAX_CLICKS_PER_DIALOG = 2;
   const MAX_CLICKS_PER_WINDOW = 15;
   const CLICK_WINDOW_MS = 6000;
-  const RUN_TIME_MS = IS_SUPXH ? 0 : 3000; // 0 = 永不退出（supxh 上始终运行）
+  const RUN_TIME_MS = 3000; // 非白名单站点运行时长
   const SKIP_DIALOGS_WITH_FORMS = true;
 
   // ============ 选择器 / 词典 ============
@@ -49,10 +99,10 @@
   const attemptMap = new WeakMap();
   const hiddenSet = new WeakSet();
   const clickTimes = [];
-  const START_TIME = Date.now();
 
   let scanTimer = null;
   let mutationObserver = null;
+  let shutdownTimer = null;
   let isRunning = true;
 
   function now() { return Date.now(); }
@@ -135,7 +185,7 @@
     const overlay = findPairedOverlay(dialog);
     if (overlay) hideEl(overlay);
     unlockPage();
-    console.info('[supxh] 兜底隐藏:', dialog);
+    console.info('[autoclose] 兜底隐藏:', dialog);
   }
 
   function findPairedOverlay(dialog) {
@@ -186,7 +236,7 @@
       lastClickAt.set(el, now());
       clickCount.set(el, count + 1);
       recordClick();
-      console.info('[supxh] 自动点击 ×:', el);
+      console.info('[autoclose] 自动点击 ×:', el);
       fireClick(el);
     }
   }
@@ -216,7 +266,7 @@
       if (overlay && isClickable(overlay)) {
         attemptMap.set(d, attempts + 1);
         recordClick();
-        console.info('[supxh] 点击遮罩:', d);
+        console.info('[autoclose] 点击遮罩:', d);
         fireClick(overlay);
       } else {
         hideDialog(d);
@@ -245,7 +295,7 @@
     isRunning = false;
     if (scanTimer !== null) { clearInterval(scanTimer); scanTimer = null; }
     if (mutationObserver) { mutationObserver.disconnect(); mutationObserver = null; }
-    console.info('[supxh] 3 秒已到，脚本自动退出。');
+    console.info('[autoclose] 运行时间到，脚本自动退出。');
   }
 
   // ============ 启动 ============
@@ -259,6 +309,60 @@
     (document.head || document.documentElement).appendChild(style);
   }
 
+  // ============ 菜单：始终运行站点管理 ============
+  function registerMenu() {
+    if (typeof GM_registerMenuCommand === 'undefined') return;
+    const host = location.hostname;
+
+    GM_registerMenuCommand(
+      (alwaysOn ? '✅ ' : '⏱️ ') + '始终运行：' + host + '（点击切换）',
+      () => {
+        if (isBuiltinHost(host)) {
+          alert('本站属于内置始终运行站点，无法关闭。');
+          return;
+        }
+        const list = loadCustomHosts();
+        const lowerHost = host.toLowerCase();
+        const idx = list.findIndex(x => String(x).toLowerCase() === lowerHost);
+
+        if (idx >= 0) {
+          // 移除
+          list.splice(idx, 1);
+          saveCustomHosts(list);
+          alwaysOn = isAlwaysOnHost(host);
+          alert('已从"始终运行"列表移除：\n' + host +
+            '\n\n本会话如已启动将持续运行，刷新页面后生效。');
+        } else {
+          // 添加
+          list.push(host);
+          saveCustomHosts(list);
+          alwaysOn = true;
+          if (shutdownTimer) { clearTimeout(shutdownTimer); shutdownTimer = null; }
+          alert('已加入"始终运行"列表：\n' + host +
+            '\n\n本会话立即生效，刷新后长期有效。');
+        }
+      },
+      { id: 'autoclose_toggle_host' }
+    );
+
+    GM_registerMenuCommand(
+      '📋 查看 / 清空已添加的站点',
+      () => {
+        const list = loadCustomHosts();
+        if (!list.length) {
+          alert('当前没有手动添加的站点。\n\n内置始终运行站点：\n- *.supxh.xin\n- *.52pokemon.cc');
+          return;
+        }
+        if (confirm('当前已添加的站点：\n\n' + list.join('\n') + '\n\n是否清空？（点"取消"仅查看）')) {
+          saveCustomHosts([]);
+          alert('已清空。刷新页面后生效。');
+        }
+      },
+      { id: 'autoclose_view_hosts' }
+    );
+  }
+
+  // ============ 主流程 ============
   installStyle();
   scan();
   scanTimer = setInterval(scan, SCAN_MS);
@@ -275,13 +379,20 @@
       }
     });
     mutationObserver.observe(document.documentElement, { childList: true, subtree: true });
-  } catch (e) { console.warn('supxh observer error', e); }
+  } catch (e) { console.warn('autoclose observer error', e); }
 
-  // supxh.xin → 永不退出；其他网站 → 3 秒后退出
-  if (RUN_TIME_MS > 0) {
-    setTimeout(shutdown, RUN_TIME_MS);
-    console.info('[supxh] 非 supxh 站点，将在 3 秒后自动退出。');
+  // 注册菜单
+  try { registerMenu(); } catch (e) { console.warn('autoclose menu error', e); }
+
+  // 白名单站点 → 永不退出；其他网站 → 3 秒后退出
+  if (alwaysOn) {
+    console.info('[autoclose] 本站已在始终运行列表，持续运行中。');
   } else {
-    console.info('[supxh] supxh.xin 站点，始终运行。');
+    shutdownTimer = setTimeout(() => {
+      shutdownTimer = null;
+      if (alwaysOn) return; // 用户中途通过菜单添加
+      shutdown();
+    }, RUN_TIME_MS);
+    console.info('[autoclose] 非白名单站点，将在 ' + (RUN_TIME_MS / 1000) + ' 秒后自动退出。\n（可通过油猴菜单添加本站为始终运行）');
   }
 })();
