@@ -399,13 +399,13 @@ function showBasic(file) {
 
 // ========== GPS 工具函数 ==========
 function convertGPS(gps, ref) {
-    if (!Array.isArray(gps) || gps.length < 3) return NaN;
+    if (!gps || !Array.isArray(gps) || gps.length < 3) return NaN;
     
     let d, m, s;
     
     if (typeof gps[0] === 'number') {
         [d, m, s] = gps;
-    } else if (typeof gps[0] === 'object') {
+    } else if (typeof gps[0] === 'object' && gps[0] !== null) {
         if (gps[0].value !== undefined) {
             d = gps[0].value / (gps[0].denominator || 1);
             m = gps[1].value / (gps[1].denominator || 1);
@@ -425,6 +425,7 @@ function convertGPS(gps, ref) {
 }
 
 function toDMS(dec, posSymbol, negSymbol) {
+    if (isNaN(dec)) return '无效';
     const deg = Math.floor(Math.abs(dec));
     const min = Math.floor((Math.abs(dec) - deg) * 60);
     const sec = ((Math.abs(dec) - deg - min / 60) * 3600).toFixed(2);
@@ -466,7 +467,7 @@ function transformLon(x, y) {
            + (150*Math.sin(x/12*pi)+300*Math.sin(x/30*pi))*2/3;
 }
 
-// ========== EXIF 解析（二级回退） ==========
+// ========== EXIF 解析（修改核心逻辑） ==========
 async function parseEXIF(file) {
     console.log('开始EXIF解析...');
     
@@ -480,15 +481,16 @@ async function parseEXIF(file) {
                 translateKeys: true, reviveValues: true 
             });
             
-            if (tags && (tags.GPSLatitude || tags.latitude)) {
+            // 【修改点1】：只要解析出 tags 就保留，不要求必须有 GPS
+            if (tags) {
                 result = {
                     lib: 'Exifr',
                     data: tags,
                     gps: {
-                        lat: tags.GPSLatitude || tags.latitude,
-                        lon: tags.GPSLongitude || tags.longitude,
-                        latRef: tags.GPSLatitudeRef || (tags.latitude >= 0 ? 'N' : 'S'),
-                        lonRef: tags.GPSLongitudeRef || (tags.longitude >= 0 ? 'E' : 'W')
+                        lat: tags.GPSLatitude || tags.latitude || null,
+                        lon: tags.GPSLongitude || tags.longitude || null,
+                        latRef: tags.GPSLatitudeRef || (tags.latitude >= 0 ? 'N' : 'S') || null,
+                        lonRef: tags.GPSLongitudeRef || (tags.longitude >= 0 ? 'E' : 'W') || null
                     }
                 };
                 console.log('✅ Exifr 成功');
@@ -503,15 +505,16 @@ async function parseEXIF(file) {
         try {
             const tags = await ExifReader.load(file);
             
-            if (tags && tags.GPSLatitude) {
+            // 【修改点2】：同样只要解析出 tags 就保留
+            if (tags) {
                 result = {
                     lib: 'ExifReader',
                     data: tags,
                     gps: {
-                        lat: tags.GPSLatitude?.value || tags.GPSLatitude,
-                        lon: tags.GPSLongitude?.value || tags.GPSLongitude,
-                        latRef: String(tags.GPSLatitudeRef?.value || tags.GPSLatitudeRef || 'N').charAt(0),
-                        lonRef: String(tags.GPSLongitudeRef?.value || tags.GPSLongitudeRef || 'E').charAt(0)
+                        lat: tags.GPSLatitude?.value || tags.GPSLatitude || null,
+                        lon: tags.GPSLongitude?.value || tags.GPSLongitude || null,
+                        latRef: tags.GPSLatitudeRef ? String(tags.GPSLatitudeRef.value || tags.GPSLatitudeRef).charAt(0) : null,
+                        lonRef: tags.GPSLongitudeRef ? String(tags.GPSLongitudeRef.value || tags.GPSLongitudeRef).charAt(0) : null
                     }
                 };
                 console.log('✅ ExifReader 成功');
@@ -522,7 +525,9 @@ async function parseEXIF(file) {
     }
     
     if (!result) {
-        exifInfo.textContent = '⚠️ 未找到EXIF数据或GPS信息\n\n可能原因:\n1. 照片不含GPS信息\n2. 照片被压缩/编辑过\n3. 照片来自社交软件传输';
+        exifInfo.textContent = '⚠️ 未找到EXIF数据或GPS信息\n\n可能原因:\n1. 照片不含EXIF信息\n2. 照片被压缩/编辑过\n3. 照片来自社交软件传输';
+        geoStatusIcon.innerText = '📡 无EXIF数据';
+        geoAddressDisplay.innerHTML = '<span style="color:#6c86a3;">未检测到EXIF元数据</span>';
         return;
     }
     
@@ -553,50 +558,62 @@ async function parseEXIF(file) {
         text += `${cn}: ${value}\n`;
     }
     
-    // 处理GPS
+    // 处理GPS (修改点3：安全检查GPS是否存在)
     const { gps } = result;
-    const wgsLat = convertGPS(Array.isArray(gps.lat) ? gps.lat : [gps.lat], gps.latRef);
-    const wgsLon = convertGPS(Array.isArray(gps.lon) ? gps.lon : [gps.lon], gps.lonRef);
+    let hasGPS = false;
     
-    console.log('GPS坐标:', { wgsLat, wgsLon });
+    if (gps && gps.lat !== null && gps.lon !== null) {
+        const wgsLat = convertGPS(Array.isArray(gps.lat) ? gps.lat : [gps.lat], gps.latRef);
+        const wgsLon = convertGPS(Array.isArray(gps.lon) ? gps.lon : [gps.lon], gps.lonRef);
+        
+        console.log('GPS坐标:', { wgsLat, wgsLon });
+        
+        if (!isNaN(wgsLat) && !isNaN(wgsLon) && (wgsLat !== 0 || wgsLon !== 0)) {
+            hasGPS = true;
+            let latFinal = wgsLat, lonFinal = wgsLon;
+            let isChinaArea = inChina(wgsLat, wgsLon);
+            
+            if (isChinaArea) {
+                const [gcjLat, gcjLon] = wgs84togcj02(wgsLat, wgsLon);
+                latFinal = gcjLat;
+                lonFinal = gcjLon;
+                text += `\n🔁 坐标已转换(适配国内地图)\n`;
+            }
+            
+            text += `\n📍 纬度: ${toDMS(latFinal, 'N', 'S')}\n📍 经度: ${toDMS(lonFinal, 'E', 'W')}\n`;
+            
+            if (isChinaArea) {
+                currentGcjLat = latFinal;
+                currentGcjLng = lonFinal;
+            } else {
+                currentGcjLat = wgsLat;
+                currentGcjLng = wgsLon;
+            }
+            hasValidGpsCoord = true;
+            coordDebugSpan.innerHTML = `📍 ${currentGcjLng?.toFixed(6)}, ${currentGcjLat?.toFixed(6)}`;
+            
+            geoAddressDisplay.innerHTML = `
+                <div class="success-box">
+                    ✅ <strong>GPS坐标</strong> <span class="lib-badge lib-${result.lib === 'Exifr' ? 'exifr' : 'exifreader'}">${result.lib}</span><br><br>
+                    坐标: ${currentGcjLng?.toFixed(6)}, ${currentGcjLat?.toFixed(6)}
+                </div>
+                ${generateMapLinks(currentGcjLat, currentGcjLng)}
+            `;
+            geoStatusIcon.innerText = '📍 坐标就绪';
+            
+            if (currentKey) {
+                setTimeout(() => reverseGeocodeWithProxy(currentGcjLng, currentGcjLat), 500);
+            }
+        }
+    }
     
-    if (isNaN(wgsLat) || isNaN(wgsLon) || (wgsLat === 0 && wgsLon === 0)) {
-        text += `\n⚠️ GPS坐标无效\n`;
-    } else {
-        let latFinal = wgsLat, lonFinal = wgsLon;
-        let isChinaArea = inChina(wgsLat, wgsLon);
-        
-        if (isChinaArea) {
-            const [gcjLat, gcjLon] = wgs84togcj02(wgsLat, wgsLon);
-            latFinal = gcjLat;
-            lonFinal = gcjLon;
-            text += `\n🔁 坐标已转换(适配国内地图)\n`;
-        }
-        
-        text += `\n📍 纬度: ${toDMS(latFinal, 'N', 'S')}\n📍 经度: ${toDMS(lonFinal, 'E', 'W')}\n`;
-        
-        if (isChinaArea) {
-            currentGcjLat = latFinal;
-            currentGcjLng = lonFinal;
-        } else {
-            currentGcjLat = wgsLat;
-            currentGcjLng = wgsLon;
-        }
-        hasValidGpsCoord = true;
-        coordDebugSpan.innerHTML = `📍 ${currentGcjLng?.toFixed(6)}, ${currentGcjLat?.toFixed(6)}`;
-        
-        geoAddressDisplay.innerHTML = `
-            <div class="success-box">
-                ✅ <strong>GPS坐标</strong> <span class="lib-badge lib-${result.lib === 'Exifr' ? 'exifr' : 'exifreader'}">${result.lib}</span><br><br>
-                坐标: ${currentGcjLng?.toFixed(6)}, ${currentGcjLat?.toFixed(6)}
-            </div>
-            ${generateMapLinks(currentGcjLat, currentGcjLng)}
-        `;
-        geoStatusIcon.innerText = '📍 坐标就绪';
-        
-        if (currentKey) {
-            setTimeout(() => reverseGeocodeWithProxy(currentGcjLng, currentGcjLat), 500);
-        }
+    // 【修改点4】：如果没找到有效GPS，给出温和提示，但不影响显示其他EXIF
+    if (!hasGPS) {
+        text += `\n⚠️ 未检测到有效的 GPS 坐标信息\n`;
+        geoStatusIcon.innerText = '📡 无GPS坐标';
+        geoAddressDisplay.innerHTML = '<span style="color:#6c86a3;">🖼️ 当前照片无 GPS 坐标</span>';
+        coordDebugSpan.innerHTML = '无坐标数据';
+        hasValidGpsCoord = false;
     }
     
     exifInfo.textContent = text;
