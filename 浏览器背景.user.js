@@ -39,9 +39,6 @@ const X_DROPDOWN_GUARD='[id^="typeaheadDropdown"],[role="listbox"],[role="menu"]
 
 const _T='transparent!important';
 
-// ===== LGGC-liquid-glass 配方 =====
-// backdrop-filter: blur(lggc-blur * 0.35) saturate(100%)
-// box-shadow: 双层内高光 + 内暗描边 + 外投影
 const LGGC={
   bgLight:'255,255,255',
   bgDark:'28,30,38',
@@ -51,7 +48,6 @@ const LGGC={
   blurPx:b=>Math.max(0,Number(b)||0)*0.35,
   filter:b=>`blur(${(Math.max(0,Number(b)||0)*0.35).toFixed(2)}px) saturate(100%)`
 };
-// ==================================
 
 const BG0=`background:${_T};background-color:${_T};background-image:none!important;`;
 const SH0='box-shadow:none!important;',BD0=`border-color:${_T};`;
