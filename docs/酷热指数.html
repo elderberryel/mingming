@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>酷热指数换算器</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: linear-gradient(135deg, #0b1020, #121a2f 45%, #1a2240);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+      color: #e8ecff;
+    }
+    .card {
+      width: 100%;
+      max-width: 560px;
+      background: rgba(18, 24, 42, 0.92);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 22px;
+      box-shadow:
+        0 12px 40px rgba(0,0,0,0.45),
+        0 0 0 1px rgba(255,255,255,0.02) inset;
+      padding: 24px;
+      backdrop-filter: blur(10px);
+    }
+    h1 {
+      margin: 0 0 8px;
+      text-align: center;
+      font-size: 28px;
+      color: #ffffff;
+      text-shadow: 0 0 18px rgba(120, 170, 255, 0.18);
+    }
+    .sub {
+      text-align: center;
+      color: #9fb0d9;
+      font-size: 14px;
+      margin-bottom: 20px;
+    }
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-bottom: 14px;
+    }
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    label {
+      font-size: 14px;
+      font-weight: 600;
+      color: #c9d4ff;
+    }
+
+    .lggc,.lggc>*{position:relative}
+    .lggc{
+      --lggc-radius:9999px;
+      --lggc-padding:1rem 1.25rem;
+      --lggc-bg:rgba(255, 255, 255, 0.08);
+      --lggc-border:rgba(51, 51, 51, 0.08);
+      --lggc-blur:8px;
+      --lggc-highlight:rgba(255, 255, 255, 0.85);
+      display:inline-flex;align-items:center;justify-content:center;gap:.5rem;
+      min-width:3.5rem;min-height:3rem;padding:var(--lggc-padding);
+      border:1px double var(--lggc-border);border-radius:var(--lggc-radius);
+      background:var(--lggc-bg);color:rgba(17,24,39,.92);text-decoration:none;
+      vertical-align:middle;box-sizing:border-box;overflow:hidden;isolation:isolate;
+      backdrop-filter:blur(calc(var(--lggc-blur) * 0.35)) saturate(160%);
+      -webkit-backdrop-filter:blur(calc(var(--lggc-blur) * 0.35)) saturate(100%);
+      box-shadow:
+        inset 1.5px -1.5px 1px -1px rgba(255,255,255,.92),
+        inset -1.5px 1.5px 1px -1px rgba(255,255,255,.9),
+        inset 0 0 3px rgba(15,23,42,.35),
+        0 16px 32px rgba(15,23,42,.14)
+    }
+    .lggc::after,.lggc::before{content:"";position:absolute;pointer-events:none;border-radius:inherit}
+    .lggc::before{
+      top:35%;left:50%;transform:translateX(-50%);
+      width:calc(100% - 16px);height:calc(100% - 16px);
+      border:1px double rgba(0,0,0,.9);filter:blur(var(--lggc-blur))
+    }
+    .lggc::after{inset:0}
+    .lggc>*{z-index:1}
+
+    /* ---- 夜间模式下的玻璃参数微调 ---- */
+    .lggc{
+      color-scheme: dark;
+      --lggc-bg: rgba(255, 255, 255, 0.07);
+      --lggc-border: rgba(255, 255, 255, 0.16);
+      color: #eef2ff;
+      box-shadow:
+        inset 1.5px -1.5px 1px -1px rgba(255,255,255,.42),
+        inset -1.5px 1.5px 1px -1px rgba(255,255,255,.28),
+        inset 0 0 3px rgba(0,0,0,.55),
+        0 14px 30px rgba(0,0,0,.38);
+    }
+    .lggc::before{ border: 1px double rgba(255,255,255,.48); }
+
+    /* ---- 输入框 / 下拉框：玻璃外壳 + 透明控件 ---- */
+    .glass-field{
+      --lggc-radius: 14px;
+      --lggc-padding: 0;
+      --lggc-bg: rgba(255,255,255,0.05);
+      --lggc-border: rgba(255,255,255,0.14);
+      display: flex;
+      justify-content: flex-start;
+      width: 100%;
+      min-width: 0;
+      min-height: 0;
+      transition: border-color .2s ease, box-shadow .2s ease;
+    }
+    .glass-field input,
+    .glass-field select{
+      flex: 1 1 auto;
+      width: 100%;
+      min-width: 0;
+      padding: 12px 14px;
+      border: none;
+      outline: none;
+      background: transparent;
+      color: inherit;
+      font-family: inherit;
+      font-size: 16px;
+      line-height: 1.35;
+      border-radius: inherit;
+      appearance: none;
+      -webkit-appearance: none;
+    }
+    .glass-field input::placeholder{ color: #7f8bb2; }
+    .glass-field input{ cursor: text; }
+    .glass-field select{
+      cursor: pointer;
+      padding-right: 40px;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23aebce6' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+      background-repeat: no-repeat;
+      background-position: right 14px center;
+      background-size: 13px 13px;
+    }
+    .glass-field select option{
+      background: #1a2340;
+      color: #eef2ff;
+    }
+    .glass-field:focus-within{
+      border-color: rgba(95,140,255,.85);
+      box-shadow:
+        inset 1.5px -1.5px 1px -1px rgba(255,255,255,.45),
+        inset -1.5px 1.5px 1px -1px rgba(255,255,255,.3),
+        0 0 0 3px rgba(95,140,255,.22),
+        0 14px 30px rgba(0,0,0,.38);
+    }
+    .glass-field:focus-within::before{ border-color: rgba(120,170,255,.85); }
+
+    /* ---- 按钮 ---- */
+    .btns {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 8px;
+    }
+    .btns .lggc{
+      --lggc-radius: 14px;
+      --lggc-padding: 12px 14px;
+      width: 100%;
+      min-height: 0;
+      font-family: inherit;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform .08s ease, box-shadow .2s ease, border-color .2s ease;
+    }
+    .btns .lggc:active{ transform: scale(0.97); }
+
+    .calc {
+      --lggc-bg: linear-gradient(135deg, #4f7cff, #6aa8ff);
+      --lggc-border: rgba(255,255,255,.4);
+      color: #fff;
+      box-shadow:
+        inset 1.5px -1.5px 1px -1px rgba(255,255,255,.65),
+        inset -1.5px 1.5px 1px -1px rgba(255,255,255,.45),
+        inset 0 0 3px rgba(15,23,42,.25),
+        0 10px 26px rgba(79,124,255,.35);
+    }
+    .calc::before{ border-color: rgba(255,255,255,.7); }
+    .calc:hover{
+      box-shadow:
+        inset 1.5px -1.5px 1px -1px rgba(255,255,255,.75),
+        inset -1.5px 1.5px 1px -1px rgba(255,255,255,.5),
+        inset 0 0 3px rgba(15,23,42,.25),
+        0 12px 30px rgba(79,124,255,.48);
+    }
+
+    .clear {
+      color: #dce5ff;
+      --lggc-bg: rgba(255,255,255,0.05);
+      --lggc-border: rgba(255,255,255,0.14);
+    }
+
+    /* ---- 结果区 ---- */
+    .result {
+      margin-top: 18px;
+      border-radius: 18px;
+      padding: 18px;
+      background: linear-gradient(135deg, rgba(35,45,78,0.85), rgba(23,31,57,0.92));
+      border: 1px solid rgba(120,150,255,0.10);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02);
+    }
+    .big {
+      font-size: 34px;
+      font-weight: 800;
+      margin: 8px 0;
+      text-align: center;
+      color: #ffffff;
+      text-shadow: 0 0 14px rgba(120,170,255,0.12);
+    }
+    .small {
+      text-align: center;
+      color: #aebce6;
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    /* ---- 徽章：玻璃质感 ---- */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: .5rem;
+      margin: 8px auto 0;
+      padding: 9px 18px;
+      border-radius: 999px;
+      font-size: 14px;
+      font-weight: 700;
+      color: #f2f5ff;
+      position: relative;
+      isolation: isolate;
+      overflow: hidden;
+      --badge-tint: rgba(92, 107, 148, 0.55);
+      background-color: rgba(255, 255, 255, 0.06);
+      background-image:
+        linear-gradient(180deg, rgba(255,255,255,0.20), rgba(255,255,255,0) 58%),
+        linear-gradient(135deg, var(--badge-tint), rgba(255,255,255,0.03));
+      border: 1px solid rgba(255,255,255,0.20);
+      backdrop-filter: blur(8px) saturate(160%);
+      -webkit-backdrop-filter: blur(8px) saturate(160%);
+      box-shadow:
+        inset 1.5px -1.5px 1px -1px rgba(255,255,255,.55),
+        inset -1.5px 1.5px 1px -1px rgba(255,255,255,.35),
+        inset 0 0 3px rgba(0,0,0,.45),
+        0 10px 24px rgba(0,0,0,.32);
+      text-shadow: 0 1px 4px rgba(0,0,0,.5);
+    }
+    .badge::before {
+      content: "";
+      position: absolute;
+      top: 35%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: calc(100% - 10px);
+      height: calc(100% - 10px);
+      border-radius: inherit;
+      border: 1px double rgba(255,255,255,.38);
+      filter: blur(4px);
+      pointer-events: none;
+    }
+
+    .badge-wrap {
+      text-align: center;
+    }
+    .tips {
+      margin-top: 16px;
+      font-size: 13px;
+      color: #b9c7ef;
+      line-height: 1.7;
+      background: rgba(255,255,255,0.035);
+      border-radius: 14px;
+      padding: 12px 14px;
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+    .footer {
+      margin-top: 12px;
+      font-size: 12px;
+      color: #8fa1d0;
+      text-align: center;
+    }
+    @media (max-width: 520px) {
+      .row { grid-template-columns: 1fr; }
+      h1 { font-size: 24px; }
+      .big { font-size: 30px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>酷热指数换算器</h1>
+    <div class="sub">Heat Index（体感高温）= 气温 + 湿度共同作用后的“感觉温度”</div>
+
+    <div class="row">
+      <div class="field">
+        <label for="temp">气温</label>
+        <div class="lggc glass-field">
+          <input type="number" id="temp" placeholder="例如 32" step="0.1" />
+        </div>
+      </div>
+      <div class="field">
+        <label for="unit">温度单位</label>
+        <div class="lggc glass-field">
+          <select id="unit">
+            <option value="C">摄氏度 °C</option>
+            <option value="F">华氏度 °F</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label for="humidity">相对湿度（%）</label>
+        <div class="lggc glass-field">
+          <input type="number" id="humidity" placeholder="例如 70" min="0" max="100" step="0.1" />
+        </div>
+      </div>
+      <div class="field">
+        <label for="autoCalc">输入时自动计算</label>
+        <div class="lggc glass-field">
+          <select id="autoCalc">
+            <option value="on">开启</option>
+            <option value="off">关闭</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="btns">
+      <button class="lggc calc" onclick="calculateHeatIndex()">立即计算</button>
+      <button class="lggc clear" onclick="clearAll()">清空</button>
+    </div>
+
+    <div class="result" id="resultBox">
+      <div class="small">请输入温度和湿度后计算</div>
+      <div class="big">--</div>
+      <div class="badge-wrap"><span class="badge">未计算</span></div>
+      <div class="small">结果会同时显示摄氏度和华氏度</div>
+    </div>
+
+    <div class="tips">
+      <strong>说明：</strong><br>
+      • 本工具采用 NOAA 常用 Heat Index 公式（以华氏度为基础计算）<br>
+      • 一般在较高温度和较高湿度下更有参考意义（通常 ≥ 27°C / 80°F）<br>
+      • 若温度较低，体感可能与实际气温接近
+    </div>
+
+  <script>
+    const tempEl = document.getElementById('temp');
+    const humidityEl = document.getElementById('humidity');
+    const unitEl = document.getElementById('unit');
+    const autoCalcEl = document.getElementById('autoCalc');
+    const resultBox = document.getElementById('resultBox');
+
+    function cToF(c) {
+      return (c * 9 / 5) + 32;
+    }
+
+    function fToC(f) {
+      return (f - 32) * 5 / 9;
+    }
+
+    function round(n, d = 1) {
+      return Number(n.toFixed(d));
+    }
+
+    // NOAA Heat Index (Fahrenheit)
+    function heatIndexF(T, R) {
+      let simpleHI = 0.5 * (T + 61.0 + ((T - 68.0) * 1.2) + (R * 0.094));
+
+      if ((simpleHI + T) / 2 < 80) {
+        return simpleHI;
+      }
+
+      let HI =
+        -42.379 +
+        2.04901523 * T +
+        10.14333127 * R +
+        -0.22475541 * T * R +
+        -0.00683783 * T * T +
+        -0.05481717 * R * R +
+        0.00122874 * T * T * R +
+        0.00085282 * T * R * R +
+        -0.00000199 * T * T * R * R;
+
+      if (R < 13 && T >= 80 && T <= 112) {
+        HI -= ((13 - R) / 4) * Math.sqrt((17 - Math.abs(T - 95)) / 17);
+      }
+
+      if (R > 85 && T >= 80 && T <= 87) {
+        HI += ((R - 85) / 10) * ((87 - T) / 5);
+      }
+
+      return HI;
+    }
+
+    // color 现在是“玻璃底色”，会被 --badge-tint 使用
+    function getRiskLevel(hiF) {
+      if (hiF < 80) {
+        return { text: '较低风险', color: 'rgba(67,160,71,0.55)', desc: '一般情况下不明显' };
+      } else if (hiF < 90) {
+        return { text: '注意', color: 'rgba(251,140,0,0.55)', desc: '长时间暴露可能不适' };
+      } else if (hiF < 103) {
+        return { text: '警惕', color: 'rgba(244,81,30,0.58)', desc: '可能出现中暑/热痉挛' };
+      } else if (hiF < 125) {
+        return { text: '危险', color: 'rgba(229,57,53,0.60)', desc: '较高概率热衰竭或中暑' };
+      } else {
+        return { text: '极度危险', color: 'rgba(142,36,170,0.60)', desc: '极易发生严重热相关疾病' };
+      }
+    }
+
+    function calculateHeatIndex() {
+      const temp = parseFloat(tempEl.value);
+      const humidity = parseFloat(humidityEl.value);
+      const unit = unitEl.value;
+
+      if (isNaN(temp) || isNaN(humidity)) {
+        resultBox.innerHTML = `
+          <div class="small">请先输入有效的温度和湿度</div>
+          <div class="big">--</div>
+          <div class="badge-wrap"><span class="badge">输入无效</span></div>
+        `;
+        return;
+      }
+
+      if (humidity < 0 || humidity > 100) {
+        resultBox.innerHTML = `
+          <div class="small">湿度必须在 0% ~ 100% 之间</div>
+          <div class="big">--</div>
+          <div class="badge-wrap"><span class="badge">湿度错误</span></div>
+        `;
+        return;
+      }
+
+      let tempF = unit === 'C' ? cToF(temp) : temp;
+      let hiF = heatIndexF(tempF, humidity);
+      let hiC = fToC(hiF);
+      let inputC = unit === 'C' ? temp : fToC(temp);
+      let inputF = unit === 'F' ? temp : cToF(temp);
+
+      const risk = getRiskLevel(hiF);
+
+      resultBox.innerHTML = `
+        <div class="small">输入气温：${round(inputC)} °C / ${round(inputF)} °F　|　湿度：${round(humidity)}%</div>
+        <div class="big">${round(hiC)} °C</div>
+        <div class="small">≈ ${round(hiF)} °F</div>
+        <div class="badge-wrap">
+          <span class="badge" style="--badge-tint:${risk.color};">${risk.text}</span>
+        </div>
+        <div class="small" style="margin-top:10px;">${risk.desc}</div>
+      `;
+    }
+
+    function clearAll() {
+      tempEl.value = '';
+      humidityEl.value = '';
+      resultBox.innerHTML = `
+        <div class="small">请输入温度和湿度后计算</div>
+        <div class="big">--</div>
+        <div class="badge-wrap"><span class="badge">未计算</span></div>
+        <div class="small">结果会同时显示摄氏度和华氏度</div>
+      `;
+    }
+
+    function maybeAutoCalc() {
+      if (autoCalcEl.value === 'on') {
+        calculateHeatIndex();
+      }
+    }
+
+    tempEl.addEventListener('input', maybeAutoCalc);
+    humidityEl.addEventListener('input', maybeAutoCalc);
+    unitEl.addEventListener('change', maybeAutoCalc);
+  </script>
+</body>
+</html>
