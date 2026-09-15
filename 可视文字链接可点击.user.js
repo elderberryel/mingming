@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         可视文字链接可点击
-// @namespace   https://github.com/elderberryel/mingming
-// @version      2.9
+// @namespace    https://github.com/elderberryel/mingming
+// @version      2.0
 // @description  将可视文字链接转换为可点击链接
 // @author       明明
 // @match        *://*/*
@@ -11,6 +11,8 @@
 // @grant        GM_setValue
 // @grant        GM_xmlhttpRequest
 // @connect      *
+// @updateURL    https://raw.githubusercontent.com/elderberryel/mingming/main/%E5%8F%AF%E8%A7%86%E6%96%87%E5%AD%97%E9%93%BE%E6%8E%A5%E5%8F%AF%E7%82%B9%E5%87%BB.user.js
+// @downloadURL  https://raw.githubusercontent.com/elderberryel/mingming/main/%E5%8F%AF%E8%A7%86%E6%96%87%E5%AD%97%E9%93%BE%E6%8E%A5%E5%8F%AF%E7%82%B9%E5%87%BB.user.js
 // ==/UserScript==
 
 (function() {
