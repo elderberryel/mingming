@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         浏览器背景
 // @namespace    明明
-// @version      5.9
+// @version      5.8
 // @description  浏览器背景
 // @author       明明
 // @match        *://*/*
