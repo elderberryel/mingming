@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         浏览器背景
 // @namespace    明明
-// @version      5.8
+// @version      5.9
 // @description  浏览器背景
 // @author       明明
 // @match        *://*/*
@@ -992,8 +992,8 @@ applyImported(data){
 };
 
 const SHADOW_CSS=`*{box-sizing:border-box;margin:0;padding:0;}
-#toggle{width:46px;height:46px;line-height:46px;text-align:center;border-radius:50%;background-color:rgba(28,30,38,.32);background-image:linear-gradient(180deg,rgba(255,255,255,.18),rgba(255,255,255,0) 70%);backdrop-filter:blur(9px) saturate(150%);-webkit-backdrop-filter:blur(9px) saturate(150%);border:1px double rgba(255,255,255,.24);color:#fff;font-size:14px;cursor:pointer;box-shadow:inset 1.5px -1.5px 1px -1px rgba(255,255,255,.85),inset -1.5px 1.5px 1px -1px rgba(255,255,255,.8),inset 0 0 3px rgba(15,23,42,.35),0 16px 32px rgba(15,23,42,.28);font-family:sans-serif;user-select:none;transform:translateZ(0);isolation:isolate;}
-#toggle:hover{background-color:rgba(28,30,38,.46);}
+#toggle{width:46px;height:46px;line-height:46px;text-align:center;border-radius:50%;background-color:rgba(30,42,34,.34);background-image:linear-gradient(180deg,rgba(152,221,152,.22),rgba(152,221,152,.08) 55%,rgba(255,255,255,0) 70%);backdrop-filter:blur(9px) saturate(150%);-webkit-backdrop-filter:blur(9px) saturate(150%);border:1px double rgba(152,221,152,.38);color:#fff;font-size:14px;cursor:pointer;box-shadow:inset 1.5px -1.5px 1px -1px rgba(255,255,255,.85),inset -1.5px 1.5px 1px -1px rgba(255,255,255,.8),inset 0 0 3px rgba(15,23,42,.35),inset 0 0 12px rgba(152,221,152,.22),0 16px 32px rgba(15,23,42,.28);font-family:sans-serif;user-select:none;transform:translateZ(0);isolation:isolate;}
+#toggle:hover{background-color:rgba(40,58,46,.5);}
 #panel{position:absolute;bottom:54px;right:0;width:280px;padding:12px;border-radius:12px;background-color:rgba(0,0,0,.88);color:#f0f0f0;font-size:12px;font-family:sans-serif;box-shadow:0 4px 20px rgba(0,0,0,.5);display:none;max-height:70vh;overflow-y:auto;overflow-x:hidden;}
 #panel .row{margin-bottom:8px;}
 #panel .lab{font-size:11px;margin-bottom:3px;color:#ccc;}
