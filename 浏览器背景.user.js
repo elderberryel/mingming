@@ -45,7 +45,7 @@ const LGGC={
   bgDark:'28,30,38',
   border:'rgba(51,51,53,.08)',
   radius:'12px',
-  overlayRadius:'14px',
+  overlayRadius:'20px',
   shadow:'inset 1.5px -1.5px 1px -1px rgba(255,255,255,.92),inset -1.5px 1.5px 1px -1px rgba(255,255,255,.9),inset 0 0 3px rgba(15,23,42,.35),0 16px 32px rgba(15,23,42,.14)',
   blurPx:b=>Math.max(0,Number(b)||0)*0.35,
   filter:b=>`blur(${(Math.max(0,Number(b)||0)*0.35).toFixed(2)}px) saturate(100%)`
@@ -117,7 +117,7 @@ const SEARCH_PILL_CSS =
 +`-webkit-appearance:none!important;appearance:none!important;`
 +`box-sizing:border-box!important;`
 +`backdrop-filter:blur(20px) saturate(100%)!important;`
-+`-webkit-backdrop-filter:blur(12px) saturate(160%)!important;`
++`-webkit-backdrop-filter:blur(12px) saturate(100%)!important;`
 +`background-color:rgba(255,255,255,.10)!important;`
 +`background-image:none!important;`
 +`border:1px solid rgba(255,255,255,.30)!important;`
@@ -284,58 +284,88 @@ const GOOGLE_SEARCH_GLASS_CSS=
 +`html body .UUbT9{color:inherit!important;}`;
 
 // ===== X (Twitter) 搜索框玻璃胶囊 =====
+// 玻璃加在最外层容器（同时包含放大镜 + input），聚焦状态一律压成玻璃白边，无蓝圈
 const X_SEARCH_GLASS_CSS=
-`html body input[data-testid="SearchBox_Search_Input"]{`
+// 最外层玻璃胶囊：包含放大镜 + input 的祖先
+`html body div:has(> div > div > div[data-testid="SearchBox_Search_Input_label"]){`
 +`background:rgba(255,255,255,.10)!important;`
 +`background-color:rgba(255,255,255,.10)!important;`
 +`background-image:none!important;`
 +`backdrop-filter:blur(12px) saturate(130%)!important;`
-+`-webkit-backdrop-filter:blur(12px) saturate(160%)!important;`
++`-webkit-backdrop-filter:blur(12px) saturate(100%)!important;`
 +`border:1px solid rgba(255,255,255,.30)!important;`
 +`border-radius:9999px!important;`
 +`box-shadow:inset 1.5px -1.5px 1px -1px rgba(255,255,255,.92),`
 +`inset -1.5px 1.5px 1px -1px rgba(255,255,255,.90),`
 +`inset 0 0 3px rgba(15,23,42,.35),`
 +`0 8px 20px rgba(15,23,42,.16)!important;`
++`outline:none!important;`
++`outline-offset:0!important;`
 +`isolation:isolate!important;`
 +`transform:translateZ(0)!important;`
-+`transition:background-color .2s,border-color .2s!important;`
++`transition:background-color .2s,border-color .2s,box-shadow .2s!important;`
 +`}`
-+`html body input[data-testid="SearchBox_Search_Input"]:hover,`
-+`html body input[data-testid="SearchBox_Search_Input"]:focus{`
+// hover/focus/focus-within/focus-visible/active 全部走玻璃白边，压掉 X 加的蓝边/蓝光
++`html body div:has(> div > div > div[data-testid="SearchBox_Search_Input_label"]):hover,`
++`html body div:has(> div > div > div[data-testid="SearchBox_Search_Input_label"]):focus,`
++`html body div:has(> div > div > div[data-testid="SearchBox_Search_Input_label"]):focus-within,`
++`html body div:has(> div > div > div[data-testid="SearchBox_Search_Input_label"]):focus-visible,`
++`html body div:has(> div > div > div[data-testid="SearchBox_Search_Input_label"]):active{`
 +`background:rgba(255,255,255,.16)!important;`
 +`background-color:rgba(255,255,255,.16)!important;`
++`border:1px solid rgba(255,255,255,.42)!important;`
 +`border-color:rgba(255,255,255,.42)!important;`
++`outline:none!important;`
++`outline-offset:0!important;`
++`box-shadow:inset 1.5px -1.5px 1px -1px rgba(255,255,255,.92),`
++`inset -1.5px 1.5px 1px -1px rgba(255,255,255,.90),`
++`inset 0 0 3px rgba(15,23,42,.35),`
++`0 8px 20px rgba(15,23,42,.16)!important;`
 +`}`
-/* 父级容器透明，避免双层背景遮住胶囊 */
-+`html body div:has(> input[data-testid="SearchBox_Search_Input"]),`
-+`html body div:has(> div > input[data-testid="SearchBox_Search_Input"]),`
-+`html body div:has(> div > div > input[data-testid="SearchBox_Search_Input"]){`
+// 内部所有层（图标容器、input 包装、input、清除按钮等）全部透明，去掉边框/轮廓/阴影/模糊
++`html body div:has(> div > div > div[data-testid="SearchBox_Search_Input_label"]) *{`
 +`background:transparent!important;`
 +`background-color:transparent!important;`
 +`background-image:none!important;`
 +`border:0!important;`
++`border-color:transparent!important;`
 +`box-shadow:none!important;`
++`-webkit-box-shadow:none!important;`
 +`backdrop-filter:none!important;`
 +`-webkit-backdrop-filter:none!important;`
++`outline:none!important;`
++`outline-offset:0!important;`
 +`}`
-/* 搜索图标的容器透明（与 input 同级） */
-+`html body div:has(> svg):has(+ div > input[data-testid="SearchBox_Search_Input"]),`
-+`html body div:has(> svg):has(~ div > input[data-testid="SearchBox_Search_Input"]){`
+// input 自身所有状态的焦点环彻底清掉
++`html body input[data-testid="SearchBox_Search_Input"]{`
++`outline:none!important;`
++`outline-offset:0!important;`
++`box-shadow:none!important;`
++`-webkit-box-shadow:none!important;`
++`border:0!important;`
 +`background:transparent!important;`
 +`background-color:transparent!important;`
-+`}`
-/* 联想下拉 */
-+`html body [id^="typeaheadDropdown"]{`
-+`background:rgba(28,30,38,.15)!important;`
-+`background-color:rgba(28,30,38,.15)!important;`
 +`background-image:none!important;`
-+`backdrop-filter:blur(16px) saturate(100%)!important;`
-+`-webkit-backdrop-filter:blur(16px) saturate(150%)!important;`
-+`border:1px solid rgba(255,255,255,.18)!important;`
-+`border-radius:16px!important;`
-+`box-shadow:0 16px 32px rgba(15,23,42,.28)!important;`
-+`overflow:hidden!important;`
++`caret-color:currentColor!important;`
++`-webkit-tap-highlight-color:transparent!important;`
++`}`
++`html body input[data-testid="SearchBox_Search_Input"]:hover,`
++`html body input[data-testid="SearchBox_Search_Input"]:focus,`
++`html body input[data-testid="SearchBox_Search_Input"]:focus-visible,`
++`html body input[data-testid="SearchBox_Search_Input"]:active{`
++`outline:none!important;`
++`outline-offset:0!important;`
++`box-shadow:none!important;`
++`-webkit-box-shadow:none!important;`
++`border:0!important;`
++`}`
+// label 自身也保持透明
++`html body div[data-testid="SearchBox_Search_Input_label"]{`
++`background:transparent!important;`
++`background-color:transparent!important;`
++`border:0!important;`
++`box-shadow:none!important;`
++`outline:none!important;`
 +`}`;
 
 const XPC='[data-testid="primaryColumn"]',XABB='[data-testid="app-bar-back"]',XNAV='nav[aria-live="polite"][role="navigation"]';
@@ -762,7 +792,24 @@ stripXHeaderBlur(){
  document.querySelectorAll(XABB).forEach(strip);
  document.querySelectorAll(XNAV).forEach(nav=>{
   strip(nav);
-  if(!prot(nav)){nav.style.setProperty('background-color','transparent','important');nav.style.setProperty('backdrop-filter','none','important');nav.style.setProperty('-webkit-backdrop-filter','none','important');}});}
+  if(!prot(nav)){nav.style.setProperty('background-color','transparent','important');nav.style.setProperty('backdrop-filter','none','important');nav.style.setProperty('-webkit-backdrop-filter','none','important');}});
+ // 搜索框祖先的 inline 蓝色边框/蓝光一并清掉（X 的品牌蓝 #1d9bf0 / rgb(29,155,240)）
+ const X_BLUE=/rgb\(\s*29\s*,\s*155\s*,\s*240\s*\)|rgb\(\s*0\s*,\s*149\s*,\s*246\s*\)|#1d9bf0|#1da1f2/i;
+ document.querySelectorAll('input[data-testid="SearchBox_Search_Input"]').forEach(inp=>{
+  let el=inp,hops=0;
+  while(el&&el!==document.body&&hops<8){
+   if(el.style){
+    const b=(el.style.border||'')+(el.style.borderColor||'')+(el.style.borderTopColor||'')+(el.style.borderBottomColor||'')+(el.style.boxShadow||'')+(el.style.webkitBoxShadow||'')+(el.style.outline||'')+(el.style.outlineColor||'');
+    if(X_BLUE.test(b)){
+     el.style.removeProperty('border');el.style.removeProperty('border-color');
+     el.style.removeProperty('border-top-color');el.style.removeProperty('border-bottom-color');
+     el.style.removeProperty('box-shadow');el.style.removeProperty('-webkit-box-shadow');
+     el.style.removeProperty('outline');el.style.removeProperty('outline-color');
+    }
+   }
+   el=el.parentElement;hops++;
+  }
+ });}
 };
 
 const StyleManager={
