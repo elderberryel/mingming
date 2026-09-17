@@ -284,9 +284,7 @@ const GOOGLE_SEARCH_GLASS_CSS=
 +`html body .UUbT9{color:inherit!important;}`;
 
 // ===== X (Twitter) 搜索框玻璃胶囊 =====
-// 玻璃加在最外层容器（同时包含放大镜 + input），聚焦状态一律压成玻璃白边，无蓝圈
 const X_SEARCH_GLASS_CSS=
-// 最外层玻璃胶囊：包含放大镜 + input 的祖先
 `html body div:has(> div > div > div[data-testid="SearchBox_Search_Input_label"]){`
 +`background:rgba(255,255,255,.10)!important;`
 +`background-color:rgba(255,255,255,.10)!important;`
@@ -305,7 +303,6 @@ const X_SEARCH_GLASS_CSS=
 +`transform:translateZ(0)!important;`
 +`transition:background-color .2s,border-color .2s,box-shadow .2s!important;`
 +`}`
-// hover/focus/focus-within/focus-visible/active 全部走玻璃白边，压掉 X 加的蓝边/蓝光
 +`html body div:has(> div > div > div[data-testid="SearchBox_Search_Input_label"]):hover,`
 +`html body div:has(> div > div > div[data-testid="SearchBox_Search_Input_label"]):focus,`
 +`html body div:has(> div > div > div[data-testid="SearchBox_Search_Input_label"]):focus-within,`
@@ -322,7 +319,6 @@ const X_SEARCH_GLASS_CSS=
 +`inset 0 0 3px rgba(15,23,42,.35),`
 +`0 8px 20px rgba(15,23,42,.16)!important;`
 +`}`
-// 内部所有层（图标容器、input 包装、input、清除按钮等）全部透明，去掉边框/轮廓/阴影/模糊
 +`html body div:has(> div > div > div[data-testid="SearchBox_Search_Input_label"]) *{`
 +`background:transparent!important;`
 +`background-color:transparent!important;`
@@ -336,7 +332,6 @@ const X_SEARCH_GLASS_CSS=
 +`outline:none!important;`
 +`outline-offset:0!important;`
 +`}`
-// input 自身所有状态的焦点环彻底清掉
 +`html body input[data-testid="SearchBox_Search_Input"]{`
 +`outline:none!important;`
 +`outline-offset:0!important;`
@@ -359,7 +354,6 @@ const X_SEARCH_GLASS_CSS=
 +`-webkit-box-shadow:none!important;`
 +`border:0!important;`
 +`}`
-// label 自身也保持透明
 +`html body div[data-testid="SearchBox_Search_Input_label"]{`
 +`background:transparent!important;`
 +`background-color:transparent!important;`
@@ -407,11 +401,8 @@ guessExt(u){if(Utils.isDataImageUrl(u)){const m=u.match(/^data:image\/(\w+)/);re
 getExtFromFilename(f){if(!f)return 'jpg';const p=f.split('.');return p.length<2?'jpg':p.pop().toLowerCase().replace('jpeg','jpg');},
 toAbsoluteUrl(u){if(!u)return '';if(/^(data|blob|https?):/.test(u))return u;if(u.startsWith('//'))return location.protocol+u;try{return new URL(u,location.href).href;}catch(e){return u;}}
 };
-
 const Store={get:(k,d)=>GM_getValue(k,d),set:(k,v)=>GM_setValue(k,v),del(k){try{GM_deleteValue(k);}catch(e){console.warn('[浏览器背景] 删除配置失败',e);}}};
-
 const ImageStore={
-
 _blobUsable:null,
 _blobCache:{},
 getFilenameMap(){return Utils.safeJSONParse(Store.get(GM_FILENAME_MAP,'{}'),{});},
@@ -436,8 +427,7 @@ store(dataUrl,key,origName){
   if(origName)ImageStore.saveOriginalFilename(ck,origName);
   return ck;
  });},
-async get(key){
- if(CACHE_AVAILABLE&&ImageStore._blobUsable!==false){
+async get(key){ if(CACHE_AVAILABLE&&ImageStore._blobUsable!==false){
   try{
    const c=await caches.open(CACHE_NAME);
    const r=await c.match(new Request('/'+key));
@@ -718,9 +708,7 @@ deepseekOverlayCSS(blur,alpha){
  +`.b64fb9ae,`
  +`.c08e6e93,._254829d,`
  +`.ds-focus-ring,`
- +`.ds-button__background,`
- +`[class*="_546d736"][aria-current="page"],`
- +`[class*="_546d736"][data-active="true"],`
+ +`.ds-button__background,` +`[class*="_546d736"][aria-current="page"],` +`[class*="_546d736"][data-active="true"],`
  +`[class*="_546d736"]:hover,`
  +`a[href^="/a/chat/s/"],`
  +`a[href^="/a/chat/s/"] *,`
@@ -751,9 +739,7 @@ deepseekOverlayCSS(blur,alpha){
  +`background:transparent!important;`
  +`background-color:transparent!important;`
  +`background-image:none!important;`
- +`box-shadow:none!important;}`
- +`[class*="collapsible"][class*="gradient"],`
- +`[class*="collapsible"][class*="fade"],`
+ +`box-shadow:none!important;}` +`[class*="collapsible"][class*="gradient"],` +`[class*="collapsible"][class*="fade"],`
  +`[class*="collapsible"] [class*="gradient"],`
  +`[class*="collapsible"] [class*="fade"]{`
  +`display:none!important;`
@@ -793,7 +779,6 @@ stripXHeaderBlur(){
  document.querySelectorAll(XNAV).forEach(nav=>{
   strip(nav);
   if(!prot(nav)){nav.style.setProperty('background-color','transparent','important');nav.style.setProperty('backdrop-filter','none','important');nav.style.setProperty('-webkit-backdrop-filter','none','important');}});
- // 搜索框祖先的 inline 蓝色边框/蓝光一并清掉（X 的品牌蓝 #1d9bf0 / rgb(29,155,240)）
  const X_BLUE=/rgb\(\s*29\s*,\s*155\s*,\s*240\s*\)|rgb\(\s*0\s*,\s*149\s*,\s*246\s*\)|#1d9bf0|#1da1f2/i;
  document.querySelectorAll('input[data-testid="SearchBox_Search_Input"]').forEach(inp=>{
   let el=inp,hops=0;
@@ -811,7 +796,6 @@ stripXHeaderBlur(){
   }
  });}
 };
-
 const StyleManager={
 styleNode:null,nativeBlurNode:null,
 styleFollowedBySiteSheet(node){
