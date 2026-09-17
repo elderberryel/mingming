@@ -45,6 +45,7 @@ const LGGC={
   bgDark:'28,30,38',
   border:'rgba(51,51,53,.08)',
   radius:'12px',
+  overlayRadius:'14px',
   shadow:'inset 1.5px -1.5px 1px -1px rgba(255,255,255,.92),inset -1.5px 1.5px 1px -1px rgba(255,255,255,.9),inset 0 0 3px rgba(15,23,42,.35),0 16px 32px rgba(15,23,42,.14)',
   blurPx:b=>Math.max(0,Number(b)||0)*0.35,
   filter:b=>`blur(${(Math.max(0,Number(b)||0)*0.35).toFixed(2)}px) saturate(100%)`
@@ -99,6 +100,243 @@ const POPUP_UNFILTER='[data-slot="select-content"],[data-slot="dropdown-menu-con
 const POPUP_LEAF='[data-slot="select-item"],[data-slot="select-item-text"],[data-slot="dropdown-menu-item"],[data-slot="command-item"],[role="option"],[role="menuitem"]';
 const DROP='[id^="typeaheadDropdown"],.search-suggest,.sug-list,.s-sug,[class*="suggest"],[class*="dropdown"],[class*="autocomplete"],[id*="search-result"],[id*="search-results"],[id*="searchResult"],[id*="search_result"],[class*="search-result"],[class*="searchResult"],[class*="search-results"],[role="listbox"],[role="menu"],[id^="base-ui-"][id$="-list"],[id^="base-ui-"][id$="-popup"],'+SLOT_POPUP;
 const DROP_CHILD=kid('[id^="typeaheadDropdown"],.search-suggest,.sug-list,.s-sug,[class*="suggest"],[id*="search-result"],[id*="search-results"],[class*="search-result"],[role="listbox"],[role="menu"],[id^="base-ui-"][id$="-list"],[id^="base-ui-"][id$="-popup"],'+SLOT_POPUP);
+
+// ===== 搜索框胶囊玻璃（通用 input） =====
+const SEARCH_PILL_CSS =
+`input[type="search"],input[role="searchbox"],`
++`input[placeholder*="搜索"],input[placeholder*="Search"],input[placeholder*="search"],`
++`input[placeholder*="查询"],input[placeholder*="检索"],input[placeholder*="查一查"],`
++`input[aria-label*="搜索"],input[aria-label*="Search"],input[aria-label*="search"],`
++`input[name="q"],input[name="query"],input[name="keyword"],input[name="wd"],input[name="s"],`
++`input[id="kw"],input[id="word"],input[id="search"],`
++`input[class*="search-input"],input[class*="searchInput"],input[class*="search-box"],input[class*="searchBox"],input[class*="SearchInput"],input[class*="SearchBox"],`
++`[class*="search-bar"] input,[class*="searchbar"] input,[class*="search-field"] input,`
++`[class*="sb-input"] input,`
++`[class*="input-wrap"] input{`
++`border-radius:9999px!important;`
++`-webkit-appearance:none!important;appearance:none!important;`
++`box-sizing:border-box!important;`
++`backdrop-filter:blur(20px) saturate(100%)!important;`
++`-webkit-backdrop-filter:blur(12px) saturate(160%)!important;`
++`background-color:rgba(255,255,255,.10)!important;`
++`background-image:none!important;`
++`border:1px solid rgba(255,255,255,.30)!important;`
++`box-shadow:inset 1.5px -1.5px 1px -1px rgba(255,255,255,.92),`
++`inset -1.5px 1.5px 1px -1px rgba(255,255,255,.90),`
++`inset 0 0 3px rgba(15,23,42,.35),`
++`0 8px 20px rgba(15,23,42,.16)!important;`
++`isolation:isolate!important;`
++`transform:translateZ(0)!important;`
++`}`
++`[class*="sb-input-wrap"],[class*="input-wrap"]{`
++`background:transparent!important;`
++`background-color:transparent!important;`
++`background-image:none!important;`
++`border:0!important;`
++`box-shadow:none!important;`
++`backdrop-filter:none!important;`
++`-webkit-backdrop-filter:none!important;`
++`}`;
+
+// ===== 百度 AI 新版搜索框玻璃 =====
+const CHAT_INPUT_GLASS_CSS =
+`html body .chat-input-wrapper-border,`
++`html body .chat-input-wrapper-box-shadow,`
++`html body [class*="chat-input-wrapper-border"],`
++`html body [class*="chat-input-wrapper-box-shadow"]{`
++`display:none!important;`
++`}`
++`html body [class*="chat-input-background"]{`
++`background-color:rgba(255,255,255,.10)!important;`
++`background-image:none!important;`
++`backdrop-filter:blur(16px) saturate(100%)!important;`
++`-webkit-backdrop-filter:blur(16px) saturate(100%)!important;`
++`border:1px solid rgba(255,255,255,.28)!important;`
++`border-radius:50px!important;`
++`box-shadow:inset 1.5px -1.5px 1px -1px rgba(255,255,255,.92),`
++`inset -1.5px 1.5px 1px -1px rgba(255,255,255,.90),`
++`inset 0 0 3px rgba(15,23,42,.35),`
++`0 12px 28px rgba(15,23,42,.18)!important;`
++`isolation:isolate!important;`
++`transform:translateZ(0)!important;`
++`}`
++`html body #input-root,`
++`html body #input-root > div,`
++`html body .chat-input-anchor,`
++`html body #chat-input-main,`
++`html body .chat-input-wrapper,`
++`html body .chat-input-container,`
++`html body .chat-input-container > div,`
++`html body #chat-input-top-band,`
++`html body #chat-input-area,`
++`html body .chat-input-tool,`
++`html body #left-tool,`
++`html body .left-tools-wrapper,`
++`html body .left-tool_12WeH,`
++`html body .overword-tip_3QK26,`
++`html body .tools-placeholder-wrapper,`
++`html body .right-tools-wrapper,`
++`html body #right-tool,`
++`html body .right-tool_3we_U,`
++`html body .upload-merge-wrapper_eD9Bq,`
++`html body .tooltip-wrapper_1paL6,`
++`html body .anchor-center_ZAuUP,`
++`html body .tool-item_1e6GD,`
++`html body .chat-voice-input,`
++`html body .chat-input-d-tooltip,`
++`html body .tools-clear-icon,`
++`html body #voice-input-wrapper{`
++`background:transparent!important;`
++`background-color:transparent!important;`
++`background-image:none!important;`
++`box-shadow:none!important;`
++`border-color:transparent!important;`
++`backdrop-filter:none!important;`
++`-webkit-backdrop-filter:none!important;`
++`}`
++`html body #chat-textarea,`
++`html body .chat-input-textarea{`
++`background:transparent!important;`
++`background-color:transparent!important;`
++`background-image:none!important;`
++`border:0!important;`
++`box-shadow:none!important;`
++`outline:none!important;`
++`color:inherit!important;`
++`resize:none!important;`
++`}`
++`html body #chat-submit-button{`
++`background-color:rgba(255,255,255,.18)!important;`
++`background-image:none!important;`
++`backdrop-filter:blur(8px) saturate(150%)!important;`
++`-webkit-backdrop-filter:blur(8px) saturate(150%)!important;`
++`border:1px solid rgba(255,255,255,.30)!important;`
++`border-radius:9999px!important;`
++`color:inherit!important;`
++`box-shadow:inset 1.2px -1.2px 1px -1px rgba(255,255,255,.5),`
++`inset -1.2px 1.2px 1px -1px rgba(255,255,255,.4),`
++`0 6px 14px rgba(15,23,42,.16)!important;`
++`}`;
+
+// ===== Google 搜索框玻璃胶囊 =====
+const GOOGLE_SEARCH_GLASS_CSS=
+`html body .RNNXgb{`
++`background:rgba(255,255,255,.10)!important;`
++`background-color:rgba(255,255,255,.10)!important;`
++`background-image:none!important;`
++`backdrop-filter:blur(16px) saturate(100%)!important;`
++`-webkit-backdrop-filter:blur(16px) saturate(100%)!important;`
++`border:1px solid rgba(255,255,255,.30)!important;`
++`border-radius:9999px!important;`
++`box-shadow:inset 1.5px -1.5px 1px -1px rgba(255,255,255,.92),`
++`inset -1.5px 1.5px 1px -1px rgba(255,255,255,.90),`
++`inset 0 0 3px rgba(15,23,42,.35),`
++`0 8px 20px rgba(15,23,42,.16)!important;`
++`isolation:isolate!important;`
++`transform:translateZ(0)!important;`
++`transition:background-color .2s,border-color .2s!important;`
++`}`
++`html body .RNNXgb:hover,html body .RNNXgb:focus-within{`
++`background:rgba(255,255,255,.16)!important;`
++`background-color:rgba(255,255,255,.16)!important;`
++`border-color:rgba(255,255,255,.42)!important;`
++`}`
++`html body .emcav .RNNXgb,html body .BgPPrc .RNNXgb,html body .sbfc .RNNXgb{`
++`background:rgba(255,255,255,.10)!important;`
++`background-color:rgba(255,255,255,.10)!important;`
++`}`
++`html body .A8SBwf,html body .SDkEP,html body .doljm,`
++`html body .XNfAUb,html body .RyIFgf,html body .a4bIc,`
++`html body .WwJHVc,html body .MGe1Ac,html body .gshNb,html body .gth5fd,`
++`html body .fM33ce,html body .dRYYxd,html body .ywK6Rd,`
++`html body .fzj3ad,html body .etxtjc,html body .UMOYhd,`
++`html body .A7sPV,html body .y1yadf{`
++`background:transparent!important;`
++`background-color:transparent!important;`
++`background-image:none!important;`
++`box-shadow:none!important;`
++`border-color:transparent!important;`
++`}`
++`html body textarea.gLFyf,html body .gLFyf,html body .svBvU{`
++`background:transparent!important;`
++`background-color:transparent!important;`
++`background-image:none!important;`
++`border:0!important;`
++`box-shadow:none!important;`
++`outline:none!important;`
++`color:inherit!important;`
++`}`
++`html body .plR5qb .bvUkz{`
++`background:rgba(255,255,255,.18)!important;`
++`border:1px solid rgba(255,255,255,.30)!important;`
++`}`
++`html body .aajZCb{`
++`background:rgba(28,30,38,.85)!important;`
++`background-color:rgba(28,30,38,.85)!important;`
++`background-image:none!important;`
++`backdrop-filter:blur(16px) saturate(150%)!important;`
++`-webkit-backdrop-filter:blur(16px) saturate(150%)!important;`
++`border:1px solid rgba(255,255,255,.18)!important;`
++`border-top:0!important;`
++`border-radius:0 0 26px 26px!important;`
++`box-shadow:0 16px 32px rgba(15,23,42,.28)!important;`
++`}`
++`html body .UUbT9{color:inherit!important;}`;
+
+// ===== X (Twitter) 搜索框玻璃胶囊 =====
+const X_SEARCH_GLASS_CSS=
+`html body input[data-testid="SearchBox_Search_Input"]{`
++`background:rgba(255,255,255,.10)!important;`
++`background-color:rgba(255,255,255,.10)!important;`
++`background-image:none!important;`
++`backdrop-filter:blur(12px) saturate(130%)!important;`
++`-webkit-backdrop-filter:blur(12px) saturate(160%)!important;`
++`border:1px solid rgba(255,255,255,.30)!important;`
++`border-radius:9999px!important;`
++`box-shadow:inset 1.5px -1.5px 1px -1px rgba(255,255,255,.92),`
++`inset -1.5px 1.5px 1px -1px rgba(255,255,255,.90),`
++`inset 0 0 3px rgba(15,23,42,.35),`
++`0 8px 20px rgba(15,23,42,.16)!important;`
++`isolation:isolate!important;`
++`transform:translateZ(0)!important;`
++`transition:background-color .2s,border-color .2s!important;`
++`}`
++`html body input[data-testid="SearchBox_Search_Input"]:hover,`
++`html body input[data-testid="SearchBox_Search_Input"]:focus{`
++`background:rgba(255,255,255,.16)!important;`
++`background-color:rgba(255,255,255,.16)!important;`
++`border-color:rgba(255,255,255,.42)!important;`
++`}`
+/* 父级容器透明，避免双层背景遮住胶囊 */
++`html body div:has(> input[data-testid="SearchBox_Search_Input"]),`
++`html body div:has(> div > input[data-testid="SearchBox_Search_Input"]),`
++`html body div:has(> div > div > input[data-testid="SearchBox_Search_Input"]){`
++`background:transparent!important;`
++`background-color:transparent!important;`
++`background-image:none!important;`
++`border:0!important;`
++`box-shadow:none!important;`
++`backdrop-filter:none!important;`
++`-webkit-backdrop-filter:none!important;`
++`}`
+/* 搜索图标的容器透明（与 input 同级） */
++`html body div:has(> svg):has(+ div > input[data-testid="SearchBox_Search_Input"]),`
++`html body div:has(> svg):has(~ div > input[data-testid="SearchBox_Search_Input"]){`
++`background:transparent!important;`
++`background-color:transparent!important;`
++`}`
+/* 联想下拉 */
++`html body [id^="typeaheadDropdown"]{`
++`background:rgba(28,30,38,.15)!important;`
++`background-color:rgba(55,55,55,.15)!important;`
++`background-image:none!important;`
++`backdrop-filter:blur(16px) saturate(150%)!important;`
++`-webkit-backdrop-filter:blur(16px) saturate(150%)!important;`
++`border:1px solid rgba(255,255,255,.18)!important;`
++`border-radius:16px!important;`
++`box-shadow:0 16px 32px rgba(15,23,42,.28)!important;`
++`overflow:hidden!important;`
++`}`;
 
 const XPC='[data-testid="primaryColumn"]',XABB='[data-testid="app-bar-back"]',XNAV='nav[aria-live="polite"][role="navigation"]';
 const X_CSS=`${XPC} div:has(${XNAV}),${XPC} div:has(> div > div > ${XNAV}),${XPC} div:has(> ${XABB}),${XPC} div:has(> div > ${XABB}),${XPC} > div:first-child,${XPC} > div:first-child > div,${XPC} > div:first-child > div > div{background-color:${_T};${BF0}}${XPC} .r-1e5uvyk{${BF0}}${XPC} .r-17c3jg3{background-color:${_T};}${XNAV},${XNAV} > div,${XNAV} div[role="tablist"],${XNAV} div[role="presentation"],${XNAV} div[role="tab"]{background-color:${_T};${BF0}}`;
@@ -338,12 +576,12 @@ nativeBlur(b,theme){
  const hov=dark?'rgba(255,255,255,.12)':'rgba(0,0,0,.08)';
  const GS=LGGC.shadow;
  const BFG=`backdrop-filter:${GF}!important;-webkit-backdrop-filter:${GF}!important;`;
- const GLASS=`${BFG}background-color:${glassBg}!important;border:1px double ${bord}!important;box-shadow:${GS}!important;border-radius:${LGGC.radius}!important;transform:translateZ(0)!important;isolation:isolate!important;overflow:hidden!important;`;
+ const GLASS=`${BFG}background-color:${glassBg}!important;border:1px double ${bord}!important;box-shadow:${GS}!important;border-radius:${LGGC.overlayRadius}!important;transform:translateZ(0)!important;isolation:isolate!important;overflow:hidden!important;`;
  return `.modal,.dialog,.popup,.dropdown,.menu,.popover,.tooltip,[role="dialog"],[role="menu"],[role="tooltip"],[role="listbox"],[role="grid"],.layer,.fancybox,.swal-modal,.ant-modal,.el-dialog,.el-popper,.notification,.Toastify__toast-container,.position-fixed,.z-50{${BFG}box-shadow:${GS}!important;}`
  +`${DROP}{${GLASS}}`
  +`${DROP_CHILD}{background-color:${_T};${SH0}}`
  +`${POPUP_UNFILTER}{filter:none!important;}`
- +`${POPUP_PANEL}{${BFG}background-color:${glassBg}!important;border:1px double ${bord}!important;border-radius:${LGGC.radius}!important;box-shadow:${GS}!important;isolation:isolate!important;}`
+ +`${POPUP_PANEL}{${BFG}background-color:${glassBg}!important;border:1px double ${bord}!important;border-radius:${LGGC.overlayRadius}!important;box-shadow:${GS}!important;isolation:isolate!important;}`
  +`${POPUP_LEAF}{background-color:${_T};${SH0}}`
  +`input:not(.translate-ui input),textarea,select,[type="text"],[type="search"],[type="email"],[type="password"],[type="url"],[type="number"],[contenteditable="true"]{${BG0}${BF0}${SH0}border-color:${bordInput}!important;}`
  +`button:hover,[role="option"]:hover,div[class*="suggest"] li:hover,div[class*="suggest"] div:hover,[id*="search-result"] .search-result:hover,[id*="search-result"] a:hover{background-color:${hov}!important;}`
@@ -352,6 +590,8 @@ buildAll(cfg,finalUrl){
  let css=StyleBuilder.background(cfg,finalUrl)+StyleBuilder.theme(cfg.theme)
  +`.search_ipt,.search_ipt_wr{${BF0}background:${_T};}`
  +`input:not(.translate-ui input),textarea,select,[contenteditable="true"]{${BG0}${BF0}${SH0}outline:none!important;}`
+ +SEARCH_PILL_CSS
+ +CHAT_INPUT_GLASS_CSS
  +`nav.segmented-control.shadow-sm,nav.apple-navbar,nav.apple-navbar .container-fluid{${BG0}${SH0}${BF0}}`
  +`.ant-menu.ant-menu-horizontal,.ant-menu-root.ant-menu-horizontal,ul.ant-menu.ant-menu-horizontal,.ant-menu-horizontal>.ant-menu-item,.ant-menu-horizontal>.ant-menu-submenu,.ant-menu-horizontal .ant-menu-submenu-title,.ant-btn.ant-btn-default,.ant-btn-variant-outlined,button.ant-btn{${BG0}${SH0}${BD3}}`
  +`:root,${BGVAR_SEL},[class*="bg-[rgb(var(--bg-"]{--bg-tertiary:${_T};--bg-secondary:${_T};--bg-primary:${_T};${BG0}${SH0}}`
@@ -364,7 +604,8 @@ css+=`.ant-table,.ant-table-wrapper,.ant-table-container,.ant-table-body,.ant-ta
 css+=`html[data-theme],body.mfy-antd,[data-theme="light"],[data-theme="dark"]{--ant-color-bg-container:transparent!important;--ant-color-bg-layout:transparent!important;--ant-color-bg-elevated:transparent!important;--color-bg-container:transparent!important;--color-bg-layout:transparent!important;}`;
 css+=NAV_CSS;
 css+=VUETIFY_CSS;
- if(SiteAdapters.isXSite())css+=X_CSS;
+ if(SiteAdapters.isGoogleSite())css+=GOOGLE_SEARCH_GLASS_CSS;
+ if(SiteAdapters.isXSite())css+=X_CSS+X_SEARCH_GLASS_CSS;
  if(SiteAdapters.isTiebaSite())css+=TIEBA_CSS;
  if(SiteAdapters.isDeepSeekSite()){
    const ov=Config.getEffectiveOverlayValues();
@@ -383,6 +624,7 @@ isXSite(){const h=Utils.getHost();return /(^|\.)x\.com$/.test(h)||/(^|\.)twitter
 isTiebaSite(){return /(^|\.)tieba\.baidu.com$/.test(Utils.getHost());},
 isDeepSeekSite(){return /(^|\.)deepseek\.com$/.test(Utils.getHost());},
 is123PanSite(){return /(^|\.)123pan\.(com|cn)$/.test(Utils.getHost());},
+isGoogleSite(){return /(^|\.)google\.[a-z.]+$/.test(Utils.getHost());},
 
 pan123OverlayCSS(blur,alpha){
  const b=Number(blur)||0,a=Number(alpha);
@@ -396,6 +638,8 @@ pan123OverlayCSS(blur,alpha){
  +`backdrop-filter:${gf}!important;`
  +`-webkit-backdrop-filter:${gf}!important;`
  +`box-shadow:${LGGC.shadow}!important;`
+ +`border-radius:${LGGC.overlayRadius}!important;`
+ +`overflow:hidden!important;`
  +`transform:translateZ(0)!important;`
  +`isolation:isolate!important;}`;
 },
@@ -411,7 +655,9 @@ deepseekOverlayCSS(blur,alpha){
  +`backdrop-filter:${gf}!important;`
  +`-webkit-backdrop-filter:${gf}!important;`
  +`box-shadow:${LGGC.shadow}!important;`
- +`border:1px double ${LGGC.border}!important;}`
+ +`border:1px double ${LGGC.border}!important;`
+ +`border-radius:${LGGC.overlayRadius}!important;`
+ +`overflow:hidden!important;}`
 
  +`._245c867,._34a54ec,._245c867._34a54ec,`
  +`._245c867 *,._34a54ec *,`
@@ -700,7 +946,6 @@ htmlBodyLocked(){
  const hc=(document.documentElement.className||'').toLowerCase(),bc=(document.body.className||'').toLowerCase();
  return ['modal-open','drawer-open','overflow-hidden','no-scroll','popup-open','dialog-open'].some(k=>hc.includes(k)||bc.includes(k))||hs.overflow==='hidden'||hs.overflowY==='hidden'||bs.overflow==='hidden'||bs.overflowY==='hidden';},
 isLightBg(bg){if(!bg||!bg.includes('rgb'))return false;const n=bg.match(/\d+(\.\d+)?/g);return n&&n.length>=3&&(parseFloat(n[0])+parseFloat(n[1])+parseFloat(n[2]))/3>180;},
-// 恢复为原始全量遍历逻辑
 findLikelyOverlays(){
  if(!document.body)return [];
  const floatEl=document.getElementById(FLOAT_ID),out=[],vw=innerWidth,vh=innerHeight;
@@ -730,6 +975,21 @@ write(item,blur,alpha){
  el.style.setProperty('background-color',
    item.useWhite?`rgba(${LGGC.bgLight},${alpha})`:`rgba(${LGGC.bgDark},${alpha})`,'important');
  el.style.setProperty('box-shadow',LGGC.shadow,'important');
+
+ try{
+  const r=el.getBoundingClientRect();
+  const vw=innerWidth||360, vh=innerHeight||640;
+  const isFullscreen = r.width >= vw*0.98 && r.height >= vh*0.98;
+  const cur = parseFloat(getComputedStyle(el).borderRadius) || 0;
+  if(!isFullscreen && cur < 8){
+   el.style.setProperty('border-radius',LGGC.overlayRadius,'important');
+   const ov = getComputedStyle(el).overflow;
+   if(!el.style.getPropertyValue('overflow') || ov === 'visible'){
+    el.style.setProperty('overflow','hidden','important');
+   }
+  }
+ }catch(e){}
+
  if(item.pointerNone)el.style.setProperty('pointer-events','auto','important');
  OverlayEnhancer._marked.add(el);
  OverlayEnhancer._lastApplied.set(el,{blur,alpha});},
