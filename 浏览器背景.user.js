@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         浏览器背景
 // @namespace    明明
-// @version      5.0
+// @version      6.9
 // @description  浏览器背景
 // @author       明明
 // @match        *://*/*
@@ -19,7 +19,7 @@
 const _t0=(document.title||'').toLowerCase();
 if(/just a moment|attention required|cloudflare|please wait|checking your browser|verify you are human|one more step/.test(_t0)||/\/cdn-cgi\//.test(location.pathname))return;
 
-const SCRIPT_VERSION=(typeof GM_info!=='undefined'&&GM_info&&GM_info.script&&GM_info.script.version)||'5.9';
+const SCRIPT_VERSION=(typeof GM_info!=='undefined'&&GM_info&&GM_info.script&&GM_info.script.version)||'6.1';
 const CONFIG_VERSION=SCRIPT_VERSION,NODE_ID_VERSION='v89';
 const CACHE_AVAILABLE=typeof caches!=='undefined'&&typeof caches.open==='function';
 if(!CACHE_AVAILABLE)console.warn('[浏览器背景] 当前环境不支持 CacheStorage，大图片将仅存于 GM 存储，可能影响性能');
@@ -573,8 +573,7 @@ background(cfg,finalUrl){
   ?htmlBefore(`background-color:${SKELETON_BG}!important;background-image:linear-gradient(rgba(0,0,0,${dm}),rgba(0,0,0,${dm})),url("${img}")!important;background-repeat:no-repeat!important;background-position:center!important;background-size:100% 100%,cover!important;`,cfg.blur)
   :htmlBefore(`background:${SKELETON_BG}!important;background-image:none!important;`,cfg.blur);
  return `html,body{${BG0}}#bgCanvas{display:none!important;}${bgCss}body::before{${PSEUDO0.replace('-2147483647','-2147483646')}background:${_T};}`
- +`*:not(img):not(svg):not(video):not(canvas):not(.translate-ui):not(.translate-ui *):not(.cf-turnstile):not(.h-captcha):not(.g-recaptcha):not(input):not(select):not(textarea):not([id^="typeaheadDropdown"]):not(.search-suggest):not(.sug-list):not(.s-sug):not([class*="suggest"]):not([class*="dropdown"]):not([class*="autocomplete"]):not([id*="search-result"]):not([id*="search-results"]):not([class*="search-result"]):not([role="listbox"]):not([role="menu"]){background-color:${_T};}`
- +`[id^="_r_"],[id^="_r_"] *{${BG0}${SH0}}`
++`*:not(img):not(svg):not(video):not(canvas):not(.translate-ui):not(.translate-ui *):not(.cf-turnstile):not(.h-captcha):not(.g-recaptcha):not(input):not(select):not(textarea):not([id^="typeaheadDropdown"]):not(.search-suggest):not(.sug-list):not(.s-sug):not([class*="suggest"]):not([class*="dropdown"]):not([class*="autocomplete"]):not([id*="search-result"]):not([id*="search-results"]):not([class*="search-result"]):not([role="listbox"]):not([role="menu"]){background-color:${_T};background-image:none!important;}`
  +`#container,#header,#logo,#wrapper,#page,#main,.container,.wrapper,header,footer,nav,.navbar,.top-bar,.row1,.header,.logo,#top,.top,#site-header,.site-header{${BG0}${SH0}${BD0}}`
  +`#header::before,#header::after,#top::before,#top::after,#topbar::before,#topbar::after,#top-bar::before,#top-bar::after,#topBar::before,#topBar::after,#mobile-topbar::before,#mobile-topbar::after,#mobileTopbar::before,#mobileTopbar::after,#mobile-header::before,#mobile-header::after,#mobile-nav::before,#mobile-nav::after,#mobile-bar::before,#mobile-bar::after,#navbar::before,#navbar::after,#nav-bar::before,#nav-bar::after,#masthead::before,#masthead::after,#site-header::before,#site-header::after,#page-header::before,#page-header::after,#app-bar::before,#app-bar::after,#toolbar::before,#toolbar::after,header::before,header::after,nav::before,nav::after{${BG0}${SH0}${BF0}}`
  +`#additional-info,.user-content,#script-info,.width-constraint,#install-area,.good-bad,.discussion-list,article,.post-body,.entry-content,.markdown-body,.topic-body,.post-content,#readme,.Box-body{${BG0}${SH0}${BD0}--bg-color:${_T};--color-canvas-default:${_T};}`
@@ -605,6 +604,7 @@ nativeBlur(b,theme){
  +`${POPUP_LEAF}{background-color:${_T};${SH0}}`
  +`input:not(.translate-ui input),textarea,select,[type="text"],[type="search"],[type="email"],[type="password"],[type="url"],[type="number"],[contenteditable="true"]{${BG0}${BF0}${SH0}border-color:${bordInput}!important;}`
  +`button:hover,[role="option"]:hover,div[class*="suggest"] li:hover,div[class*="suggest"] div:hover,[id*="search-result"] .search-result:hover,[id*="search-result"] a:hover{background-color:${hov}!important;}`
+ +`details-menu[role="menu"]{backdrop-filter:none!important;-webkit-backdrop-filter:none!important;}`
  +SIDEBAR0;},
 buildAll(cfg,finalUrl){
  let css=StyleBuilder.background(cfg,finalUrl)+StyleBuilder.theme(cfg.theme)
@@ -636,6 +636,52 @@ css+=VUETIFY_CSS;
    css+=CASHIER_CSS;
    css+=SiteAdapters.pan123OverlayCSS(ov.blur,ov.alpha);
  }
+ if(SiteAdapters.isSymblSite())css+=SiteAdapters.symblCSS();
+ // ===== GitHub 排序菜单玻璃效果 =====
+ if(/(^|\.)github\.com$/.test(Utils.getHost())){
+   css+=`details-menu[role="menu"]{`
+     +`background:transparent!important;`
+     +`background-color:transparent!important;`
+     +`backdrop-filter:none!important;`
+     +`-webkit-backdrop-filter:none!important;`
+     +`box-shadow:none!important;`
+     +`border:0!important;`
+     +`overflow:visible!important;`
+     +`}`
+     +`details-menu[role="menu"] .SelectMenu-modal{`
+     +`background:rgba(28,30,38,.88)!important;`
+     +`background-color:rgba(28,30,38,.88)!important;`
+     +`backdrop-filter:blur(16px) saturate(150%)!important;`
+     +`-webkit-backdrop-filter:blur(16px) saturate(150%)!important;`
+     +`border:1px double rgba(255,255,255,.18)!important;`
+     +`border-radius:16px!important;`
+     +`box-shadow:inset 1.5px -1.5px 1px -1px rgba(255,255,255,.92),`
+     +`inset -1.5px 1.5px 1px -1px rgba(255,255,255,.9),`
+     +`inset 0 0 3px rgba(15,23,42,.35),`
+     +`0 16px 32px rgba(15,23,42,.14)!important;`
+     +`overflow:hidden!important;`
+     +`isolation:isolate!important;`
+     +`transform:translateZ(0)!important;`
+     +`}`
+     +`details-menu[role="menu"] .SelectMenu-header{`
+     +`background:transparent!important;`
+     +`background-color:transparent!important;`
+     +`box-shadow:none!important;`
+     +`border-bottom:1px solid rgba(255,255,255,.15)!important;`
+     +`}`
+     +`details-menu[role="menu"] .SelectMenu-list a.SelectMenu-item{`
+     +`background:transparent!important;`
+     +`background-color:transparent!important;`
+     +`box-shadow:none!important;`
+     +`border:0!important;`
+     +`}`
+     +`details-menu[role="menu"] .SelectMenu-list a.SelectMenu-item:hover{`
+     +`background:rgba(255,255,255,.10)!important;`
+     +`}`
+     +`details-menu[role="menu"] .SelectMenu-list a.SelectMenu-item[aria-checked="true"]{`
+     +`background:rgba(255,255,255,.06)!important;`
+     +`}`;
+ }
  return css+ROOT_HARDEN;}
 };
 
@@ -645,6 +691,297 @@ isTiebaSite(){return /(^|\.)tieba\.baidu.com$/.test(Utils.getHost());},
 isDeepSeekSite(){return /(^|\.)deepseek\.com$/.test(Utils.getHost());},
 is123PanSite(){return /(^|\.)123pan\.(com|cn)$/.test(Utils.getHost());},
 isGoogleSite(){return /(^|\.)google\.[a-z.]+$/.test(Utils.getHost());},
+isSymblSite(){return /(^|\.)symbl\.cc$/.test(Utils.getHost());},
+
+symblCSS(){
+ return `/* === symbl.cc 清场：把页面底图露出来 === */
+html body,
+html body *:not(img):not(svg):not(video):not(canvas):not(iframe){
+  background-color:transparent!important;
+  background-image:none!important;
+}
+html body::before,
+html body::after,
+html body *::before,
+html body *::after{
+  background-color:transparent!important;
+  background-image:none!important;
+}
+
+/* === 1. 主页搜索框：外层全部透明，只保留内部一层胶囊 === */
+html body .search-form__form--main,
+html body #search-form.search-form__form--main,
+html body .search-form-main,
+html body .header__search,
+html body .main-page__search-wrapper{
+  background:transparent!important;
+  background-color:transparent!important;
+  background-image:none!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+  border:0!important;
+  box-shadow:none!important;
+  padding:0!important;
+  border-radius:0!important;
+  max-width:none!important;
+  margin:0!important;
+  overflow:visible!important;
+  transform:none!important;
+  isolation:auto!important;
+}
+
+/* === 2. 移动端展开的搜索浮层：外层玻璃面板（排除 --main） === */
+html body .search-form__form:not(.search-form__form--main),
+html body #search-form:not(.search-form__form--main){
+  background-color:rgba(255,255,255,.08)!important;
+  background-image:none!important;
+  backdrop-filter:blur(18px) saturate(140%)!important;
+  -webkit-backdrop-filter:blur(18px) saturate(140%)!important;
+  border:1px solid rgba(255,255,255,.28)!important;
+  border-radius:24px!important;
+  box-shadow:inset 1.5px -1.5px 1px -1px rgba(255,255,255,.85),
+             inset -1.5px 1.5px 1px -1px rgba(255,255,255,.78),
+             inset 0 0 3px rgba(15,23,42,.28),
+             0 16px 40px rgba(15,23,42,.22)!important;
+  overflow:hidden!important;
+  isolation:isolate!important;
+  transform:translateZ(0)!important;
+  padding:10px!important;
+  box-sizing:border-box!important;
+}
+
+/* === 3. 搜索框胶囊（主页/浮层通用） === */
+html body .search-form__block-input{
+  background-color:rgba(255,255,255,.10)!important;
+  background-image:none!important;
+  backdrop-filter:blur(16px) saturate(130%)!important;
+  -webkit-backdrop-filter:blur(16px) saturate(130%)!important;
+  border:1px solid rgba(255,255,255,.30)!important;
+  border-radius:9999px!important;
+  box-shadow:inset 1.5px -1.5px 1px -1px rgba(255,255,255,.92),
+             inset -1.5px 1.5px 1px -1px rgba(255,255,255,.90),
+             inset 0 0 3px rgba(15,23,42,.35),
+             0 8px 20px rgba(15,23,42,.16)!important;
+  isolation:isolate!important;
+  transform:translateZ(0)!important;
+  transition:background-color .2s, border-color .2s, box-shadow .2s!important;
+}
+html body .search-form__block-input:hover,
+html body .search-form__block-input:focus-within{
+  background-color:rgba(255,255,255,.16)!important;
+  border-color:rgba(255,255,255,.42)!important;
+}
+html body .search-form__input,
+html body #search-query{
+  background:transparent!important;
+  background-color:transparent!important;
+  background-image:none!important;
+  border:0!important;
+  box-shadow:none!important;
+  outline:none!important;
+  color:inherit!important;
+}
+html body .search-form__icon{
+  background:transparent!important;
+  background-color:transparent!important;
+  background-image:none!important;
+  border:0!important;
+  box-shadow:none!important;
+  color:inherit!important;
+}
+html body .search-form__search-btn{
+  background-color:rgba(255,255,255,.18)!important;
+  background-image:none!important;
+  backdrop-filter:blur(8px) saturate(100%)!important;
+  -webkit-backdrop-filter:blur(8px) saturate(100%)!important;
+  border:1px solid rgba(255,255,255,.30)!important;
+  border-radius:9999px!important;
+  color:inherit!important;
+  box-shadow:inset 1.2px -1.2px 1px -1px rgba(255,255,255,.5),
+             inset -1.2px 1.2px 1px -1px rgba(255,255,255,.4),
+             0 6px 14px rgba(15,23,42,.16)!important;
+  transition:background-color .2s!important;
+}
+html body .search-form__search-btn:hover{
+  background-color:rgba(255,255,255,.30)!important;
+}
+html body .search-form__mobile-open-button{
+  background:transparent!important;
+  background-color:transparent!important;
+  border:0!important;
+  box-shadow:none!important;
+  color:inherit!important;
+}
+
+/* === 4. 搜索结果下拉/热门查询：浅色玻璃面板 === */
+html body .search-result{
+  background-color:rgba(255,255,255,.05)!important;
+  background-image:none!important;
+  backdrop-filter:blur(18px) saturate(100%)!important;
+  -webkit-backdrop-filter:blur(18px) saturate(100%)!important;
+  border:1px solid rgba(255,255,255,.28)!important;
+  border-radius:20px!important;
+  box-shadow:inset 1.5px -1.5px 1px -1px rgba(255,255,255,.85),
+             inset -1.5px 1.5px 1px -1px rgba(255,255,255,.78),
+             inset 0 0 3px rgba(15,23,42,.28),
+             0 16px 32px rgba(15,23,42,.22)!important;
+  overflow:hidden!important;
+  isolation:isolate!important;
+  transform:translateZ(0)!important;
+}
+html body .search-result__link{
+  background:transparent!important;
+  background-color:transparent!important;
+  background-image:none!important;
+  border:0!important;
+  box-shadow:none!important;
+  color:inherit!important;
+  transition:background-color .15s!important;
+}
+html body .search-result__link:hover,
+html body .search-result__link:focus{
+  background-color:rgba(255,255,255,.10)!important;
+}
+html body .search-result__info,
+html body .search-result__symbol,
+html body .search-result__symbol img{
+  background:transparent!important;
+  background-color:transparent!important;
+  background-image:none!important;
+  border:0!important;
+  box-shadow:none!important;
+}
+html body .search-result__history-title{
+  background:transparent!important;
+  color:inherit!important;
+  opacity:.6!important;
+}
+
+/* === 5. 搜索页 .input-search 搜索框（胶囊玻璃） === */
+html body .input-search{
+  background-color:rgba(255,255,255,.10)!important;
+  background-image:none!important;
+  backdrop-filter:blur(16px) saturate(130%)!important;
+  -webkit-backdrop-filter:blur(16px) saturate(130%)!important;
+  border:1px solid rgba(255,255,255,.30)!important;
+  border-radius:9999px!important;
+  box-shadow:inset 1.5px -1.5px 1px -1px rgba(255,255,255,.92),
+             inset -1.5px 1.5px 1px -1px rgba(255,255,255,.90),
+             inset 0 0 3px rgba(15,23,42,.35),
+             0 8px 20px rgba(15,23,42,.16)!important;
+  isolation:isolate!important;
+  transform:translateZ(0)!important;
+  transition:background-color .2s, border-color .2s, box-shadow .2s!important;
+  overflow:hidden!important;
+}
+html body .input-search:hover,
+html body .input-search:focus-within{
+  background-color:rgba(255,255,255,.16)!important;
+  border-color:rgba(255,255,255,.42)!important;
+}
+html body .input-search__input,
+html body input.input-search__input{
+  background:transparent!important;
+  background-color:transparent!important;
+  background-image:none!important;
+  border:0!important;
+  box-shadow:none!important;
+  outline:none!important;
+  color:inherit!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+  -webkit-appearance:none!important;
+  appearance:none!important;
+  border-radius:9999px!important;
+}
+html body .input-search__input::placeholder{
+  color:inherit!important;
+  opacity:.6!important;
+}
+html body .input-search__icon,
+html body .input-search__clear,
+html body .input-search__button,
+html body .input-search__btn{
+  background:transparent!important;
+  background-color:transparent!important;
+  background-image:none!important;
+  border:0!important;
+  box-shadow:none!important;
+  color:inherit!important;
+}
+
+/* === 6. 搜索页标签按钮透明胶囊玻璃 === */
+html body .search-page__tabs-wrapper,
+html body .search-page__tabs-wrapper .gradient,
+html body .search-page__tabs-wrapper .gradient--left,
+html body .search-page__tabs-wrapper .gradient--right{
+  display:none!important;
+  background:none!important;
+  background-image:none!important;
+  box-shadow:none!important;
+}
+html body .search-page__tabs,
+html body .search-page__tabs .swiper-wrapper{
+  background:transparent!important;
+  background-color:transparent!important;
+  background-image:none!important;
+  box-shadow:none!important;
+  border:0!important;
+}
+html body .search-tab{
+  background-color:rgba(255,255,255,.10)!important;
+  background-image:none!important;
+  backdrop-filter:blur(12px) saturate(130%)!important;
+  -webkit-backdrop-filter:blur(12px) saturate(130%)!important;
+  border:1px solid rgba(255,255,255,.28)!important;
+  border-radius:9999px!important;
+  box-shadow:inset 1.2px -1.2px 1px -1px rgba(255,255,255,.72),
+             inset -1.2px 1.2px 1px -1px rgba(255,255,255,.6),
+             inset 0 0 3px rgba(15,23,42,.24),
+             0 6px 14px rgba(15,23,42,.14)!important;
+  color:inherit!important;
+  transition:background-color .2s, border-color .2s, box-shadow .2s, transform .2s!important;
+  transform:translateZ(0)!important;
+  isolation:isolate!important;
+  margin:2px 0;
+}
+html body .search-tab:hover{
+  background-color:rgba(255,255,255,.16)!important;
+  border-color:rgba(255,255,255,.42)!important;
+}
+html body .search-tab.active,
+html body .search-tab[aria-current="page"]{
+  background-color:rgba(255,255,255,.24)!important;
+  border-color:rgba(255,255,255,.58)!important;
+  box-shadow:inset 1.5px -1.5px 1px -1px rgba(255,255,255,.88),
+             inset -1.5px 1.5px 1px -1px rgba(255,255,255,.78),
+             0 0 14px rgba(255,255,255,.20),
+             0 8px 22px rgba(15,23,42,.18)!important;
+}
+html body .search-tab__title,
+html body .search-tab__count{
+  background:transparent!important;
+  background-color:transparent!important;
+  background-image:none!important;
+  border:0!important;
+  box-shadow:none!important;
+  color:inherit!important;
+}
+html body .search-tab__count{
+  background-color:rgba(255,255,255,.14)!important;
+  border:1px solid rgba(255,255,255,.22)!important;
+  border-radius:9999px!important;
+  padding:0 6px!important;
+  min-width:18px!important;
+  text-align:center!important;
+  line-height:16px!important;
+}
+html body .search-tab.active .search-tab__count,
+html body .search-tab[aria-current="page"] .search-tab__count{
+  background-color:rgba(255,255,255,.30)!important;
+  border-color:rgba(255,255,255,.42)!important;
+}`;
+},
 
 pan123OverlayCSS(blur,alpha){
  const b=Number(blur)||0,a=Number(alpha);
@@ -941,6 +1278,8 @@ _marked:new WeakSet(),_lastApplied:new WeakMap(),_keywordCache:new WeakMap(),_ra
 _lastScan:0,_scanMinInterval:500,
 isExcludedElement(el){
  if(!el||!el.nodeType)return false;
+ // ===== symbl.cc 搜索浮层整体交给 symblCSS 处理，避免 Overlay 覆盖 =====
+ if(el.closest&&el.closest('.search-form,.search-form__form,#search-form,.search-result'))return true;
  const slot=el.getAttribute&&el.getAttribute('data-slot');
  if(slot&&slot.indexOf('sidebar')===0)return true;
  if(el.id==='goTopBottom'||el.id==='tbSettingsBtn'||el.id==='tbSettingsPanel')return true;
@@ -956,6 +1295,7 @@ isExcludedElement(el){
  if(el.closest&&el.closest('[class*="mfy_h-popup-module"],[class*="e3-strong-cashier"],[class*="mfy_h-button-module"]'))return true;
  try{if(el.matches&&el.matches(CAPTCHA_CSS_SELECTOR))return true;if(el.closest&&el.closest(CAPTCHA_CSS_SELECTOR))return true;}catch(e){}
  if(el.tagName==='IFRAME'){const s=el.src||'';if(s.includes('challenges.cloudflare.com')||s.includes('hcaptcha.com')||s.includes('recaptcha'))return true;}
+ if(el.getAttribute&&el.getAttribute('role')==='menu'&&el.tagName==='DETAILS-MENU')return true;
  return false;},
 isOverlayVisible(el,st){
  if(!el||!st)return false;
