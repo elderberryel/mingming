@@ -40,7 +40,7 @@ const X_DROPDOWN_GUARD='[id^="typeaheadDropdown"],[role="listbox"],[role="menu"]
 
 const _T='transparent!important';
 
-const FLOAT_BALL_EXEMPT=['#goTopBottom','#tbSettingsBtn','#tbSettingsPanel','.tb-settings-btn','.tb-settings-panel'];
+const FLOAT_BALL_EXEMPT=['#goTopBottom','#tbSettingsBtn','#tbSettingsPanel','.tb-settings-btn','.tb-settings-panel','.btn-close'];
 const FLOAT_BALL_EXEMPT_CSS=FLOAT_BALL_EXEMPT
   .map(s=>`:where(:not(${s})):where(:not(${s} *))`)
   .join('');
