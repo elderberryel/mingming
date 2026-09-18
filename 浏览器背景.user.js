@@ -40,7 +40,6 @@ const X_DROPDOWN_GUARD='[id^="typeaheadDropdown"],[role="listbox"],[role="menu"]
 
 const _T='transparent!important';
 
-// 第三方悬浮球/固定按钮白名单：此列表内元素及其子元素不会被清场与弹层增强影响
 const FLOAT_BALL_EXEMPT=['#goTopBottom','#tbSettingsBtn','#tbSettingsPanel','.tb-settings-btn','.tb-settings-panel'];
 const FLOAT_BALL_EXEMPT_CSS=FLOAT_BALL_EXEMPT
   .map(s=>`:where(:not(${s})):where(:not(${s} *))`)
@@ -143,6 +142,52 @@ const SEARCH_PILL_CSS =
 +`backdrop-filter:none!important;`
 +`-webkit-backdrop-filter:none!important;`
 +`}`;
+
+const TD_SEARCH_GLASS_CSS =
+`html body .td-search-input{`+
+`background:transparent!important;`+
+`background-color:transparent!important;`+
+`background-image:none!important;`+
+`border:0!important;`+
+`box-shadow:none!important;`+
+`backdrop-filter:none!important;`+
+`-webkit-backdrop-filter:none!important;`+
+`padding:0!important;`+
+`}`+
+// input 本体：胶囊玻璃
+`html body .td-search-input input,`+
+`html body input#td-header-search-mob,`+
+`html body input#td-header-search,`+
+`html body input[name="s"]{`+
+`border-radius:9999px!important;`+
+`-webkit-appearance:none!important;`+
+`appearance:none!important;`+
+`box-sizing:border-box!important;`+
+`backdrop-filter:blur(12px) saturate(130%)!important;`+
+`-webkit-backdrop-filter:blur(12px) saturate(130%)!important;`+
+`background-color:rgba(255,255,255,.10)!important;`+
+`background-image:none!important;`+
+`border:1px solid rgba(255,255,255,.30)!important;`+
+`box-shadow:inset 1.5px -1.5px 1px -1px rgba(255,255,255,.92),`+
+`inset -1.5px 1.5px 1px -1px rgba(255,255,255,.90),`+
+`inset 0 0 3px rgba(15,23,42,.35),`+
+`0 8px 20px rgba(15,23,42,.16)!important;`+
+`isolation:isolate!important;`+
+`transform:translateZ(0)!important;`+
+`color:inherit!important;`+
+`padding:0 16px!important;`+
+`outline:none!important;`+
+`}`+
+`html body .td-search-input input:hover,`+
+`html body .td-search-input input:focus,`+
+`html body .td-search-input input:focus-within{`+
+`background-color:rgba(255,255,255,.16)!important;`+
+`border-color:rgba(255,255,255,.42)!important;`+
+`}`+
+`html body .td-search-input input::placeholder{`+
+`color:inherit!important;`+
+`opacity:.6!important;`+
+`}`;
 
 // ===== 百度 AI 新版搜索框玻璃 =====
 const CHAT_INPUT_GLASS_CSS =
@@ -617,6 +662,7 @@ buildAll(cfg,finalUrl){
  +`.search_ipt,.search_ipt_wr{${BF0}background:${_T};}`
  +`input:not(.translate-ui input),textarea,select,[contenteditable="true"]{${BG0}${BF0}${SH0}outline:none!important;}`
  +SEARCH_PILL_CSS
+ +TD_SEARCH_GLASS_CSS
  +CHAT_INPUT_GLASS_CSS
  +`nav.segmented-control.shadow-sm,nav.apple-navbar,nav.apple-navbar .container-fluid{${BG0}${SH0}${BF0}}`
  +`.ant-menu.ant-menu-horizontal,.ant-menu-root.ant-menu-horizontal,ul.ant-menu.ant-menu-horizontal,.ant-menu-horizontal>.ant-menu-item,.ant-menu-horizontal>.ant-menu-submenu,.ant-menu-horizontal .ant-menu-submenu-title,.ant-btn.ant-btn-default,.ant-btn-variant-outlined,button.ant-btn{${BG0}${SH0}${BD3}}`
