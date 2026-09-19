@@ -48,6 +48,7 @@
       gap: 14px;
       margin-bottom: 14px;
     }
+    .row.single { grid-template-columns: 1fr; }
     .field {
       display: flex;
       flex-direction: column;
@@ -99,11 +100,10 @@
         inset 1.5px -1.5px 1px -1px rgba(255,255,255,.42),
         inset -1.5px 1.5px 1px -1px rgba(255,255,255,.28),
         inset 0 0 3px rgba(0,0,0,.55),
-        0 14px 30px rgba(0,0,0,.38);
+        0 15px 30px rgba(0,0,0,.38);
     }
     .lggc::before{ border: 1px double rgba(255,255,255,.48); }
 
-    /* ---- 输入框 / 下拉框：玻璃外壳 + 透明控件 ---- */
     .glass-field{
       --lggc-radius: 14px;
       --lggc-padding: 0;
@@ -160,7 +160,7 @@
     /* ---- 按钮 ---- */
     .btns {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: 1fr;
       gap: 12px;
       margin-top: 8px;
     }
@@ -176,25 +176,6 @@
       transition: transform .08s ease, box-shadow .2s ease, border-color .2s ease;
     }
     .btns .lggc:active{ transform: scale(0.97); }
-
-    .calc {
-      --lggc-bg: linear-gradient(135deg, #4f7cff, #6aa8ff);
-      --lggc-border: rgba(255,255,255,.4);
-      color: #fff;
-      box-shadow:
-        inset 1.5px -1.5px 1px -1px rgba(255,255,255,.65),
-        inset -1.5px 1.5px 1px -1px rgba(255,255,255,.45),
-        inset 0 0 3px rgba(15,23,42,.25),
-        0 10px 26px rgba(79,124,255,.35);
-    }
-    .calc::before{ border-color: rgba(255,255,255,.7); }
-    .calc:hover{
-      box-shadow:
-        inset 1.5px -1.5px 1px -1px rgba(255,255,255,.75),
-        inset -1.5px 1.5px 1px -1px rgba(255,255,255,.5),
-        inset 0 0 3px rgba(15,23,42,.25),
-        0 12px 30px rgba(79,124,255,.48);
-    }
 
     .clear {
       color: #dce5ff;
@@ -226,7 +207,6 @@
       line-height: 1.7;
     }
 
-    /* ---- 徽章：玻璃质感 ---- */
     .badge {
       display: inline-flex;
       align-items: center;
@@ -319,31 +299,21 @@
       </div>
     </div>
 
-    <div class="row">
+    <div class="row single">
       <div class="field">
         <label for="humidity">相对湿度（%）</label>
         <div class="lggc glass-field">
           <input type="number" id="humidity" placeholder="例如 70" min="0" max="100" step="0.1" />
         </div>
       </div>
-      <div class="field">
-        <label for="autoCalc">输入时自动计算</label>
-        <div class="lggc glass-field">
-          <select id="autoCalc">
-            <option value="on">开启</option>
-            <option value="off">关闭</option>
-          </select>
-        </div>
-      </div>
     </div>
 
     <div class="btns">
-      <button class="lggc calc" onclick="calculateHeatIndex()">立即计算</button>
       <button class="lggc clear" onclick="clearAll()">清空</button>
     </div>
 
     <div class="result" id="resultBox">
-      <div class="small">请输入温度和湿度后计算</div>
+      <div class="small">请输入温度和湿度后自动计算</div>
       <div class="big">--</div>
       <div class="badge-wrap"><span class="badge">未计算</span></div>
       <div class="small">结果会同时显示摄氏度和华氏度</div>
@@ -352,16 +322,24 @@
     <div class="tips">
       <strong>说明：</strong><br>
       • 本工具采用 NOAA 常用 Heat Index 公式（以华氏度为基础计算）<br>
+      • 输入气温与湿度后会自动计算，无需点击按钮<br>
       • 一般在较高温度和较高湿度下更有参考意义（通常 ≥ 27°C / 80°F）<br>
       • 若温度较低，体感可能与实际气温接近
     </div>
+  </div>
 
   <script>
     const tempEl = document.getElementById('temp');
     const humidityEl = document.getElementById('humidity');
     const unitEl = document.getElementById('unit');
-    const autoCalcEl = document.getElementById('autoCalc');
     const resultBox = document.getElementById('resultBox');
+
+    const DEFAULT_RESULT = `
+      <div class="small">请输入温度和湿度后自动计算</div>
+      <div class="big">--</div>
+      <div class="badge-wrap"><span class="badge">未计算</span></div>
+      <div class="small">结果会同时显示摄氏度和华氏度</div>
+    `;
 
     function cToF(c) {
       return (c * 9 / 5) + 32;
@@ -375,7 +353,6 @@
       return Number(n.toFixed(d));
     }
 
-    // NOAA Heat Index (Fahrenheit)
     function heatIndexF(T, R) {
       let simpleHI = 0.5 * (T + 61.0 + ((T - 68.0) * 1.2) + (R * 0.094));
 
@@ -405,7 +382,6 @@
       return HI;
     }
 
-    // color 现在是“玻璃底色”，会被 --badge-tint 使用
     function getRiskLevel(hiF) {
       if (hiF < 80) {
         return { text: '较低风险', color: 'rgba(67,160,71,0.55)', desc: '一般情况下不明显' };
@@ -418,6 +394,10 @@
       } else {
         return { text: '极度危险', color: 'rgba(142,36,170,0.60)', desc: '极易发生严重热相关疾病' };
       }
+    }
+
+    function resetResult() {
+      resultBox.innerHTML = DEFAULT_RESULT;
     }
 
     function calculateHeatIndex() {
@@ -465,23 +445,21 @@
     function clearAll() {
       tempEl.value = '';
       humidityEl.value = '';
-      resultBox.innerHTML = `
-        <div class="small">请输入温度和湿度后计算</div>
-        <div class="big">--</div>
-        <div class="badge-wrap"><span class="badge">未计算</span></div>
-        <div class="small">结果会同时显示摄氏度和华氏度</div>
-      `;
+      resetResult();
+      tempEl.focus();
     }
 
-    function maybeAutoCalc() {
-      if (autoCalcEl.value === 'on') {
-        calculateHeatIndex();
+    function autoCalc() {
+      if (tempEl.value.trim() === '' || humidityEl.value.trim() === '') {
+        resetResult();
+        return;
       }
+      calculateHeatIndex();
     }
 
-    tempEl.addEventListener('input', maybeAutoCalc);
-    humidityEl.addEventListener('input', maybeAutoCalc);
-    unitEl.addEventListener('change', maybeAutoCalc);
+    tempEl.addEventListener('input', autoCalc);
+    humidityEl.addEventListener('input', autoCalc);
+    unitEl.addEventListener('change', autoCalc);
   </script>
 </body>
 </html>
