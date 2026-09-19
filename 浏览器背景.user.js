@@ -17,7 +17,6 @@
 (function(){
 'use strict';
 
-// ===== 早期 Cloudflare 拦截：document-start 阶段 title 通常为空，URL 判断才是关键 =====
 if(/\/cdn-cgi\//.test(location.pathname))return;
 const _t0=(document.title||'').toLowerCase();
 if(_t0&&/just a moment|attention required|cloudflare|please wait|checking your browser|verify you are human|one more step/.test(_t0))return;
@@ -109,9 +108,39 @@ const POPUP_LEAF='[data-slot="select-item"],[data-slot="select-item-text"],[data
 const DROP='[id^="typeaheadDropdown"],.search-suggest,.sug-list,.s-sug,[class*="suggest"],[class*="dropdown"],[class*="autocomplete"],[id*="search-result"],[id*="search-results"],[id*="searchResult"],[id*="search_result"],[class*="search-result"],[class*="searchResult"],[class*="search-results"],[role="listbox"],[role="menu"],[id^="base-ui-"][id$="-list"],[id^="base-ui-"][id$="-popup"],'+SLOT_POPUP;
 const DROP_CHILD=kid('[id^="typeaheadDropdown"],.search-suggest,.sug-list,.s-sug,[class*="suggest"],[id*="search-result"],[id*="search-results"],[class*="search-result"],[role="listbox"],[role="menu"],[id^="base-ui-"][id$="-list"],[id^="base-ui-"][id$="-popup"],'+SLOT_POPUP);
 
-// ===== 搜索框胶囊玻璃（通用 input） =====
-const SEARCH_PILL_CSS =
-`input[type="search"],input[role="searchbox"],`
+// ===== LGGC 搜索框/按钮玻璃共享片段 =====
+const _SF_BASE=
+ 'border-radius:9999px!important;'
++'-webkit-appearance:none!important;appearance:none!important;'
++'box-sizing:border-box!important;background-image:none!important;'
++'backdrop-filter:blur(16px) saturate(130%)!important;'
++'-webkit-backdrop-filter:blur(16px) saturate(130%)!important;'
++'isolation:isolate!important;transform:translateZ(0)!important;'
++'color:inherit!important;'
++'transition:background-color .2s,border-color .2s,box-shadow .2s!important;';
+const _SF_SHADOW=
+ 'box-shadow:inset 1.5px -1.5px 1px -1px rgba(255,255,255,.92),'
++'inset -1.5px 1.5px 1px -1px rgba(255,255,255,.90),'
++'inset 0 0 3px rgba(15,23,42,.35),'
++'0 8px 20px rgba(15,23,42,.16)!important;';
+const _SF_GRAY=
+ 'background-color:rgba(255,255,255,.10)!important;'
++'border:1px solid rgba(255,255,255,.30)!important;';
+const _SF_HOVER=
+ 'background-color:rgba(255,255,255,.16)!important;'
++'border-color:rgba(255,255,255,.42)!important;';
+const _SF_CLEAR=
+ 'background:transparent!important;background-color:transparent!important;'
++'background-image:none!important;border:0!important;box-shadow:none!important;'
++'backdrop-filter:none!important;-webkit-backdrop-filter:none!important;';
+const _SF_PH='color:inherit!important;opacity:.6!important;';
+const _sfHov=s=>s.split(',').map(x=>x.trim()+':hover,'+x.trim()+':focus,'+x.trim()+':focus-within').join(',');
+const _sfPlc=s=>s.split(',').map(x=>x.trim()+'::placeholder').join(',');
+const _sfG=s=>s.split(',').map(x=>x.trim()+':hover').join(',');
+
+// ===== 通用搜索框胶囊玻璃（选择器匹配 input） =====
+const SEARCH_PILL_CSS=
+ `input[type="search"],input[role="searchbox"],`
 +`input[placeholder*="搜索"],input[placeholder*="Search"],input[placeholder*="search"],`
 +`input[placeholder*="查询"],input[placeholder*="检索"],input[placeholder*="查一查"],`
 +`input[aria-label*="搜索"],input[aria-label*="Search"],input[aria-label*="search"],`
@@ -119,77 +148,94 @@ const SEARCH_PILL_CSS =
 +`input[id="kw"],input[id="word"],input[id="search"],`
 +`input[class*="search-input"],input[class*="searchInput"],input[class*="search-box"],input[class*="searchBox"],input[class*="SearchInput"],input[class*="SearchBox"],`
 +`[class*="search-bar"] input,[class*="searchbar"] input,[class*="search-field"] input,`
-+`[class*="sb-input"] input,`
-+`[class*="input-wrap"] input{`
-+`border-radius:9999px!important;`
-+`-webkit-appearance:none!important;appearance:none!important;`
-+`box-sizing:border-box!important;`
-+`backdrop-filter:blur(20px) saturate(100%)!important;`
-+`-webkit-backdrop-filter:blur(12px) saturate(100%)!important;`
-+`background-color:rgba(255,255,255,.10)!important;`
-+`background-image:none!important;`
-+`border:1px solid rgba(255,255,255,.30)!important;`
++`[class*="sb-input"] input,[class*="input-wrap"] input{`
++_SF_BASE+_SF_GRAY+_SF_SHADOW+`}`
++`[class*="sb-input-wrap"],[class*="input-wrap"]{${_SF_CLEAR}}`;
+
+const _SF_WRAP_IN='html body .sb-input-wrap>input,html body [class*="sb-input-wrap"]>input';
+const _SF_PORTAL='html body input.ant-input#search_portal_input,html body #search_portal_input';
+const _SF_URLI='html body #searchForm #urlInput';
+const _SF_INPUTS=_SF_WRAP_IN+','+_SF_PORTAL+','+_SF_URLI;
+const _SF_CAPS='html body #searchForm #fileInputButton,html body #searchForm .searchCB,html body #searchForm #database-dropdown-button';
+const _SF_BTNS='html body .sb-btn,html body button.sb-btn,html body [class*="sb-btn"],html body #searchForm #searchButton';
+
+const SEARCH_GLASS_CSS=
+ /* sb-input-wrap 清场 */
+ `html body .sb-input-wrap,html body [class*="sb-input-wrap"]{${_SF_CLEAR}padding:0!important;}`
+ /* 图搜页外层容器清场 */
++`html body #searchForm #fileRowContainer,html body #searchForm #searchRowContainer,html body #searchForm .multi-select-container{`
++`background:transparent!important;background-color:transparent!important;`
++`background-image:none!important;box-shadow:none!important;border-color:transparent!important;}`
+ /* 灰白玻璃输入框组 */
++`${_SF_INPUTS}{${_SF_BASE}${_SF_GRAY}${_SF_SHADOW}padding:0 16px!important;outline:none!important;}`
++`${_SF_URLI}{padding:8px 18px!important;}`
++_sfHov(_SF_INPUTS)+`{${_SF_HOVER}}`
++`${_SF_PORTAL}:hover,${_SF_PORTAL}:focus,${_SF_PORTAL}:focus-within{${_SF_SHADOW}}`
++_sfPlc(_SF_INPUTS)+`{${_SF_PH}}`
+ /* 灰白玻璃胶囊控件组 */
++`${_SF_CAPS}{${_SF_BASE}${_SF_GRAY}${_SF_SHADOW}}`
++_sfG(_SF_CAPS)+`{${_SF_HOVER}}`
++`html body #searchForm .searchCB{padding:5px 12px!important;cursor:pointer!important;}`
++`html body #searchForm #fileInputButton{cursor:pointer!important;}`
++`html body #searchForm #database-dropdown-button{cursor:pointer!important;user-select:none!important;}`
+ /* 文件 input 覆盖层 */
++`html body #searchForm #fileInputButton{position:relative!important;display:inline-flex!important;`
++`align-items:center!important;justify-content:center!important;overflow:hidden!important;}`
++`html body #searchForm #fileInput{position:absolute!important;inset:0!important;width:100%!important;`
++`height:100%!important;margin:0!important;padding:0!important;opacity:0!important;cursor:pointer!important;`
++`background:transparent!important;border:0!important;box-shadow:none!important;`
++`backdrop-filter:none!important;-webkit-backdrop-filter:none!important;}`
++`html body #searchForm #fileInputLabel{position:relative!important;pointer-events:none!important;`
++`background:transparent!important;color:inherit!important;border:0!important;box-shadow:none!important;}`
+ /* 复选框 */
++`html body #searchForm .searchCB input[type="checkbox"]{background:transparent!important;`
++`background-image:none!important;border:1px solid rgba(255,255,255,.45)!important;`
++`box-shadow:none!important;accent-color:#98DD98!important;margin-right:4px!important;}`
+ /* 数据库下拉面板 */
++`html body #searchForm .multi-select-dropdown{`
++`background-color:rgba(28,30,38,.72)!important;background-image:none!important;`
++`backdrop-filter:blur(18px) saturate(140%)!important;`
++`-webkit-backdrop-filter:blur(18px) saturate(140%)!important;`
++`border:1px double rgba(255,255,255,.18)!important;border-radius:18px!important;`
 +`box-shadow:inset 1.5px -1.5px 1px -1px rgba(255,255,255,.92),`
 +`inset -1.5px 1.5px 1px -1px rgba(255,255,255,.90),`
 +`inset 0 0 3px rgba(15,23,42,.35),`
++`0 16px 32px rgba(15,23,42,.24)!important;`
++`overflow:hidden!important;isolation:isolate!important;transform:translateZ(0)!important;}`
++`html body #searchForm .multi-select-dropdown-closer{${_SF_CLEAR}}`
++`html body #searchForm .multi-select-dropdown-header{`
++`background:transparent!important;background-image:none!important;`
++`border-bottom:1px solid rgba(255,255,255,.15)!important;border-radius:14px 14px 0 0!important;}`
++`html body #searchForm .multi-select-dropdown-header:hover{background-color:rgba(255,255,255,.10)!important;}`
++`html body #searchForm .multi-select-dropdown label,`
++`html body #searchForm .multi-select-dropdown label>div{`
++`background:transparent!important;background-color:transparent!important;background-image:none!important;`
++`box-shadow:none!important;border-color:transparent!important;border-radius:10px!important;}`
++`html body #searchForm .multi-select-dropdown label:hover,`
++`html body #searchForm .multi-select-dropdown label:hover>div{background-color:rgba(255,255,255,.10)!important;}`
+ /* 绿色玻璃按钮 */
++`${_SF_BTNS}{${_SF_BASE}`
++`background-color:rgba(152,221,152,.22)!important;`
++`border:1px solid rgba(152,221,152,.42)!important;`
++`box-shadow:inset 1.5px -1.5px 1px -1px rgba(255,255,255,.92),`
++`inset -1.5px 1.5px 1px -1px rgba(255,255,255,.90),`
++`inset 0 0 3px rgba(15,23,42,.35),`
++`inset 0 0 12px rgba(152,221,152,.20),`
 +`0 8px 20px rgba(15,23,42,.16)!important;`
-+`isolation:isolate!important;`
-+`transform:translateZ(0)!important;`
-+`}`
-+`[class*="sb-input-wrap"],[class*="input-wrap"]{`
-+`background:transparent!important;`
-+`background-color:transparent!important;`
-+`background-image:none!important;`
-+`border:0!important;`
-+`box-shadow:none!important;`
-+`backdrop-filter:none!important;`
-+`-webkit-backdrop-filter:none!important;`
-+`}`;
++`cursor:pointer!important;padding:0 22px!important;font-weight:700!important;letter-spacing:.5px!important;}`
++_sfG(_SF_BTNS)+`{background-color:rgba(152,221,152,.34)!important;border-color:rgba(152,221,152,.60)!important;}`
++`html body .sb-btn[data-lucky-checked="1"]{background-color:rgba(152,221,152,.30)!important;border-color:rgba(152,221,152,.55)!important;}`;
 
-const TD_SEARCH_GLASS_CSS =
-`html body .td-search-input{`+
-`background:transparent!important;`+
-`background-color:transparent!important;`+
-`background-image:none!important;`+
-`border:0!important;`+
-`box-shadow:none!important;`+
-`backdrop-filter:none!important;`+
-`-webkit-backdrop-filter:none!important;`+
-`padding:0!important;`+
-`}`+
-`html body .td-search-input input,`+
-`html body input#td-header-search-mob,`+
-`html body input#td-header-search,`+
-`html body input[name="s"]{`+
-`border-radius:9999px!important;`+
-`-webkit-appearance:none!important;`+
-`appearance:none!important;`+
-`box-sizing:border-box!important;`+
-`backdrop-filter:blur(12px) saturate(130%)!important;`+
-`-webkit-backdrop-filter:blur(12px) saturate(130%)!important;`+
-`background-color:rgba(255,255,255,.10)!important;`+
-`background-image:none!important;`+
-`border:1px solid rgba(255,255,255,.30)!important;`+
-`box-shadow:inset 1.5px -1.5px 1px -1px rgba(255,255,255,.92),`+
-`inset -1.5px 1.5px 1px -1px rgba(255,255,255,.90),`+
-`inset 0 0 3px rgba(15,23,42,.35),`+
-`0 8px 20px rgba(15,23,42,.16)!important;`+
-`isolation:isolate!important;`+
-`transform:translateZ(0)!important;`+
-`color:inherit!important;`+
-`padding:0 16px!important;`+
-`outline:none!important;`+
-`}`+
-`html body .td-search-input input:hover,`+
-`html body .td-search-input input:focus,`+
-`html body .td-search-input input:focus-within{`+
-`background-color:rgba(255,255,255,.16)!important;`+
-`border-color:rgba(255,255,255,.42)!important;`+
-`}`+
-`html body .td-search-input input::placeholder{`+
-`color:inherit!important;`+
-`opacity:.6!important;`+
-`}`;
+// ===== TD 搜索框玻璃胶囊 =====
+const TD_SEARCH_GLASS_CSS=
+ `html body .td-search-input{${_SF_CLEAR}padding:0!important;}`
++`html body .td-search-input input,`
++`html body input#td-header-search-mob,`
++`html body input#td-header-search,`
++`html body input[name="s"]{`
++_SF_BASE+_SF_GRAY+_SF_SHADOW+`padding:0 16px!important;outline:none!important;}`
++`html body .td-search-input input:hover,html body .td-search-input input:focus,html body .td-search-input input:focus-within{${_SF_HOVER}}`
++`html body .td-search-input input::placeholder{${_SF_PH}}`;
 
 // ===== 百度 AI 新版搜索框玻璃 =====
 const CHAT_INPUT_GLASS_CSS =
@@ -336,7 +382,7 @@ const GOOGLE_SEARCH_GLASS_CSS=
 +`}`
 +`html body .UUbT9{color:inherit!important;}`;
 
-// ===== X (Twitter) 搜索框玻璃胶囊 =====
+// ===== X 搜索框玻璃胶囊 =====
 const X_SEARCH_GLASS_CSS=
 `html body div:has(> div > div > div[data-testid="SearchBox_Search_Input_label"]){`
 +`background:rgba(255,255,255,.10)!important;`
@@ -414,7 +460,63 @@ const X_SEARCH_GLASS_CSS=
 +`box-shadow:none!important;`
 +`outline:none!important;`
 +`}`;
-
+// ===== 通用标签栏按钮：选中态 LGGC 毛玻璃，未选中完全透明 =====
+const TAB_GLASS_CSS=
+`html body .tab-wrap,html body .tab-bar{`+
+`background:transparent!important;`+
+`background-color:transparent!important;`+
+`background-image:none!important;`+
+`border:0!important;`+
+`box-shadow:none!important;`+
+`backdrop-filter:none!important;`+
+`-webkit-backdrop-filter:none!important;`+
+`}`+
+`html body .tab-item{`+
+`background:transparent!important;`+
+`background-color:transparent!important;`+
+`background-image:none!important;`+
+`border:1px solid transparent!important;`+
+`box-shadow:none!important;`+
+`backdrop-filter:none!important;`+
+`-webkit-backdrop-filter:none!important;`+
+`border-radius:9999px!important;`+
+`transform:translateZ(0)!important;`+
+`transition:background-color .2s,border-color .2s,box-shadow .2s!important;`+
+`}`+
+`html body .tab-item:hover{`+
+`background-color:rgba(255,255,255,.08)!important;`+
+`border-color:rgba(255,255,255,.18)!important;`+
+`}`+
+`html body .tab-item.active,`+
+`html body .tab-item.selected,`+
+`html body .tab-item[aria-current="page"],`+
+`html body .tab-item[aria-selected="true"]{`+
+`background:rgba(255,255,255,.10)!important;`+
+`background-color:rgba(255,255,255,.10)!important;`+
+`background-image:none!important;`+
+`backdrop-filter:blur(12px) saturate(130%)!important;`+
+`-webkit-backdrop-filter:blur(12px) saturate(130%)!important;`+
+`border:1px solid rgba(255,255,255,.30)!important;`+
+`border-radius:9999px!important;`+
+`box-shadow:${LGGC.shadow}!important;`+
+`transform:translateZ(0)!important;`+
+`isolation:isolate!important;`+
+`}`+
+`html body .tab-item.active:hover,`+
+`html body .tab-item.selected:hover{`+
+`background-color:rgba(255,255,255,.16)!important;`+
+`border-color:rgba(255,255,255,.42)!important;`+
+`}`+
+`html body .tab-item img,`+
+`html body .tab-item svg{`+
+`background:transparent!important;`+
+`background-color:transparent!important;`+
+`background-image:none!important;`+
+`border:0!important;`+
+`box-shadow:none!important;`+
+`filter:none!important;`+
+`opacity:1!important;`+
+`}`;
 const XPC='[data-testid="primaryColumn"]',XABB='[data-testid="app-bar-back"]',XNAV='nav[aria-live="polite"][role="navigation"]';
 const X_CSS=`${XPC} div:has(${XNAV}),${XPC} div:has(> div > div > ${XNAV}),${XPC} div:has(> ${XABB}),${XPC} div:has(> div > ${XABB}),${XPC} > div:first-child,${XPC} > div:first-child > div,${XPC} > div:first-child > div > div{background-color:${_T};${BF0}}${XPC} .r-1e5uvyk{${BF0}}${XPC} .r-17c3jg3{background-color:${_T};}${XNAV},${XNAV} > div,${XNAV} div[role="tablist"],${XNAV} div[role="presentation"],${XNAV} div[role="tab"]{background-color:${_T};${BF0}}`;
 
@@ -627,7 +729,7 @@ background(cfg,finalUrl){
   :htmlBefore(`background:${SKELETON_BG}!important;background-image:none!important;`,cfg.blur);
 
  return `html,body{${BG0}}#bgCanvas{display:none!important;}${bgCss}body::before{${PSEUDO0.replace('-2147483647','-2147483646')}background:${_T};}`
- // 通配符背景清除：增加 pre/code/kbd/samp/mark、highlight、badge 等排除，避免破坏代码高亮与彩色标签
+
  +`*:not(img):not(svg):not(video):not(canvas):not(pre):not(code):not(kbd):not(samp):not(mark):not(ins):not(del):not(.translate-ui):not(.translate-ui *):not(.cf-turnstile):not(.h-captcha):not(.g-recaptcha):not(input):not(select):not(textarea):not([id^="typeaheadDropdown"]):not(.search-suggest):not(.sug-list):not(.s-sug):not([class*="suggest"]):not([class*="dropdown"]):not([class*="autocomplete"]):not([class*="highlight"]):not([class*="Highlight"]):not([class*="badge"]):not([class*="Badge"]):not([id*="search-result"]):not([id*="search-results"]):not([class*="search-result"]):not([role="listbox"]):not([role="menu"]){background-color:${_T};}`
  +`#container,#header,#logo,#wrapper,#page,#main,.container,.wrapper,header,footer,nav,.navbar,.top-bar,.row1,.header,.logo,#top,.top,#site-header,.site-header{${BG0}${SH0}${BD0}}`
  +`#header::before,#header::after,#top::before,#top::after,#topbar::before,#topbar::after,#top-bar::before,#top-bar::after,#topBar::before,#topBar::after,#mobile-topbar::before,#mobile-topbar::after,#mobileTopbar::before,#mobileTopbar::after,#mobile-header::before,#mobile-header::after,#mobile-nav::before,#mobile-nav::after,#mobile-bar::before,#mobile-bar::after,#navbar::before,#navbar::after,#nav-bar::before,#nav-bar::after,#masthead::before,#masthead::after,#site-header::before,#site-header::after,#page-header::before,#page-header::after,#app-bar::before,#app-bar::after,#toolbar::before,#toolbar::after,header::before,header::after,nav::before,nav::after{${BG0}${SH0}${BF0}}`
@@ -640,7 +742,6 @@ background(cfg,finalUrl){
  +`td,th,thead,tbody,tfoot,.rounded-top-2,.rounded-bottom-2,.rounded-2{${BG0}}`
  +`.GlobalNav,.UnderlineNav,.LocalNavigation,[class*="UnderlineNav"],[class*="GlobalNav"]{${BF0}}`;},
 skeleton(cfg){return `html,body{${BG0}}`+htmlBefore(`background:${SKELETON_BG}!important;`,cfg.blur)+ROOT_HARDEN;},
-// ===== 已改回修复前的文字颜色逻辑 =====
 theme(t){const L=t===1;return `input:not(.translate-ui input),div,${L?'font,':''}h1,h2,h3,h4,h5,h6,p,li,span:not(.tu-bi),label,strong,em{color:${L?'#ddd':'#222'}!important;}a:not([style]){color:#98DD98!important;}textarea,pre,code{color:${L?'#fff':'#000'}!important;}`;},
 nativeBlur(b,theme){
  if(b<=0)return '';
@@ -661,14 +762,69 @@ nativeBlur(b,theme){
  +`input:not(.translate-ui input),textarea,select,[type="text"],[type="search"],[type="email"],[type="password"],[type="url"],[type="number"],[contenteditable="true"]{${BG0}${BF0}${SH0}border-color:${bordInput}!important;}`
  +`button:hover,[role="option"]:hover,div[class*="suggest"] li:hover,div[class*="suggest"] div:hover,[id*="search-result"] .search-result:hover,[id*="search-result"] a:hover{background-color:${hov}!important;}`
  +`details-menu[role="menu"]{backdrop-filter:none!important;-webkit-backdrop-filter:none!important;}`
++`.suggestion,.suggestion_list{`
++`background-color:rgba(255,255,255,.10)!important;`
++`background-image:none!important;`
++`backdrop-filter:blur(16px) saturate(130%)!important;`
++`-webkit-backdrop-filter:blur(16px) saturate(130%)!important;`
++`border:1px solid rgba(255,255,255,.30)!important;`
++`border-radius:20px!important;`
++`box-shadow:inset 1.5px -1.5px 1px -1px rgba(255,255,255,.92),`
++`inset -1.5px 1.5px 1px -1px rgba(255,255,255,.90),`
++`inset 0 0 3px rgba(15,23,42,.35),`
++`0 16px 32px rgba(15,23,42,.16)!important;`
++`overflow:hidden!important;isolation:isolate!important;transform:translateZ(0)!important;`
++`}`
++`.suggestion_list,.suggestion_list li,.suggestion_list li *{`
++`background:transparent!important;background-color:transparent!important;`
++`background-image:none!important;box-shadow:none!important;border-color:transparent!important;`
++`}`
++`.suggestion_list li:hover,.suggestion_list li:hover .operation_item{`
++`background-color:rgba(255,255,255,.12)!important;`
++`}`
  +SIDEBAR0;},
 buildAll(cfg,finalUrl){
  let css=StyleBuilder.background(cfg,finalUrl)+StyleBuilder.theme(cfg.theme)
- +`.search_ipt,.search_ipt_wr{${BF0}background:${_T};}`
++`.search_ipt_wr{${BF0}background:${_T};}`
++`input.search_ipt,html body input.search_ipt{`
++`border-radius:9999px!important;`
++`-webkit-appearance:none!important;appearance:none!important;`
++`box-sizing:border-box!important;`
++`backdrop-filter:blur(16px) saturate(130%)!important;`
++`-webkit-backdrop-filter:blur(16px) saturate(130%)!important;`
++`background-color:rgba(255,255,255,.10)!important;`
++`background-image:none!important;`
++`border:1px solid rgba(255,255,255,.30)!important;`
++`box-shadow:inset 1.5px -1.5px 1px -1px rgba(255,255,255,.92),`
++`inset -1.5px 1.5px 1px -1px rgba(255,255,255,.90),`
++`inset 0 0 3px rgba(15,23,42,.35),`
++`0 8px 20px rgba(15,23,42,.16)!important;`
++`isolation:isolate!important;transform:translateZ(0)!important;`
++`color:inherit!important;padding:0 16px!important;outline:none!important;`
++`}`
++`input.search_ipt:hover,input.search_ipt:focus,input.search_ipt:focus-within{`
++`background-color:rgba(255,255,255,.16)!important;`
++`border-color:rgba(255,255,255,.42)!important;`
++`}`
++`input.search_ipt::placeholder{color:inherit!important;opacity:.6!important;}`
++`html body .search_btn,html body .search_btn_wrap .search_btn{`
++`background-color:rgba(255,255,255,.14)!important;`
++`background-image:none!important;`
++`border:1px solid rgba(255,255,255,.28)!important;`
++`border-radius:9999px!important;`
++`color:inherit!important;`
++`box-shadow:inset 1.2px -1.2px 1px -1px rgba(255,255,255,.5),`
++`inset -1.2px 1.2px 1px -1px rgba(255,255,255,.4),`
++`0 6px 14px rgba(15,23,42,.16)!important;`
++`transition:background-color .2s,border-color .2s!important;`
++`}`
++`html body .search_btn:hover{background-color:rgba(255,255,255,.26)!important;}`
  +`input:not(.translate-ui input),textarea,select,[contenteditable="true"]{${BG0}${BF0}${SH0}outline:none!important;}`
- +SEARCH_PILL_CSS
- +TD_SEARCH_GLASS_CSS
- +CHAT_INPUT_GLASS_CSS
++SEARCH_PILL_CSS
++SEARCH_GLASS_CSS
++TD_SEARCH_GLASS_CSS
++CHAT_INPUT_GLASS_CSS
++TAB_GLASS_CSS
  +`nav.segmented-control.shadow-sm,nav.apple-navbar,nav.apple-navbar .container-fluid{${BG0}${SH0}${BF0}}`
  +`.ant-menu.ant-menu-horizontal,.ant-menu-root.ant-menu-horizontal,ul.ant-menu.ant-menu-horizontal,.ant-menu-horizontal>.ant-menu-item,.ant-menu-horizontal>.ant-menu-submenu,.ant-menu-horizontal .ant-menu-submenu-title,.ant-btn.ant-btn-default,.ant-btn-variant-outlined,button.ant-btn{${BG0}${SH0}${BD3}}`
  +`:root,${BGVAR_SEL},[class*="bg-[rgb(var(--bg-"]{--bg-tertiary:${_T};--bg-secondary:${_T};--bg-primary:${_T};${BG0}${SH0}}`
@@ -1300,7 +1456,6 @@ check(){
  }
 };
 
-// ===== ShadowFixer：TreeWalker + 2s 节流，避免高频全量扫描 =====
 const ShadowFixer={
 _done:new WeakSet(),
 _lastRun:0,
@@ -1392,7 +1547,7 @@ htmlBodyLocked(){
  const hc=(document.documentElement.className||'').toLowerCase(),bc=(document.body.className||'').toLowerCase();
  return ['modal-open','drawer-open','overflow-hidden','no-scroll','popup-open','dialog-open'].some(k=>hc.includes(k)||bc.includes(k))||hs.overflow==='hidden'||hs.overflowY==='hidden'||bs.overflow==='hidden'||bs.overflowY==='hidden';},
 isLightBg(bg){if(!bg||!bg.includes('rgb'))return false;const n=bg.match(/\d+(\.\d+)?/g);return n&&n.length>=3&&(parseFloat(n[0])+parseFloat(n[1])+parseFloat(n[2]))/3>180;},
-// 缓存 HTMLCollection 长度，避免实时集合重扫；通配符排除已在 CSS 层处理
+
 findLikelyOverlays(){
  if(!document.body)return [];
  const floatEl=document.getElementById(FLOAT_ID),out=[],vw=innerWidth,vh=innerHeight;
@@ -1459,7 +1614,7 @@ apply(){
  OverlayEnhancer._lastScan=now;
  OverlayEnhancer._run(false);},
 force(){OverlayEnhancer._run(true);},
-// ===== 修改 A：支持 urgent 紧急通道，绕过节流 =====
+
 request(urgent){
  if(OverlayEnhancer._rafPending||CaptchaGuard.active)return;
  OverlayEnhancer._rafPending=true;
@@ -1482,7 +1637,7 @@ startScanTimer(){
 };
 
 const ImageTools={
-// 压缩：检测透明通道，PNG/WebP 透明图保留透明度（不再强制转 JPEG 产生黑底）
+
 compress(dataUrl,target,cb){
  const img=new Image();
  img.onload=function(){
@@ -1492,7 +1647,6 @@ compress(dataUrl,target,cb){
   const ctx=c.getContext('2d');
   ctx.drawImage(img,0,0,w,h);
 
-  // 检测是否含透明像素；跨域受限时按源格式保守假设
   let hasAlpha=false;
   try{
    const d=ctx.getImageData(0,0,w,h).data;
@@ -1503,7 +1657,7 @@ compress(dataUrl,target,cb){
 
   let format;
   if(hasAlpha){
-   // 尝试 WebP，失败则回退 PNG（PNG 不支持 quality，下面 tryC 会跳过质量循环）
+
    const test=c.toDataURL('image/webp',0.9);
    format=test.indexOf('data:image/webp')===0?'image/webp':'image/png';
   }else{
@@ -1970,9 +2124,9 @@ bindGlobalListeners(){
   const box=FloatPanel.node;
   if(!box)return;
   if(e.target!==box&&!box.contains(e.target)&&FloatPanel.closePanel)FloatPanel.closePanel();},true);
- // 移除 click/keydown 触发的全量扫描——MutationObserver 已能感知弹层出现，无需每次点击都扫描
+
 },
-// ===== 修改 B：检测疑似弹层插入时走紧急通道，并把 style/data-state 纳入监听 =====
+
 observe(){
  new MutationObserver((muts)=>{
   CaptchaGuard.throttledCheck();
