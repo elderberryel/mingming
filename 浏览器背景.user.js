@@ -19,7 +19,7 @@
 const _t0=(document.title||'').toLowerCase();
 if(/just a moment|attention required|cloudflare|please wait|checking your browser|verify you are human|one more step/.test(_t0)||/\/cdn-cgi\//.test(location.pathname))return;
 
-const SCRIPT_VERSION=(typeof GM_info!=='undefined'&&GM_info&&GM_info.script&&GM_info.script.version)||'6.1';
+const SCRIPT_VERSION=(typeof GM_info!=='undefined'&&GM_info&&GM_info.script&&GM_info.script.version)||'6.9';
 const CONFIG_VERSION=SCRIPT_VERSION,NODE_ID_VERSION='v89';
 const CACHE_AVAILABLE=typeof caches!=='undefined'&&typeof caches.open==='function';
 if(!CACHE_AVAILABLE)console.warn('[浏览器背景] 当前环境不支持 CacheStorage，大图片将仅存于 GM 存储，可能影响性能');
@@ -154,7 +154,6 @@ const TD_SEARCH_GLASS_CSS =
 `-webkit-backdrop-filter:none!important;`+
 `padding:0!important;`+
 `}`+
-// input 本体：胶囊玻璃
 `html body .td-search-input input,`+
 `html body input#td-header-search-mob,`+
 `html body input#td-header-search,`+
@@ -623,8 +622,9 @@ background(cfg,finalUrl){
  const bgCss=img
   ?htmlBefore(`background-color:${SKELETON_BG}!important;background-image:linear-gradient(rgba(0,0,0,${dm}),rgba(0,0,0,${dm})),url("${img}")!important;background-repeat:no-repeat!important;background-position:center!important;background-size:100% 100%,cover!important;`,cfg.blur)
   :htmlBefore(`background:${SKELETON_BG}!important;background-image:none!important;`,cfg.blur);
+
  return `html,body{${BG0}}#bgCanvas{display:none!important;}${bgCss}body::before{${PSEUDO0.replace('-2147483647','-2147483646')}background:${_T};}`
-+`*:not(img):not(svg):not(video):not(canvas):not(.translate-ui):not(.translate-ui *):not(.cf-turnstile):not(.h-captcha):not(.g-recaptcha):not(input):not(select):not(textarea):not([id^="typeaheadDropdown"]):not(.search-suggest):not(.sug-list):not(.s-sug):not([class*="suggest"]):not([class*="dropdown"]):not([class*="autocomplete"]):not([id*="search-result"]):not([id*="search-results"]):not([class*="search-result"]):not([role="listbox"]):not([role="menu"])${FLOAT_BALL_EXEMPT_CSS}{background-color:${_T};background-image:none!important;}`
+ +`*:not(img):not(svg):not(video):not(canvas):not(.translate-ui):not(.translate-ui *):not(.cf-turnstile):not(.h-captcha):not(.g-recaptcha):not(input):not(select):not(textarea):not([id^="typeaheadDropdown"]):not(.search-suggest):not(.sug-list):not(.s-sug):not([class*="suggest"]):not([class*="dropdown"]):not([class*="autocomplete"]):not([id*="search-result"]):not([id*="search-results"]):not([class*="search-result"]):not([role="listbox"]):not([role="menu"]){background-color:${_T};}`
  +`#container,#header,#logo,#wrapper,#page,#main,.container,.wrapper,header,footer,nav,.navbar,.top-bar,.row1,.header,.logo,#top,.top,#site-header,.site-header{${BG0}${SH0}${BD0}}`
  +`#header::before,#header::after,#top::before,#top::after,#topbar::before,#topbar::after,#top-bar::before,#top-bar::after,#topBar::before,#topBar::after,#mobile-topbar::before,#mobile-topbar::after,#mobileTopbar::before,#mobileTopbar::after,#mobile-header::before,#mobile-header::after,#mobile-nav::before,#mobile-nav::after,#mobile-bar::before,#mobile-bar::after,#navbar::before,#navbar::after,#nav-bar::before,#nav-bar::after,#masthead::before,#masthead::after,#site-header::before,#site-header::after,#page-header::before,#page-header::after,#app-bar::before,#app-bar::after,#toolbar::before,#toolbar::after,header::before,header::after,nav::before,nav::after{${BG0}${SH0}${BF0}}`
  +`#additional-info,.user-content,#script-info,.width-constraint,#install-area,.good-bad,.discussion-list,article,.post-body,.entry-content,.markdown-body,.topic-body,.post-content,#readme,.Box-body{${BG0}${SH0}${BD0}--bg-color:${_T};--color-canvas-default:${_T};}`
@@ -679,7 +679,6 @@ css+=VUETIFY_CSS;
  if(SiteAdapters.isGoogleSite())css+=GOOGLE_SEARCH_GLASS_CSS;
 if(SiteAdapters.isXSite()){
   css+=X_CSS+X_SEARCH_GLASS_CSS;
-  // X 媒体兜底：图片/视频/媒体容器保持不透明，禁止被全局清场
   css+=`
   img,video,canvas,picture,
   [data-testid="tweetPhoto"],
@@ -708,7 +707,6 @@ if(SiteAdapters.isXSite()){
    css+=SiteAdapters.pan123OverlayCSS(ov.blur,ov.alpha);
  }
  if(SiteAdapters.isSymblSite())css+=SiteAdapters.symblCSS();
- // ===== GitHub 排序菜单玻璃效果 =====
  if(/(^|\.)github\.com$/.test(Utils.getHost())){
    css+=`details-menu[role="menu"]{`
      +`background:transparent!important;`
@@ -763,20 +761,19 @@ isDeepSeekSite(){return /(^|\.)deepseek\.com$/.test(Utils.getHost());},
 is123PanSite(){return /(^|\.)123pan\.(com|cn)$/.test(Utils.getHost());},
 isGoogleSite(){return /(^|\.)google\.[a-z.]+$/.test(Utils.getHost());},
 isSymblSite(){return /(^|\.)symbl\.cc$/.test(Utils.getHost());},
+isNmcSite(){return /(^|\.)nmc\.cn$/.test(Utils.getHost());},
 
 symblCSS(){
  return `/* === symbl.cc 清场：把页面底图露出来 === */
 html body,
 html body *:not(img):not(svg):not(video):not(canvas):not(iframe){
   background-color:transparent!important;
-  background-image:none!important;
 }
 html body::before,
 html body::after,
 html body *::before,
 html body *::after{
   background-color:transparent!important;
-  background-image:none!important;
 }
 
 /* === 1. 主页搜索框：外层全部透明，只保留内部一层胶囊 === */
@@ -1086,7 +1083,6 @@ deepseekOverlayCSS(blur,alpha){
  +`border:1px double ${LGGC.border}!important;`
  +`border-radius:${LGGC.overlayRadius}!important;`
  +`overflow:hidden!important;}`
-
  +`._245c867,._34a54ec,._245c867._34a54ec,`
  +`._245c867 *,._34a54ec *,`
  +`._245c867::before,._245c867::after,`
@@ -1098,7 +1094,6 @@ deepseekOverlayCSS(blur,alpha){
  +`background-color:transparent!important;`
  +`background-image:none!important;`
  +`box-shadow:none!important;}`
-
  +`.ds-scroll-area,._6d215eb,`
  +`.ds-scroll-area::before,.ds-scroll-area::after,`
  +`._6d215eb::before,._6d215eb::after,`
@@ -1110,7 +1105,6 @@ deepseekOverlayCSS(blur,alpha){
  +`.ds-scroll-area__gradient,.ds-scroll-area__fade,`
  +`[class*="ds-scroll-area--"] [class*="gradient"],`
  +`[class*="ds-scroll-area--"] [class*="fade"]{display:none!important;background-image:none!important;}`
-
  +`._546d736,._546d736 *,`
  +`._546d736::before,._546d736::after,`
  +`.b64fb9ae,`
@@ -1126,14 +1120,12 @@ deepseekOverlayCSS(blur,alpha){
  +`background-color:transparent!important;`
  +`background-image:none!important;`
  +`box-shadow:none!important;}`
-
  +`a[href^="/a/chat/s/"][aria-current="page"],`
  +`a[href^="/a/chat/s/"][data-active="true"],`
  +`a[href^="/a/chat/s/"].active{`
  +`background-color:rgba(255,255,255,.08)!important;`
  +`background-image:none!important;`
  +`border-radius:8px!important;}`
-
  +`.fbb737a4,.fbb737a4 *,`
  +`.fbb737a4::before,.fbb737a4::after,`
  +`.ds-collapsible-text,.ds-collapsible-text *,`
@@ -1349,11 +1341,9 @@ _marked:new WeakSet(),_lastApplied:new WeakMap(),_keywordCache:new WeakMap(),_ra
 _lastScan:0,_scanMinInterval:500,
 isExcludedElement(el){
  if(!el||!el.nodeType)return false;
- // ===== symbl.cc 搜索浮层整体交给 symblCSS 处理，避免 Overlay 覆盖 =====
  if(el.closest&&el.closest('.search-form,.search-form__form,#search-form,.search-result'))return true;
  const slot=el.getAttribute&&el.getAttribute('data-slot');
  if(slot&&slot.indexOf('sidebar')===0)return true;
- // 第三方悬浮球：覆盖自身及其所有子元素
  if(el.closest&&el.closest('#goTopBottom,#tbSettingsBtn,#tbSettingsPanel,.tb-settings-btn,.tb-settings-panel'))return true;
  const cl=el.classList;
  if(cl&&(cl.contains('tb-settings-btn')||cl.contains('tb-settings-panel')))return true;
