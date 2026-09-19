@@ -1,10 +1,14 @@
 // ==UserScript==
 // @name         元素隐藏
 // @namespace    https://github.com/elderberryel/mingming
-// @version      2.1
+// @version      2.0
 // @description  元素隐藏
 // @author       明明
 // @match        *://*/*
+// @exclude      *://chatgpt.com/*
+// @exclude      *://*.chatgpt.com/*
+// @exclude      *://pqjc.site/*
+// @exclude      *://*.pqjc.site/*
 // @run-at       document-start
 // @grant        GM_addStyle
 // @grant        GM_getValue
@@ -19,6 +23,7 @@
 (function() {
     'use strict';
 
+    // ===== 全局隐藏选择器 =====
     const hideSelectors = [
         '.top-bars .flip-card',
         '.top-bars div:has(> .ant-divider-vertical)',
@@ -83,6 +88,11 @@
         'div:nth-of-type(8) > div.grecaptcha-badge:nth-of-type(1) > div.grecaptcha-logo:nth-of-type(1) > iframe',
         '.grecaptcha-badge',
 
+        'div.mx-auto:has(> h1.text-center.font-bold):has(> div > div.tool > form.tool-form)',
+        // 单独兜底：Telegram 频道横幅 / Reface 广告横幅
+        'a[href*="t.me/twittervideoranking"]',
+        'a[href*="mufufu.link"]',
+
         'ins.adsbygoogle',
         '.adsbygoogle',
         '.footer[role="contentinfo"]',
@@ -107,7 +117,24 @@
         'div[class*="w-\\[300px\\]"][class*="h-\\[250px\\]"]:has(> div > div[data-cl-spot])'
     ];
 
+    // ===== 分域名隐藏规则 =====
     const domainHideSelectors = {
+        'itdog.cn': [
+            // 顶部“家庭宽带拨测节点持续招募中…”横幅
+            '.top-recruit-notice-wrap',
+            // 页头图片广告
+            '.top_pic_ad',
+            // 所有广告容器（含“关闭所有广告”按钮）
+            '.gg_link',
+            // 左右两侧灯笼广告
+            '.lantern',
+            '.lantern_left',
+            '.lantern_right',
+            // 广告角标
+            '.ad_tip',
+            // 注入式“下载源代码”固定按钮（非站点原生）
+            'button[title="点击下载当前页面源代码"]'
+        ],
         'zi.tools': [
             'footer',
             '#sidebar'
@@ -115,6 +142,12 @@
         'yxssp.com': [
             'div.td-scroll-up + div.td-menu-background',
             '.td-menu-background'
+        ],
+        '123pan.com': [
+            '.app-header'
+        ],
+        '123pan.cn': [
+            '.app-header'
         ]
     };
 
@@ -184,7 +217,6 @@
         }
     }
 
-
     function checkTrackingElement(el) {
         if (!el || el.nodeType !== 1) return;
         const tag = el.tagName;
@@ -218,7 +250,6 @@
     }
 
     function hideLuckyButton(root = document) {
-
         let buttons;
         try {
             buttons = root.querySelectorAll('button:not([data-lucky-checked])');
@@ -243,8 +274,6 @@
         removeNodes();
         hideLuckyButton();
         killGitHubBanners();
-
-
     }
 
     const DEFAULTS = {
