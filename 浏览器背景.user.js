@@ -1664,7 +1664,62 @@ startScanTimer(){
   const cfg=Config.merge(Utils.getHost()),ov=Config.getEffectiveOverlayValues();
   if(cfg.enabled&&!CaptchaGuard.active&&(ov.blur>0||ov.alpha>0))OverlayEnhancer.apply();},3000);}
 };
-
+// ===== 汉堡菜单按钮 LGGC 玻璃胶囊（内联 !important 强制） =====
+const HamburgerFixer={
+_last:0,
+fix(force){
+ const now=Date.now();
+ if(!force&&now-HamburgerFixer._last<500)return;
+ HamburgerFixer._last=now;
+ try{
+  if(typeof CaptchaGuard!=='undefined'&&CaptchaGuard.active)return;
+  if(!Config.merge(Utils.getHost()).enabled)return;
+ }catch(e){return;}
+ let btns;
+ try{
+  btns=document.querySelectorAll(
+   'button[aria-label*="菜单"],button[aria-label*="导航"],'+
+   'button[aria-label*="menu"],button[aria-label*="Menu"],'+
+   'button[aria-label*="Toggle"],button[aria-label*="toggle"]'
+  );
+ }catch(e){return;}
+ for(const btn of btns){
+  if(!btn||!btn.style)continue;
+  if(btn.id&&/^vie-browser-bg/.test(btn.id))continue;
+  // 排除 combobox / select-trigger，避免误伤
+  try{
+   if(btn.getAttribute('role')==='combobox')continue;
+   if(btn.getAttribute('data-slot')==='select-trigger')continue;
+   const ac=btn.getAttribute('aria-controls')||'';
+   if(/select|listbox|combobox|dropdown/i.test(ac))continue;
+  }catch(e){}
+  try{
+   // 按钮本体：LGGC 玻璃胶囊
+   btn.style.setProperty('background','rgba(255,255,255,.10)','important');
+   btn.style.setProperty('background-color','rgba(255,255,255,.10)','important');
+   btn.style.setProperty('background-image','none','important');
+   btn.style.setProperty('backdrop-filter','blur(16px) saturate(130%)','important');
+   btn.style.setProperty('-webkit-backdrop-filter','blur(16px) saturate(130%)','important');
+   btn.style.setProperty('border','1px solid rgba(255,255,255,.30)','important');
+   btn.style.setProperty('border-color','rgba(255,255,255,.30)','important');
+   btn.style.setProperty('border-radius','9999px','important');
+   btn.style.setProperty('box-shadow',LGGC.shadow,'important');
+   btn.style.setProperty('isolation','isolate','important');
+   btn.style.setProperty('transform','translateZ(0)','important');
+   btn.style.setProperty('cursor','pointer','important');
+   // 只处理叶子 span（即三根横线），跳过外层包裹
+   const spans=btn.querySelectorAll('span');
+   for(const sp of spans){
+    if(sp.children.length>0)continue;   // 有子元素 = 是包裹层，跳过
+    sp.style.setProperty('background-color','currentColor','important');
+    sp.style.setProperty('background-image','none','important');
+    sp.style.setProperty('opacity','1','important');
+   }
+  }catch(e){}
+ }
+}
+};
+// ===== 新增结束 =====
 const ImageTools={
 
 compress(dataUrl,target,cb){
@@ -2191,7 +2246,8 @@ observe(){
    if(cfg.enabled&&!CaptchaGuard.active&&(ov.blur>0||ov.alpha>0))OverlayEnhancer.request(urgent);
    SiteAdapters.stripXHeaderBlur();
    ShadowFixer.run();
-   FloatPanel.ensureAlive();},urgent?0:200);
+   FloatPanel.ensureAlive();
+   HamburgerFixer.fix();},urgent?0:200);
  }).observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['class','open','aria-hidden','style','data-state']});},
 init(){
  document.addEventListener('visibilitychange',()=>{if(document.hidden)OverlayEnhancer.stopScanTimer();else OverlayEnhancer.startScanTimer();});
@@ -2200,10 +2256,12 @@ init(){
  StyleManager.applyStyleFull();
  Bootstrap.bindGlobalListeners();
  Bootstrap.observe();
- document.addEventListener('DOMContentLoaded',()=>{CaptchaGuard.throttledCheck();StyleManager.applyAgain();ShadowFixer.run();FloatPanel.create();OverlayEnhancer.startScanTimer();});
+ document.addEventListener('DOMContentLoaded',()=>{CaptchaGuard.throttledCheck();StyleManager.applyAgain();ShadowFixer.run();FloatPanel.create();OverlayEnhancer.startScanTimer();HamburgerFixer.fix(true);});
  addEventListener('load',()=>{
   CaptchaGuard.throttledCheck();StyleManager.applyAgain();ShadowFixer.run();FloatPanel.create();
-  setTimeout(()=>{FloatPanel.ensureAlive();StyleManager.applyStyleFull();ShadowFixer.run();},500);  setTimeout(()=>{FloatPanel.ensureAlive();StyleManager.applyStyleFull();ShadowFixer.run();},2000);});
+  HamburgerFixer.fix(true);
+  setTimeout(()=>{FloatPanel.ensureAlive();StyleManager.applyStyleFull();ShadowFixer.run();HamburgerFixer.fix(true);},500);  setTimeout(()=>{FloatPanel.ensureAlive();StyleManager.applyStyleFull();ShadowFixer.run();HamburgerFixer.fix(true);},2000);});
+ HamburgerFixer.fix(true);
  Menus.register();}
 };
 
