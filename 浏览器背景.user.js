@@ -1686,6 +1686,7 @@ fix(force){
  for(const btn of btns){
   if(!btn||!btn.style)continue;
   if(btn.id&&/^vie-browser-bg/.test(btn.id))continue;
+  
   // 排除 combobox / select-trigger，避免误伤
   try{
    if(btn.getAttribute('role')==='combobox')continue;
@@ -1693,6 +1694,25 @@ fix(force){
    const ac=btn.getAttribute('aria-controls')||'';
    if(/select|listbox|combobox|dropdown/i.test(ac))continue;
   }catch(e){}
+
+  // ===== 【修复新增】排除遮罩层、蒙层或抽屉相关的元素 =====
+  const clazz = (typeof btn.className === 'string' ? btn.className : '').toLowerCase();
+  const idStr = (btn.id || '').toLowerCase();
+  if (clazz.includes('mask') || clazz.includes('overlay') || clazz.includes('backdrop') || clazz.includes('drawer') ||
+      idStr.includes('mask') || idStr.includes('overlay') || idStr.includes('backdrop') || idStr.includes('drawer')) {
+      continue;
+  }
+
+  // ===== 【修复新增】排除尺寸过大的按钮（如全屏遮罩） =====
+  const rect = btn.getBoundingClientRect();
+  const vw = window.innerWidth || document.documentElement.clientWidth || 360;
+  const vh = window.innerHeight || document.documentElement.clientHeight || 640;
+  // 如果按钮宽高超过屏幕的 80%，肯定不是汉堡按钮，直接跳过
+  if (rect.width > vw * 0.8 || rect.height > vh * 0.8) {
+      continue;
+  }
+  // ====================================================
+
   try{
    // 按钮本体：LGGC 玻璃胶囊
    btn.style.setProperty('background','rgba(255,255,255,.10)','important');
@@ -1707,6 +1727,7 @@ fix(force){
    btn.style.setProperty('isolation','isolate','important');
    btn.style.setProperty('transform','translateZ(0)','important');
    btn.style.setProperty('cursor','pointer','important');
+   
    // 只处理叶子 span（即三根横线），跳过外层包裹
    const spans=btn.querySelectorAll('span');
    for(const sp of spans){
