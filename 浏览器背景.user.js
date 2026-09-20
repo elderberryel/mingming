@@ -18,8 +18,11 @@
 'use strict';
 
 if(/\/cdn-cgi\//.test(location.pathname))return;
+
+const CF_TITLE_RE=/just a moment|attention required|cloudflare|please wait|checking your browser|verify you are human|one more step|请稍候|请等待|正在验证|验证中|正在进行安全验证|安全检查|人机验证|安全验证/;
 const _t0=(document.title||'').toLowerCase();
-if(_t0&&/just a moment|attention required|cloudflare|please wait|checking your browser|verify you are human|one more step/.test(_t0))return;
+if(_t0&&CF_TITLE_RE.test(_t0))return;
+try{if(typeof window._cf_chl_opt!=='undefined')return;}catch(e){}
 
 const SCRIPT_VERSION=(typeof GM_info!=='undefined'&&GM_info&&GM_info.script&&GM_info.script.version)||'6.9.1';
 const CONFIG_VERSION=SCRIPT_VERSION,NODE_ID_VERSION='v89';
@@ -1416,6 +1419,25 @@ applyAgain(){Config.invalidate();BackgroundImage.ready=false;StyleManager.applyS
 
 const CaptchaGuard={
 active:false,_lastCheck:0,_enterTimer:null,_recoverTimer:null,
+
+// CF 挑战页结构特征选择器（不要求可见、不要求尺寸）
+CF_STRUCTURE_SELECTORS:[
+ 'input[name="cf-turnstile-response"]',
+ '[id^="cf-chl-widget"]',
+ '[id^="cf-chl-"]',
+ '#challenge-error-text',
+ '[class*="challenge-platform"]'
+],
+isCfStructure(){
+ try{
+  if(typeof window._cf_chl_opt!=='undefined')return true;
+  for(let i=0;i<CaptchaGuard.CF_STRUCTURE_SELECTORS.length;i++){
+   if(document.querySelector(CaptchaGuard.CF_STRUCTURE_SELECTORS[i]))return true;
+  }
+ }catch(e){}
+ return false;
+},
+
 throttledCheck(){const n=Date.now();if(n-CaptchaGuard._lastCheck<300)return;CaptchaGuard._lastCheck=n;CaptchaGuard.check();},
 isRealCaptcha(el){
  if(!el)return false;
@@ -1426,6 +1448,8 @@ isRealCaptcha(el){
  const r=el.getBoundingClientRect();
  return r.width>20&&r.height>20;},
 findVisible(){
+ // 先查 CF 结构特征，命中即视为挑战页
+ if(CaptchaGuard.isCfStructure())return true;
  if(!document.body)return false;
  for(const sel of CAPTCHA_SELECTORS){
   try{const n=document.body.querySelectorAll(sel);for(let i=0;i<n.length;i++)if(CaptchaGuard.isRealCaptcha(n[i]))return true;}catch(e){}}
@@ -1433,7 +1457,7 @@ findVisible(){
 check(){
  const host=Utils.getHost();
  if(SPA_WHITELIST.some(d=>host.includes(d))){if(CaptchaGuard.active){CaptchaGuard.active=false;StyleManager.applyStyle();}return;}
- if(/just a moment|attention required|cloudflare|please wait|checking your browser|verify you are human/.test((document.title||'').toLowerCase())){
+ if(CF_TITLE_RE.test((document.title||'').toLowerCase())){
    if(CaptchaGuard._enterTimer){clearTimeout(CaptchaGuard._enterTimer);CaptchaGuard._enterTimer=null;}
    if(CaptchaGuard._recoverTimer){clearTimeout(CaptchaGuard._recoverTimer);CaptchaGuard._recoverTimer=null;}
    if(!CaptchaGuard.active){CaptchaGuard.active=true;StyleManager.removeStyle();}
