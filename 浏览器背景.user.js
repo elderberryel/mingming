@@ -930,6 +930,13 @@ if(/(^|\.)apkmirror\.com$/.test(Utils.getHost())){
   }
   `;
 }
+ css += `
+ html body img[data-nimg="fill"][class*="mix-blend-multiply"]{
+   opacity:0!important;
+   mix-blend-mode:normal!important;
+   visibility:hidden!important;
+ }
+ `;
  return css+ROOT_HARDEN;}
 };
 
