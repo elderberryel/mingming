@@ -7,6 +7,8 @@
 // @match        *://*/*
 // @exclude      *://chatgpt.com/*
 // @exclude      *://*.chatgpt.com/*
+// @exclude      *://zh.flightaware.com/*
+// @exclude      *://*.zh.flightaware.com/*
 // @exclude      *://pqjc.site/*
 // @exclude      *://*.pqjc.site/*
 // @run-at       document-start
@@ -120,20 +122,13 @@
     // ===== 分域名隐藏规则 =====
     const domainHideSelectors = {
         'itdog.cn': [
-            // 顶部“家庭宽带拨测节点持续招募中…”横幅
             '.top-recruit-notice-wrap',
-            // 页头图片广告
             '.top_pic_ad',
-            // 所有广告容器（含“关闭所有广告”按钮）
             '.gg_link',
-            // 左右两侧灯笼广告
             '.lantern',
             '.lantern_left',
             '.lantern_right',
-            // 广告角标
             '.ad_tip',
-            // 注入式“下载源代码”固定按钮（非站点原生）
-            'button[title="点击下载当前页面源代码"]'
         ],
         'zi.tools': [
             'footer',
@@ -155,7 +150,6 @@
         'div[class*="video_content_wrapper"] video',
         '.n2EyapLU_video_content_wrapper video',
 
-        // 右下角固定广告弹窗：先删外层容器，再兜底删残留广告位
         'div.fixed.bottom-0.right-0:has(div[data-cl-spot])',
         'div.fixed:has(> div.relative > button[aria-label="閉じる"])',
         'div[class*="w-\\[300px\\]"][class*="h-\\[250px\\]"]:has(> div > div[data-cl-spot])',
