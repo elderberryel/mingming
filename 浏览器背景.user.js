@@ -141,7 +141,7 @@ const _sfHov=s=>s.split(',').map(x=>x.trim()+':hover,'+x.trim()+':focus,'+x.trim
 const _sfPlc=s=>s.split(',').map(x=>x.trim()+'::placeholder').join(',');
 const _sfG=s=>s.split(',').map(x=>x.trim()+':hover').join(',');
 
-// ===== 通用搜索框胶囊玻璃（选择器匹配 input） =====
+// ===== 通用搜索框胶囊玻璃 =====
 const SEARCH_PILL_CSS=
  `input[type="search"],input[role="searchbox"],`
 +`input[placeholder*="搜索"],input[placeholder*="Search"],input[placeholder*="search"],`
@@ -920,6 +920,16 @@ if(SiteAdapters.isXSite()){
      +`background:rgba(255,255,255,.06)!important;`
      +`}`;
  }
+if(/(^|\.)apkmirror\.com$/.test(Utils.getHost())){
+  css += `
+  html body .search-filter-button{display:none!important;}
+  html body .searchbox-parent.open .search-filter-button{
+    display:inline-flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+  }
+  `;
+}
  return css+ROOT_HARDEN;}
 };
 
@@ -1664,7 +1674,7 @@ startScanTimer(){
   const cfg=Config.merge(Utils.getHost()),ov=Config.getEffectiveOverlayValues();
   if(cfg.enabled&&!CaptchaGuard.active&&(ov.blur>0||ov.alpha>0))OverlayEnhancer.apply();},3000);}
 };
-// ===== 汉堡菜单按钮 LGGC 玻璃胶囊（内联 !important 强制） =====
+// ===== 汉堡菜单按钮 LGGC 玻璃胶囊 =====
 const HamburgerFixer={
 _last:0,
 fix(force){
@@ -1687,7 +1697,6 @@ fix(force){
   if(!btn||!btn.style)continue;
   if(btn.id&&/^vie-browser-bg/.test(btn.id))continue;
   
-  // 排除 combobox / select-trigger，避免误伤
   try{
    if(btn.getAttribute('role')==='combobox')continue;
    if(btn.getAttribute('data-slot')==='select-trigger')continue;
@@ -1695,7 +1704,7 @@ fix(force){
    if(/select|listbox|combobox|dropdown/i.test(ac))continue;
   }catch(e){}
 
-  // ===== 【修复新增】排除遮罩层、蒙层或抽屉相关的元素 =====
+  // ===== 排除遮罩层、蒙层或抽屉相关的元素 =====
   const clazz = (typeof btn.className === 'string' ? btn.className : '').toLowerCase();
   const idStr = (btn.id || '').toLowerCase();
   if (clazz.includes('mask') || clazz.includes('overlay') || clazz.includes('backdrop') || clazz.includes('drawer') ||
@@ -1703,15 +1712,14 @@ fix(force){
       continue;
   }
 
-  // ===== 【修复新增】排除尺寸过大的按钮（如全屏遮罩） =====
+  // ===== 排除尺寸过大的按钮 =====
   const rect = btn.getBoundingClientRect();
   const vw = window.innerWidth || document.documentElement.clientWidth || 360;
   const vh = window.innerHeight || document.documentElement.clientHeight || 640;
-  // 如果按钮宽高超过屏幕的 80%，肯定不是汉堡按钮，直接跳过
+
   if (rect.width > vw * 0.8 || rect.height > vh * 0.8) {
       continue;
   }
-  // ====================================================
 
   try{
    // 按钮本体：LGGC 玻璃胶囊
