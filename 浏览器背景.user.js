@@ -531,7 +531,12 @@ const Utils={
 clamp(n,a,b){return Math.min(b,Math.max(a,n));},
 getHost(){return location.hostname||'';},
 safeJSONParse(s,d){try{return JSON.parse(s);}catch(e){return d;}},
-safePos(p){const vw=innerWidth||360,vh=innerHeight||640;return{right:Utils.clamp(Number(p&&p.right)||10,0,Math.max(0,vw-46)),bottom:Utils.clamp(Number(p&&p.bottom)||90,0,Math.max(0,vh-46))};},
+safePos(p){
+ const vw=(document.documentElement&&document.documentElement.clientWidth)||innerWidth||360;
+ const vh=(document.documentElement&&document.documentElement.clientHeight)||innerHeight||640;
+ const r=(p&&Number.isFinite(Number(p.right)))?Number(p.right):10;
+ const b=(p&&Number.isFinite(Number(p.bottom)))?Number(p.bottom):90;
+ return{right:Utils.clamp(r,0,Math.max(0,vw-46)),bottom:Utils.clamp(b,0,Math.max(0,vh-46))};},
 normalizeHost(h){return String(h||'').trim().toLowerCase();},
 hostMatch(rule,host){
  rule=Utils.normalizeHost(rule);host=Utils.normalizeHost(host);
@@ -2095,30 +2100,41 @@ create(){
   let sx=0,sy=0,sr=0,sb=0;
   function dn(e){
    const ev=e.touches?e.touches[0]:e,r=box.getBoundingClientRect();
-   sx=ev.clientX;sy=ev.clientY;sr=innerWidth-r.right;sb=innerHeight-r.bottom;toggle.__dragging=false;
+   sx=ev.clientX;sy=ev.clientY;
+   sr=(document.documentElement.clientWidth||innerWidth)-r.right;
+   sb=(document.documentElement.clientHeight||innerHeight)-r.bottom;
+   toggle.__dragging=false;
    document.addEventListener('mousemove',mv,true);document.addEventListener('mouseup',up,true);
    document.addEventListener('touchmove',mv,{passive:false});document.addEventListener('touchend',up,true);}
   function mv(e){
    const ev=e.touches?e.touches[0]:e,dx=ev.clientX-sx,dy=ev.clientY-sy;
    if(Math.abs(dx)>3||Math.abs(dy)>3)toggle.__dragging=true;
-   box.style.right=Utils.clamp(sr-dx,0,Math.max(0,innerWidth-46))+'px';
-   box.style.bottom=Utils.clamp(sb-dy,0,Math.max(0,innerHeight-46))+'px';
+   const vw=document.documentElement.clientWidth||innerWidth;
+   const vh=document.documentElement.clientHeight||innerHeight;
+   box.style.right=Utils.clamp(sr-dx,0,Math.max(0,vw-46))+'px';
+   box.style.bottom=Utils.clamp(sb-dy,0,Math.max(0,vh-46))+'px';
    if(e.cancelable)e.preventDefault();}
   function up(){
    document.removeEventListener('mousemove',mv,true);document.removeEventListener('mouseup',up,true);
    document.removeEventListener('touchmove',mv,{passive:false});document.removeEventListener('touchend',up,true);
    if(toggle.__dragging){
-    const r=box.getBoundingClientRect();
-    const fp=Utils.safePos({right:innerWidth-r.right,bottom:innerHeight-r.bottom});
+    const fp=Utils.safePos({right:parseFloat(box.style.right)||0,bottom:parseFloat(box.style.bottom)||0});
     box.style.right=fp.right+'px';box.style.bottom=fp.bottom+'px';
     Store.set(KEYS.floatPos,JSON.stringify(fp));Config.invalidate();}}
   toggle.addEventListener('mousedown',dn);toggle.addEventListener('touchstart',dn,{passive:true});
  })();},
 fixPosition(el){
  if(!el)return;
- const r=el.getBoundingClientRect();
- const fp=Utils.safePos({right:innerWidth-r.right,bottom:innerHeight-r.bottom});
- if(parseInt(el.style.right)!==fp.right||parseInt(el.style.bottom)!==fp.bottom){el.style.right=fp.right+'px';el.style.bottom=fp.bottom+'px';}},
+ const vw=(document.documentElement&&document.documentElement.clientWidth)||innerWidth||360;
+ const vh=(document.documentElement&&document.documentElement.clientHeight)||innerHeight||640;
+ const curR=parseFloat(el.style.right);
+ const curB=parseFloat(el.style.bottom);
+ const rv=Number.isFinite(curR)?curR:10;
+ const bv=Number.isFinite(curB)?curB:90;
+ const newR=Utils.clamp(rv,0,Math.max(0,vw-46));
+ const newB=Utils.clamp(bv,0,Math.max(0,vh-46));
+ if(!Number.isFinite(curR)||curR!==newR)el.style.right=newR+'px';
+ if(!Number.isFinite(curB)||curB!==newB)el.style.bottom=newB+'px';},
 ensureAlive(){
  if(!FloatPanel.shouldExist)return;
  if(!Config.merge(Utils.getHost()).floatVisible)return;
