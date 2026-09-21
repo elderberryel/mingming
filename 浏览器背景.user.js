@@ -141,19 +141,19 @@ const _sfHov=s=>s.split(',').map(x=>x.trim()+':hover,'+x.trim()+':focus,'+x.trim
 const _sfPlc=s=>s.split(',').map(x=>x.trim()+'::placeholder').join(',');
 const _sfG=s=>s.split(',').map(x=>x.trim()+':hover').join(',');
 
-// ===== 通用搜索框胶囊玻璃（提升特异性：html body + :is 包裹） =====
+// ===== 通用搜索框胶囊玻璃 =====
 const SEARCH_PILL_CSS=
- `html body :is(input[type="search"],input[role="searchbox"],`
+ `input[type="search"],input[role="searchbox"],`
 +`input[placeholder*="搜索"],input[placeholder*="Search"],input[placeholder*="search"],`
 +`input[placeholder*="查询"],input[placeholder*="检索"],input[placeholder*="查一查"],`
 +`input[aria-label*="搜索"],input[aria-label*="Search"],input[aria-label*="search"],`
-+`input[name="q"],input[name="query"],input[name="keyword"],input[name="wd"],input[name="s"],input[name="search"],`
++`input[name="q"],input[name="query"],input[name="keyword"],input[name="wd"],input[name="s"],`
 +`input[id="kw"],input[id="word"],input[id="search"],`
 +`input[class*="search-input"],input[class*="searchInput"],input[class*="search-box"],input[class*="searchBox"],input[class*="SearchInput"],input[class*="SearchBox"],`
 +`[class*="search-bar"] input,[class*="searchbar"] input,[class*="search-field"] input,`
-+`[class*="sb-input"] input,[class*="input-wrap"] input){`
++`[class*="sb-input"] input,[class*="input-wrap"] input{`
 +_SF_BASE+_SF_GRAY+_SF_SHADOW+`}`
-+`html body :is([class*="sb-input-wrap"],[class*="input-wrap"]){${_SF_CLEAR}}`;
++`[class*="sb-input-wrap"],[class*="input-wrap"]{${_SF_CLEAR}}`;
 
 const _SF_WRAP_IN='html body .sb-input-wrap>input,html body [class*="sb-input-wrap"]>input';
 const _SF_PORTAL='html body input.ant-input#search_portal_input,html body #search_portal_input';
@@ -227,111 +227,7 @@ const SEARCH_GLASS_CSS=
 +`0 8px 20px rgba(15,23,42,.16)!important;`
 +`cursor:pointer!important;padding:0 22px!important;font-weight:700!important;letter-spacing:.5px!important;}`
 +_sfG(_SF_BTNS)+`{background-color:rgba(152,221,152,.34)!important;border-color:rgba(152,221,152,.60)!important;}`
-+`html body .sb-btn[data-lucky-checked="1"]{background-color:rgba(152,221,152,.30)!important;border-color:rgba(152,221,152,.55)!important;}`
-+`html body #nmc-product-list,`
-+`html body #indexSearchButton,`
-+`html body .input-group-addon#indexSearchButton{`
-+`border-radius:9999px!important;`
-+`-webkit-appearance:none!important;appearance:none!important;`
-+`box-sizing:border-box!important;`
-+`background-color:rgba(152,221,152,.22)!important;`
-+`background-image:none!important;`
-+`backdrop-filter:blur(16px) saturate(130%)!important;`
-+`-webkit-backdrop-filter:blur(16px) saturate(130%)!important;`
-+`border:1px solid rgba(152,221,152,.42)!important;`
-+`box-shadow:inset 1.5px -1.5px 1px -1px rgba(255,255,255,.92),`
-+`inset -1.5px 1.5px 1px -1px rgba(255,255,255,.90),`
-+`inset 0 0 3px rgba(15,23,42,.35),`
-+`inset 0 0 12px rgba(152,221,152,.20),`
-+`0 8px 20px rgba(15,23,42,.16)!important;`
-+`color:inherit!important;`
-+`cursor:pointer!important;`
-+`display:inline-flex!important;`
-+`align-items:center!important;`
-+`justify-content:center!important;`
-+`isolation:isolate!important;`
-+`transform:translateZ(0)!important;`
-+`transition:background-color .2s,border-color .2s,box-shadow .2s!important;`
-+`}`
-+`html body #nmc-product-list:hover,`
-+`html body #nmc-product-list[aria-expanded="true"],`
-+`html body #indexSearchButton:hover{`
-+`background-color:rgba(152,221,152,.34)!important;`
-+`border-color:rgba(152,221,152,.60)!important;`
-+`}`
-+`html body #nmc-product-list .iconfont,`
-+`html body #nmc-product-list i,`
-+`html body #indexSearchButton .iconfont,`
-+`html body #indexSearchButton i{`
-+`background:transparent!important;`
-+`color:inherit!important;`
-+`text-shadow:none!important;`
-+`}`
-// ===== hero-search 表单（apkcombo 等）：整体胶囊玻璃容器 =====
-+`html body form.hero-search,`
-+`html body form[role="search"].hero-search{`
-+`display:flex!important;`
-+`flex-direction:row!important;`
-+`flex-wrap:nowrap!important;`
-+`align-items:center!important;`
-+`gap:8px!important;`
-+`padding:6px 6px 6px 20px!important;`
-+`background-color:rgba(255,255,255,.10)!important;`
-+`background-image:none!important;`
-+`backdrop-filter:blur(16px) saturate(130%)!important;`
-+`-webkit-backdrop-filter:blur(16px) saturate(130%)!important;`
-+`border:1px solid rgba(255,255,255,.30)!important;`
-+`border-radius:9999px!important;`
-+`box-shadow:${LGGC.shadow}!important;`
-+`isolation:isolate!important;transform:translateZ(0)!important;`
-+`transition:background-color .2s,border-color .2s!important;`
-+`box-sizing:border-box!important;`
-+`}`
-+`html body form.hero-search:hover,`
-+`html body form.hero-search:focus-within{`
-+`background-color:rgba(255,255,255,.16)!important;`
-+`border-color:rgba(255,255,255,.42)!important;`
-+`}`
-+`html body form.hero-search > input,`
-+`html body form.hero-search input[type="text"],`
-+`html body form.hero-search input[name="search"]{`
-+`background:transparent!important;background-color:transparent!important;`
-+`background-image:none!important;border:0!important;border-radius:0!important;`
-+`box-shadow:none!important;backdrop-filter:none!important;`
-+`-webkit-backdrop-filter:none!important;outline:none!important;`
-+`color:inherit!important;`
-+`flex:1 1 auto!important;`
-+`width:auto!important;max-width:100%!important;min-width:0!important;`
-+`padding:6px 0!important;height:auto!important;line-height:1.4!important;`
-+`}`
-+`html body form.hero-search > input::placeholder,`
-+`html body form.hero-search input[name="search"]::placeholder{`
-+`color:inherit!important;opacity:.6!important;`
-+`}`
-+`html body form.hero-search > .btn.btn-brand,`
-+`html body form.hero-search > button[type="submit"]{`
-+_SF_BASE
-+`background-color:rgba(152,221,152,.22)!important;`
-+`border:1px solid rgba(152,221,152,.42)!important;`
-+`box-shadow:inset 1.5px -1.5px 1px -1px rgba(255,255,255,.92),`
-+`inset -1.5px 1.5px 1px -1px rgba(255,255,255,.90),`
-+`inset 0 0 3px rgba(15,23,42,.35),`
-+`inset 0 0 12px rgba(152,221,152,.20),`
-+`0 8px 20px rgba(15,23,42,.16)!important;`
-+`padding:0 22px!important;font-weight:700!important;letter-spacing:.5px!important;`
-+`cursor:pointer!important;`
-+`display:inline-flex!important;align-items:center!important;justify-content:center!important;gap:6px!important;`
-+`height:38px!important;line-height:38px!important;`
-+`width:auto!important;max-width:max-content!important;`
-+`flex:0 0 auto!important;`
-+`box-sizing:border-box!important;`
-+`white-space:nowrap!important;`
-+`}`
-+`html body form.hero-search > .btn.btn-brand:hover,`
-+`html body form.hero-search > button[type="submit"]:hover{`
-+`background-color:rgba(152,221,152,.34)!important;`
-+`border-color:rgba(152,221,152,.60)!important;`
-+`}`
++`html body .sb-btn[data-lucky-checked="1"]{background-color:rgba(152,221,152,.30)!important;border-color:rgba(152,221,152,.55)!important;}`;
 
 // ===== TD 搜索框玻璃胶囊 =====
 const TD_SEARCH_GLASS_CSS=
@@ -944,7 +840,7 @@ buildAll(cfg,finalUrl){
 +TAB_GLASS_CSS
  +`nav.segmented-control.shadow-sm,nav.apple-navbar,nav.apple-navbar .container-fluid{${BG0}${SH0}${BF0}}`
  +`.ant-menu.ant-menu-horizontal,.ant-menu-root.ant-menu-horizontal,ul.ant-menu.ant-menu-horizontal,.ant-menu-horizontal>.ant-menu-item,.ant-menu-horizontal>.ant-menu-submenu,.ant-menu-horizontal .ant-menu-submenu-title,.ant-btn.ant-btn-default,.ant-btn-variant-outlined,button.ant-btn{${BG0}${SH0}${BD3}}`
- +`:root,${BGVAR_SEL},[class*="bg-[rgb(var(--bg-"){--bg-tertiary:${_T};--bg-secondary:${_T};--bg-primary:${_T};${BG0}${SH0}}`
+ +`:root,${BGVAR_SEL},[class*="bg-[rgb(var(--bg-"]{--bg-tertiary:${_T};--bg-secondary:${_T};--bg-primary:${_T};${BG0}${SH0}}`
  +`${BGVAR_SEL}{${BD3}}`
  +`.btn-close{box-sizing:content-box!important;width:1em!important;height:1em!important;padding:.25em!important;background:transparent url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23000'%3e%3cpath d='M.293.293a1 1 0 0 1 1.414 0L8 6.586 14.293.293a1 1 0 1 1 1.414 1.414L9.414 8l6.293 6.293a1 1 0 0 1-1.414 1.414L8 9.414l-6.293 6.293a1 1 0 0 1-1.414-1.414L6.586 8 .293 1.707a1 1 0 0 1 0-1.414z'/%3e%3c/svg%3e") center/1em auto no-repeat!important;border:0!important;border-radius:.375rem!important;opacity:.7!important;}`
  +`.btn-close-white{filter:invert(1) grayscale(100%) brightness(200%)!important;}`
@@ -1154,7 +1050,343 @@ if(/(^|\.)ip138\.com$/.test(Utils.getHost())){
   }
   `;
 }
+/* === nmc.cn 下拉按钮：胶囊玻璃 === */
+if(/(^|\.)nmc\.cn$/.test(Utils.getHost())){
+  css += `
+  /* 按钮本体：绿色玻璃胶囊，覆盖内联蓝底 */
+  html body button#nmc-product-list.btn.dropdown-toggle,
+  html body button#nmc-product-list,
+  html body button.btn.btn-default.dropdown-toggle[id="dropdownMenu1"],
+  html body button.btn.btn-default.dropdown-toggle{
+    -webkit-appearance:none!important;
+    appearance:none!important;
+    box-sizing:border-box!important;
+    border-radius:9999px!important;
+    background:rgba(152,221,152,.22)!important;
+    background-color:rgba(152,221,152,.22)!important;
+    background-image:none!important;
+    backdrop-filter:blur(16px) saturate(130%)!important;
+    -webkit-backdrop-filter:blur(16px) saturate(130%)!important;
+    border:1px solid rgba(152,221,152,.42)!important;
+    box-shadow:inset 1.5px -1.5px 1px -1px rgba(255,255,255,.92),
+               inset -1.5px 1.5px 1px -1px rgba(255,255,255,.90),
+               inset 0 0 3px rgba(15,23,42,.35),
+               inset 0 0 12px rgba(152,221,152,.20),
+               0 8px 20px rgba(15,23,42,.16)!important;
+    color:inherit!important;
+    cursor:pointer!important;
+    isolation:isolate!important;
+    transform:translateZ(0)!important;
+    transition:background-color .2s,border-color .2s,box-shadow .2s!important;
+    height:40px!important;
+    line-height:40px!important;
+    padding:0 18px!important;
+    font-weight:600!important;
+  }
+  /* #nmc-product-list 原来内联写了 width:100%，保留 100% 也行，改成自适应就把下面这行留空 */
+  html body button#nmc-product-list{
+    width:auto!important;
+    min-width:40px!important;
+  }
+  /* 悬停/展开态 */
+  html body button#nmc-product-list:hover,
+  html body button#nmc-product-list:focus,
+  html body button#nmc-product-list[aria-expanded="true"],
+  html body button.btn.btn-default.dropdown-toggle:hover,
+  html body button.btn.btn-default.dropdown-toggle:focus,
+  html body button.btn.btn-default.dropdown-toggle.open,
+  html body button.btn.btn-default.dropdown-toggle[aria-expanded="true"]{
+    background-color:rgba(152,221,152,.34)!important;
+    border-color:rgba(152,221,152,.60)!important;
+    color:inherit!important;
+  }
+  /* 图标与 caret */
+  html body button#nmc-product-list .iconfont,
+  html body button#nmc-product-list i,
+  html body button.btn.btn-default.dropdown-toggle .caret{
+    background:transparent!important;
+    color:inherit!important;
+    text-shadow:none!important;
+  }
+  html body button.btn.btn-default.dropdown-toggle .caret{
+    border-top-color:currentColor!important;
+    border-bottom-color:currentColor!important;
+  }
+  /* 下拉面板：深玻璃 */
+  html body .dropdown.open > .dropdown-menu,
+  html body .dropdown-menu{
+    background-color:rgba(28,30,38,.72)!important;
+    background-image:none!important;
+    backdrop-filter:blur(18px) saturate(140%)!important;
+    -webkit-backdrop-filter:blur(18px) saturate(140%)!important;
+    border:1px double rgba(255,255,255,.18)!important;
+    border-radius:18px!important;
+    box-shadow:inset 1.5px -1.5px 1px -1px rgba(255,255,255,.92),
+               inset -1.5px 1.5px 1px -1px rgba(255,255,255,.90),
+               inset 0 0 3px rgba(15,23,42,.35),
+               0 16px 32px rgba(15,23,42,.24)!important;
+    overflow:hidden!important;
+    isolation:isolate!important;
+    transform:translateZ(0)!important;
+    padding:6px 0!important;
+  }
+  html body .dropdown.open > .dropdown-menu > li > a,
+  html body .dropdown-menu > li > a{
+    background:transparent!important;
+    background-color:transparent!important;
+    color:inherit!important;
+  }
+  html body .dropdown.open > .dropdown-menu > li > a:hover,
+  html body .dropdown-menu > li > a:hover,
+  html body .dropdown-menu > li.active > a{
+    background-color:rgba(255,255,255,.10)!important;
+    color:inherit!important;
+  }
+  `;
+}
+/* === 天气站 navbar 搜索框：胶囊玻璃 === */
+css += `
+html body form.searchForm .input-group.searchInput{
+  display:flex!important;
+  align-items:center!important;
+  box-sizing:border-box!important;
+  background-color:rgba(255,255,255,.10)!important;
+  background-image:none!important;
+  backdrop-filter:blur(16px) saturate(130%)!important;
+  -webkit-backdrop-filter:blur(16px) saturate(130%)!important;
+  border:1px solid rgba(255,255,255,.30)!important;
+  border-radius:9999px!important;
+  box-shadow:inset 1.5px -1.5px 1px -1px rgba(255,255,255,.92),
+             inset -1.5px 1.5px 1px -1px rgba(255,255,255,.90),
+             inset 0 0 3px rgba(15,23,42,.35),
+             0 8px 20px rgba(15,23,42,.16)!important;
+  overflow:hidden!important;
+  isolation:isolate!important;
+  transform:translateZ(0)!important;
+  transition:background-color .2s,border-color .2s,box-shadow .2s!important;
+}
+html body form.searchForm .input-group.searchInput:hover,
+html body form.searchForm .input-group.searchInput:focus-within{
+  background-color:rgba(255,255,255,.16)!important;
+  border-color:rgba(255,255,255,.42)!important;
+}
+html body form.searchForm #searchInput,
+html body form.searchForm .input-group.searchInput .form-control{
+  background:transparent!important;
+  background-color:transparent!important;
+  background-image:none!important;
+  border:0!important;
+  box-shadow:none!important;
+  outline:none!important;
+  -webkit-appearance:none!important;
+  appearance:none!important;
+  color:inherit!important;
+  flex:1 1 auto!important;
+  width:auto!important;
+  height:40px!important;
+  line-height:40px!important;
+  padding:0 18px!important;
+  min-width:0!important;
+}
+html body form.searchForm #searchInput::placeholder{
+  color:inherit!important;
+  opacity:.6!important;
+}
+html body form.searchForm #indexSearchButton,
+html body form.searchForm .input-group.searchInput .input-group-addon#indexSearchButton{
+  background:transparent!important;
+  background-color:transparent!important;
+  background-image:none!important;
+  border:0!important;
+  box-shadow:none!important;
+  border-radius:0!important;
+  color:inherit!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  flex:0 0 auto!important;
+  height:40px!important;
+  line-height:40px!important;
+  padding:0 14px!important;
+  cursor:pointer!important;
+  transition:background-color .2s!important;
+}
+html body form.searchForm #indexSearchButton:hover{
+  background-color:rgba(255,255,255,.10)!important;
+}
+html body form.searchForm #indexSearchButton .iconfont,
+html body form.searchForm #indexSearchButton i{
+  background:transparent!important;
+  color:inherit!important;
+  text-shadow:none!important;
+}
+/* 热门城市下拉：浅玻璃面板，避免与胶囊抢样式 */
+html body form.searchForm #hotCity{
+  background-color:rgba(28,30,38,.72)!important;
+  background-image:none!important;
+  backdrop-filter:blur(18px) saturate(140%)!important;
+  -webkit-backdrop-filter:blur(18px) saturate(140%)!important;
+  border:1px double rgba(255,255,255,.18)!important;
+  border-radius:18px!important;
+  box-shadow:inset 1.5px -1.5px 1px -1px rgba(255,255,255,.92),
+             inset -1.5px 1.5px 1px -1px rgba(255,255,255,.90),
+             inset 0 0 3px rgba(15,23,42,.35),
+             0 16px 32px rgba(15,23,42,.24)!important;
+  overflow:hidden!important;
+  isolation:isolate!important;
+  transform:translateZ(0)!important;
+  padding:10px 14px!important;
+}
+html body form.searchForm #hotCity .cities a,
+html body form.searchForm #hotCity .ch{
+  background:transparent!important;
+  background-color:transparent!important;
+  background-image:none!important;
+  border:0!important;
+  box-shadow:none!important;
+  color:inherit!important;
+}
+html body form.searchForm #hotCity .cities a:hover{
+  background-color:rgba(255,255,255,.10)!important;
+  border-radius:6px!important;
+}
+`;
+/* === apkcombo hero-search：胶囊玻璃 === */
+css += `
+/* 外层：胶囊玻璃容器 */
+html body form.hero-search[role="search"],
+html body form[role="search"].hero-search,
+html body form.hero-search{
+  display:flex!important;
+  flex-direction:row!important;
+  flex-wrap:nowrap!important;
+  align-items:center!important;
+  gap:8px!important;
+  padding:6px 6px 6px 20px!important;
+  box-sizing:border-box!important;
+  background:rgba(255,255,255,.10)!important;
+  background-color:rgba(255,255,255,.10)!important;
+  background-image:none!important;
+  backdrop-filter:blur(16px) saturate(130%)!important;
+  -webkit-backdrop-filter:blur(16px) saturate(130%)!important;
+  border:1px solid rgba(255,255,255,.30)!important;
+  border-radius:9999px!important;
+  box-shadow:inset 1.5px -1.5px 1px -1px rgba(255,255,255,.92),
+             inset -1.5px 1.5px 1px -1px rgba(255,255,255,.90),
+             inset 0 0 3px rgba(15,23,42,.35),
+             0 8px 20px rgba(15,23,42,.16)!important;
+  isolation:isolate!important;
+  transform:translateZ(0)!important;
+  overflow:visible!important;
+  transition:background-color .2s,border-color .2s!important;
+}
+html body form.hero-search[role="search"]:hover,
+html body form.hero-search[role="search"]:focus-within,
+html body form[role="search"].hero-search:hover,
+html body form[role="search"].hero-search:focus-within,
+html body form.hero-search:hover,
+html body form.hero-search:focus-within{
+  background:rgba(255,255,255,.16)!important;
+  background-color:rgba(255,255,255,.16)!important;
+  border-color:rgba(255,255,255,.42)!important;
+}
 
+/* 输入框：透明、无边框，占满剩余空间 */
+html body form.hero-search > input[name="search"],
+html body form.hero-search > input[type="text"],
+html body form.hero-search input{
+  flex:1 1 auto!important;
+  width:auto!important;
+  min-width:0!important;
+  max-width:100%!important;
+  height:auto!important;
+  line-height:1.4!important;
+  padding:6px 0!important;
+  margin:0!important;
+  box-sizing:border-box!important;
+  background:transparent!important;
+  background-color:transparent!important;
+  background-image:none!important;
+  border:0!important;
+  border-radius:0!important;
+  box-shadow:none!important;
+  outline:none!important;
+  -webkit-appearance:none!important;
+  appearance:none!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+  color:inherit!important;
+}
+html body form.hero-search > input[name="search"]::placeholder,
+html body form.hero-search > input[type="text"]::placeholder,
+html body form.hero-search input::placeholder{
+  color:inherit!important;
+  opacity:.6!important;
+}
+
+/* 提交按钮：绿色玻璃胶囊 */
+html body form.hero-search > button.btn.btn-brand[type="submit"],
+html body form.hero-search > button.btn.btn-brand,
+html body form.hero-search > button[type="submit"]{
+  flex:0 0 auto!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:6px!important;
+  height:38px!important;
+  line-height:38px!important;
+  padding:0 22px!important;
+  box-sizing:border-box!important;
+  width:auto!important;
+  max-width:max-content!important;
+  white-space:nowrap!important;
+  -webkit-appearance:none!important;
+  appearance:none!important;
+  background:rgba(152,221,152,.22)!important;
+  background-color:rgba(152,221,152,.22)!important;
+  background-image:none!important;
+  backdrop-filter:blur(16px) saturate(130%)!important;
+  -webkit-backdrop-filter:blur(16px) saturate(130%)!important;
+  border:1px solid rgba(152,221,152,.42)!important;
+  border-radius:9999px!important;
+  box-shadow:inset 1.5px -1.5px 1px -1px rgba(255,255,255,.92),
+             inset -1.5px 1.5px 1px -1px rgba(255,255,255,.90),
+             inset 0 0 3px rgba(15,23,42,.35),
+             inset 0 0 12px rgba(152,221,152,.20),
+             0 8px 20px rgba(15,23,42,.16)!important;
+  color:inherit!important;
+  font-weight:700!important;
+  letter-spacing:.5px!important;
+  cursor:pointer!important;
+  text-decoration:none!important;
+  isolation:isolate!important;
+  transform:translateZ(0)!important;
+  transition:background-color .2s,border-color .2s!important;
+}
+html body form.hero-search > button.btn.btn-brand:hover,
+html body form.hero-search > button[type="submit"]:hover,
+html body form.hero-search > button.btn.btn-brand:focus,
+html body form.hero-search > button[type="submit"]:focus{
+  background:rgba(152,221,152,.34)!important;
+  background-color:rgba(152,221,152,.34)!important;
+  border-color:rgba(152,221,152,.60)!important;
+  color:inherit!important;
+}
+
+/* 按钮里的 SVG 图标继承色，不遮挡 */
+html body form.hero-search > button.btn.btn-brand svg,
+html body form.hero-search > button.btn.btn-brand svg use,
+html body form.hero-search > button.btn.btn-brand svg path,
+html body form.hero-search > button[type="submit"] svg,
+html body form.hero-search > button[type="submit"] svg use{
+  width:1em!important;
+  height:1em!important;
+  fill:currentColor!important;
+  stroke:currentColor!important;
+  background:transparent!important;
+  color:inherit!important;
+}
+`;
 css += `pre,pre.my-ua,pre:not([class*="highlight"]):not([class*="language-"]){`
      + `background:transparent!important;`
      + `background-color:transparent!important;`
@@ -1805,27 +2037,27 @@ run(){
 
 const OverlayEnhancer={
 _marked:new WeakSet(),_lastApplied:new WeakMap(),_keywordCache:new WeakMap(),_rafPending:false,_scanTimer:null,
-_lastScan:0,_scanMinInterval:300,
+_lastScan:0,_scanMinInterval:1500,
 isExcludedElement(el){
  if(!el||!el.nodeType)return false;
  if(el.closest&&el.closest('.search-form,.search-form__form,#search-form,.search-result'))return true;
  const slot=el.getAttribute&&el.getAttribute('data-slot');
  if(slot&&slot.indexOf('sidebar')===0)return true;
  if(el.closest&&el.closest('#goTopBottom,#tbSettingsBtn,#tbSettingsPanel,.tb-settings-btn,.tb-settings-panel'))return true;
-// ===== 排除轮播/幻灯片/缩略图里的遮罩层 =====
-const cl0=el.classList;
-if(cl0&&(cl0.contains('mask')||cl0.contains('overlay')||cl0.contains('shade')||cl0.contains('cover')||cl0.contains('veil'))){
- if(el.closest&&el.closest(
-  '.slide-banner,#top-slide-banner,.banner-item,.banner-bg,.tempWrap,.list,'+
-  '.swiper,.swiper-slide,.swiper-container,'+
-  '.carousel,.carousel-item,.carousel-inner,'+
-  '.slider,.slider-item,.slick-slide,.slick-list,'+
-  '.thumb,.thumbnail,.card-thumb,.item-thumb,.app-thumb,'+
-  '[class*="banner"],[class*="Banner"],[class*="slide"],[class*="Slide"],'+
-  '[class*="swiper"],[class*="carousel"],[class*="slider"],[class*="thumbnail"]'
- ))return true;
-}
-// ===== 新增结束 =====
+ // ===== 排除轮播/幻灯片/缩略图里的遮罩层 =====
+ const cl0=el.classList;
+ if(cl0&&(cl0.contains('mask')||cl0.contains('overlay')||cl0.contains('shade')||cl0.contains('cover')||cl0.contains('veil'))){
+  if(el.closest&&el.closest(
+   '.slide-banner,#top-slide-banner,.banner-item,.banner-bg,.tempWrap,.list,'+
+   '.swiper,.swiper-slide,.swiper-container,.swiper-wrapper,'+
+   '.carousel,.carousel-item,.carousel-inner,'+
+   '.slider,.slider-item,.slick-slide,.slick-list,'+
+   '.thumb,.thumbnail,.card-thumb,.item-thumb,.app-thumb,'+
+   '[class*="banner"],[class*="Banner"],[class*="slide"],[class*="Slide"],'+
+   '[class*="swiper"],[class*="carousel"],[class*="slider"],[class*="thumbnail"]'
+  ))return true;
+ }
+ // ===== 排除轮播结束 =====
  const cl=el.classList;
  if(cl&&(cl.contains('tb-settings-btn')||cl.contains('tb-settings-panel')))return true;
  if(cl&&cl.contains('translate-ui'))return true;
@@ -1963,9 +2195,7 @@ fix(force){
  let btns;
  try{
   btns=document.querySelectorAll(
-   'button.navbar-toggle,'+ 
-   '.navbar-burger,'+               
-   'div.navbar-burger.burger,'+                       '[class~="burger"][class*="navbar"],'+          
+   'button.navbar-toggle,'+ // 新增：Bootstrap 风格汉堡按钮
    'button[aria-label*="菜单"],button[aria-label*="导航"],'+
    'button[aria-label*="menu"],button[aria-label*="Menu"],'+
    'button[aria-label*="Toggle"],button[aria-label*="toggle"],'+
@@ -2027,12 +2257,6 @@ fix(force){
     sp.style.setProperty('box-shadow','none','important');
     sp.style.setProperty('opacity','1','important');
     sp.style.setProperty('visibility','visible','important');
-    // 尺寸兜底：仅当元素本身没有可见尺寸时补上
-    if(!sp.offsetWidth)sp.style.setProperty('width','22px','important');
-    if(!sp.offsetHeight){
-     sp.style.setProperty('height','2px','important');
-     sp.style.setProperty('margin','3px 0','important');
-    }
    }
   }catch(e){}
  }
@@ -2543,33 +2767,20 @@ bindGlobalListeners(){
 
 observe(){
  new MutationObserver((muts)=>{
-  CaptchaGuard.throttledCheck(); 
-let urgent=false;
- for(const m of muts){
-  if(m.type==='childList'){
+  CaptchaGuard.throttledCheck();
+
+  let urgent=false;
+  for(const m of muts){
+   if(m.type!=='childList')continue;
    for(const n of m.addedNodes){
     if(n.nodeType!==1)continue;
     let st;
     try{st=getComputedStyle(n);}catch(e){continue;}
     if(st.position==='fixed'||st.position==='absolute'||st.zIndex!=='auto'){urgent=true;break;}
    }
-  }else if(m.type==='attributes'){
-  	
-   const t=m.target;
-   if(t&&t.nodeType===1){
-    let st;
-    try{st=getComputedStyle(t);}catch(e){st=null;}
-    if(st
-      &&(st.position==='fixed'||st.position==='absolute')
-      &&st.display!=='none'
-      &&st.visibility!=='hidden'
-      &&parseFloat(st.opacity||'1')>0){
-     urgent=true;
-    }
-   }
+   if(urgent)break;
   }
-  if(urgent)break;
- }
+
   if(Bootstrap._mutationTimer)clearTimeout(Bootstrap._mutationTimer);
   Bootstrap._mutationTimer=setTimeout(()=>{
    const cfg=Config.merge(Utils.getHost());
@@ -2579,7 +2790,7 @@ let urgent=false;
    SiteAdapters.stripXHeaderBlur();
    ShadowFixer.run();
    FloatPanel.ensureAlive();
-   HamburgerFixer.fix();},urgent?0:50);
+   HamburgerFixer.fix();},urgent?0:200);
  }).observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['class','open','aria-hidden','style','data-state']});},
 init(){
  document.addEventListener('visibilitychange',()=>{if(document.hidden)OverlayEnhancer.stopScanTimer();else OverlayEnhancer.startScanTimer();});
