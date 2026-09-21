@@ -1766,7 +1766,7 @@ run(){
 
 const OverlayEnhancer={
 _marked:new WeakSet(),_lastApplied:new WeakMap(),_keywordCache:new WeakMap(),_rafPending:false,_scanTimer:null,
-_lastScan:0,_scanMinInterval:1500,
+_lastScan:0,_scanMinInterval:300,
 isExcludedElement(el){
  if(!el||!el.nodeType)return false;
  if(el.closest&&el.closest('.search-form,.search-form__form,#search-form,.search-result'))return true;
@@ -2527,7 +2527,7 @@ observe(){
    SiteAdapters.stripXHeaderBlur();
    ShadowFixer.run();
    FloatPanel.ensureAlive();
-   HamburgerFixer.fix();},urgent?0:200);
+   HamburgerFixer.fix();},urgent?0:50);
  }).observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['class','open','aria-hidden','style','data-state']});},
 init(){
  document.addEventListener('visibilitychange',()=>{if(document.hidden)OverlayEnhancer.stopScanTimer();else OverlayEnhancer.startScanTimer();});
