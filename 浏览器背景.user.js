@@ -2504,20 +2504,33 @@ bindGlobalListeners(){
 
 observe(){
  new MutationObserver((muts)=>{
-  CaptchaGuard.throttledCheck();
-
-  let urgent=false;
-  for(const m of muts){
-   if(m.type!=='childList')continue;
+  CaptchaGuard.throttledCheck(); 
+let urgent=false;
+ for(const m of muts){
+  if(m.type==='childList'){
    for(const n of m.addedNodes){
     if(n.nodeType!==1)continue;
     let st;
     try{st=getComputedStyle(n);}catch(e){continue;}
     if(st.position==='fixed'||st.position==='absolute'||st.zIndex!=='auto'){urgent=true;break;}
    }
-   if(urgent)break;
+  }else if(m.type==='attributes'){
+  	
+   const t=m.target;
+   if(t&&t.nodeType===1){
+    let st;
+    try{st=getComputedStyle(t);}catch(e){st=null;}
+    if(st
+      &&(st.position==='fixed'||st.position==='absolute')
+      &&st.display!=='none'
+      &&st.visibility!=='hidden'
+      &&parseFloat(st.opacity||'1')>0){
+     urgent=true;
+    }
+   }
   }
-
+  if(urgent)break;
+ }
   if(Bootstrap._mutationTimer)clearTimeout(Bootstrap._mutationTimer);
   Bootstrap._mutationTimer=setTimeout(()=>{
    const cfg=Config.merge(Utils.getHost());
