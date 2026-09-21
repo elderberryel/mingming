@@ -827,7 +827,12 @@ buildAll(cfg,finalUrl){
 +`transition:background-color .2s,border-color .2s!important;`
 +`}`
 +`html body .search_btn:hover{background-color:rgba(255,255,255,.26)!important;}`
- +`input:not(.translate-ui input),textarea,select,[contenteditable="true"]{${BG0}${BF0}${SH0}outline:none!important;}`
+
++`input:not(.translate-ui input),textarea,select,[contenteditable="true"]{${BG0}${BF0}${SH0}outline:none!important;-webkit-appearance:none!important;appearance:none!important;}`
+
++`input:not(.translate-ui input):focus,input:not(.translate-ui input):focus-visible,textarea:focus,textarea:focus-visible,select:focus,[contenteditable="true"]:focus{outline:none!important;outline-offset:0!important;}`
+
++`input[type="search"]::-webkit-search-decoration,input[type="search"]::-webkit-search-cancel-button,input[type="search"]::-webkit-search-results-button,input[type="search"]::-webkit-search-results-decoration{-webkit-appearance:none!important;appearance:none!important;}`
 +SEARCH_PILL_CSS
 +SEARCH_GLASS_CSS
 +TD_SEARCH_GLASS_CSS
@@ -937,6 +942,151 @@ if(/(^|\.)apkmirror\.com$/.test(Utils.getHost())){
    visibility:hidden!important;
  }
  `;
+if(/(^|\.)bmcx\.com$/.test(Utils.getHost())){
+  css += `
+  html body *:not(img):not(svg):not(video):not(canvas){
+    background-image:none!important;
+  }
+  `;
+}
+if(/(^|\.)ip138\.com$/.test(Utils.getHost())){
+  css += `
+  html body #ip,
+  html body #ip:focus,
+  html body #ip:focus-visible,
+  html body .input-text,
+  html body .input-text:focus,
+  html body .input-button,
+  html body .input-button:focus,
+  html body .search,
+  html body .search:focus-within,
+  html body form[name="ipform"],
+  html body form[name="ipform"] *{
+    -webkit-appearance:none!important;
+    appearance:none!important;
+    outline:none!important;
+    outline-offset:0!important;
+    box-shadow:none!important;
+    border-color:transparent!important;
+  }
+
+  /* === 输入框：灰白玻璃胶囊 === */
+  html body input.input-text[type],
+  html body input#ip{
+    border-radius:9999px!important;
+    -webkit-appearance:none!important;
+    appearance:none!important;
+    box-sizing:border-box!important;
+    background-color:rgba(255,255,255,.10)!important;
+    background-image:none!important;
+    backdrop-filter:blur(16px) saturate(130%)!important;
+    -webkit-backdrop-filter:blur(16px) saturate(130%)!important;
+    border:1px solid rgba(255,255,255,.30)!important;
+    box-shadow:${LGGC.shadow}!important;
+    color:inherit!important;
+    outline:none!important;
+    isolation:isolate!important;
+    transform:translateZ(0)!important;
+    transition:background-color .2s,border-color .2s,box-shadow .2s!important;
+  }
+  html body input.input-text[type]:hover,
+  html body input.input-text[type]:focus,
+  html body input.input-text[type]:focus-visible,
+  html body input#ip:hover,
+  html body input#ip:focus{
+    background-color:rgba(255,255,255,.16)!important;
+    border-color:rgba(255,255,255,.42)!important;
+  }
+  html body input.input-text[type]::placeholder,
+  html body input#ip::placeholder{
+    color:inherit!important;
+    opacity:.6!important;
+  }
+
+  /* === 查询按钮：绿色玻璃胶囊 === */
+  html body input.input-button[type],
+  html body a.input-button[href]{
+    border-radius:9999px!important;
+    -webkit-appearance:none!important;
+    appearance:none!important;
+    box-sizing:border-box!important;
+    background-color:rgba(152,221,152,.22)!important;
+    background-image:none!important;
+    backdrop-filter:blur(16px) saturate(130%)!important;
+    -webkit-backdrop-filter:blur(16px) saturate(130%)!important;
+    border:1px solid rgba(152,221,152,.42)!important;
+    box-shadow:inset 1.5px -1.5px 1px -1px rgba(255,255,255,.92),
+               inset -1.5px 1.5px 1px -1px rgba(255,255,255,.90),
+               inset 0 0 3px rgba(15,23,42,.35),
+               inset 0 0 12px rgba(152,221,152,.20),
+               0 8px 20px rgba(15,23,42,.16)!important;
+    color:inherit!important;
+    cursor:pointer!important;
+    text-decoration:none!important;
+    display:inline-flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+    font-weight:700!important;
+    letter-spacing:.5px!important;
+    outline:none!important;
+    isolation:isolate!important;
+    transform:translateZ(0)!important;
+    transition:background-color .2s,border-color .2s!important;
+  }
+  html body input.input-button[type]:hover,
+  html body a.input-button[href]:hover{
+    background-color:rgba(152,221,152,.34)!important;
+    border-color:rgba(152,221,152,.60)!important;
+  }
+
+  /* === 表单容器清场 === */
+  html body .mod-search .search,
+  html body .mod-form .bd,
+  html body .mod-form .bd form{
+    background:transparent!important;
+    background-color:transparent!important;
+    background-image:none!important;
+    box-shadow:none!important;
+  }
+  `;
+}
+
+css += `pre,pre.my-ua,pre:not([class*="highlight"]):not([class*="language-"]){`
+     + `background:transparent!important;`
+     + `background-color:transparent!important;`
+     + `background-image:none!important;`
+     + `box-shadow:none!important;}`
+     + `pre::before,pre::after{`
+     + `background:transparent!important;`
+     + `background-color:transparent!important;`
+     + `background-image:none!important;}`;
+
+css += `html body h2 em,html body h2 em span,html body h2 em > span,`
+     + `html body h2 em *,html body h2 em *::before,html body h2 em *::after,`
+     + `html body #nav-menu1 h2 em,html body #nav-menu1 h2 em span,`
+     + `html body #nav-menu2 h2 em,html body #nav-menu2 h2 em span,`
+     + `html body #index-chat h2 em,html body #index-chat h2 em span{`
+     + `background:transparent!important;`
+     + `background-color:transparent!important;`
+     + `background-image:none!important;`
+     + `box-shadow:none!important;`
+     + `border-color:transparent!important;}`
+     + `html body h2 em::before,html body h2 em::after,`
+     + `html body h2 em span::before,html body h2 em span::after{`
+     + `background:transparent!important;`
+     + `background-color:transparent!important;`
+     + `background-image:none!important;`
+     + `box-shadow:none!important;}`;
+
+css += `html body h2,html body h2 *,`
+     + `html body #nav-menu1 h2,html body #nav-menu1 h2 *,`
+     + `html body #nav-menu2 h2,html body #nav-menu2 h2 *,`
+     + `html body #index-chat h2,html body #index-chat h2 *{`
+     + `background:transparent!important;`
+     + `background-color:transparent!important;`
+     + `background-image:none!important;`
+     + `box-shadow:none!important;}`;
+
  return css+ROOT_HARDEN;}
 };
 
@@ -1442,7 +1592,6 @@ applyAgain(){Config.invalidate();BackgroundImage.ready=false;StyleManager.applyS
 const CaptchaGuard={
 active:false,_lastCheck:0,_enterTimer:null,_recoverTimer:null,
 
-// CF 挑战页结构特征选择器（不要求可见、不要求尺寸）
 CF_STRUCTURE_SELECTORS:[
  'input[name="cf-turnstile-response"]',
  '[id^="cf-chl-widget"]',
@@ -1566,6 +1715,7 @@ isExcludedElement(el){
  if(cl&&(cl.contains('GlobalNav')||cl.contains('UnderlineNav')||cl.contains('LocalNavigation')))return true;
  if(cl&&(cl.contains('apple-navbar')||cl.contains('segmented-control')))return true;
  if(cl&&cl.contains('mobile-bar'))return true;
+ if(cl&&cl.contains('menu')&&cl.contains('only-mobile'))return true;
  if(typeof el.className==='string'&&(el.className.includes('UnderlineNav')||el.className.includes('GlobalNav')))return true;
 
  if(el.closest&&el.closest('[class*="mfy_h-popup-module"],[class*="e3-strong-cashier"],[class*="mfy_h-button-module"]'))return true;
@@ -1695,9 +1845,11 @@ fix(force){
  let btns;
  try{
   btns=document.querySelectorAll(
+   'button.navbar-toggle,'+ // 新增：Bootstrap 风格汉堡按钮
    'button[aria-label*="菜单"],button[aria-label*="导航"],'+
    'button[aria-label*="menu"],button[aria-label*="Menu"],'+
-   'button[aria-label*="Toggle"],button[aria-label*="toggle"]'
+   'button[aria-label*="Toggle"],button[aria-label*="toggle"],'+
+   'a.menu.only-mobile'
   );
  }catch(e){return;}
  for(const btn of btns){
@@ -1743,13 +1895,18 @@ fix(force){
    btn.style.setProperty('transform','translateZ(0)','important');
    btn.style.setProperty('cursor','pointer','important');
    
-   // 只处理叶子 span（即三根横线），跳过外层包裹
+   const isMobileMenu = btn.tagName==='A'&&btn.classList&&btn.classList.contains('only-mobile');
+   const lineColor = isMobileMenu ? '#333' : 'currentColor';
    const spans=btn.querySelectorAll('span');
    for(const sp of spans){
     if(sp.children.length>0)continue;   // 有子元素 = 是包裹层，跳过
-    sp.style.setProperty('background-color','currentColor','important');
+    if(sp.classList.contains('sr-only'))continue; // 跳过隐藏文本
+    sp.style.setProperty('display','block','important');
+    sp.style.setProperty('background-color',lineColor,'important');
     sp.style.setProperty('background-image','none','important');
+    sp.style.setProperty('box-shadow','none','important');
     sp.style.setProperty('opacity','1','important');
+    sp.style.setProperty('visibility','visible','important');
    }
   }catch(e){}
  }
