@@ -18,8 +18,22 @@
 (function() {
   'use strict';
 
-  const style = document.createElement('style');
-  style.textContent = 'a[href],a[href][data-muted],a[href] *,a[href][data-muted] *{color:#98DD98!important}';
+const style = document.createElement('style');
+style.textContent =
+  'html body a[href],' +
+  'html body a[href][data-muted],' +
+  'html body a[href] *,' +
+  'html body a[href][data-muted] *,' +
+  'html body a[href] span,' +
+  'html body a[href] p,' +
+  'html body a[href] strong,' +
+  'html body a[href] em,' +
+  'html body a[href] li,' +
+  'html body a[href] h1,' +
+  'html body a[href] h2,' +
+  'html body a[href] h3' +
+  '{color:#98DD98!important}';
+(document.head || document.documentElement).appendChild(style);
   (document.head || document.documentElement).appendChild(style);
 
   const httpsCache = new Map();
