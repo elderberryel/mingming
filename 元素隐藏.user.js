@@ -99,8 +99,8 @@
         '.adsbygoogle',
         '.footer[role="contentinfo"]',
         '.ains',
-        '[class*="google-anno"]',
-        '[id*="google-anno"]',
+'[class~="google-anno"]',
+'[id~="google-anno"]',
         'div[style*="position: fixed"][style*="z-index: 1000"]',
 
         '#clickCanvas',
