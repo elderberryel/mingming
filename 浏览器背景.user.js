@@ -227,7 +227,46 @@ const SEARCH_GLASS_CSS=
 +`0 8px 20px rgba(15,23,42,.16)!important;`
 +`cursor:pointer!important;padding:0 22px!important;font-weight:700!important;letter-spacing:.5px!important;}`
 +_sfG(_SF_BTNS)+`{background-color:rgba(152,221,152,.34)!important;border-color:rgba(152,221,152,.60)!important;}`
-+`html body .sb-btn[data-lucky-checked="1"]{background-color:rgba(152,221,152,.30)!important;border-color:rgba(152,221,152,.55)!important;}`
++`html body .sb-btn[data-lucky-checked="1"]{background-color:rgba(255,255,255,.30)!important;border-color:rgba(255,255,255,.55)!important;}`
++`html body #nmc-product-list,`
++`html body #indexSearchButton,`
++`html body .input-group-addon#indexSearchButton{`
++`border-radius:9999px!important;`
++`-webkit-appearance:none!important;appearance:none!important;`
++`box-sizing:border-box!important;`
++`background-color:rgba(255,255,255,.22)!important;`
++`background-image:none!important;`
++`backdrop-filter:blur(16px) saturate(130%)!important;`
++`-webkit-backdrop-filter:blur(16px) saturate(130%)!important;`
++`border:1px solid rgba(255,255,255,.42)!important;`
++`box-shadow:inset 1.5px -1.5px 1px -1px rgba(255,255,255,.92),`
++`inset -1.5px 1.5px 1px -1px rgba(255,255,255,.90),`
++`inset 0 0 3px rgba(255,255,255,.35),`
++`inset 0 0 12px rgba(255,255,255,.20),`
++`0 8px 20px rgba(255,255,255,.16)!important;`
++`color:inherit!important;`
++`cursor:pointer!important;`
++`display:inline-flex!important;`
++`align-items:center!important;`
++`justify-content:center!important;`
++`isolation:isolate!important;`
++`transform:translateZ(0)!important;`
++`transition:background-color .2s,border-color .2s,box-shadow .2s!important;`
++`}`
++`html body #nmc-product-list:hover,`
++`html body #nmc-product-list[aria-expanded="true"],`
++`html body #indexSearchButton:hover{`
++`background-color:rgba(255,255,255,.34)!important;`
++`border-color:rgba(255,255,255,.60)!important;`
++`}`
++`html body #nmc-product-list .iconfont,`
++`html body #nmc-product-list i,`
++`html body #indexSearchButton .iconfont,`
++`html body #indexSearchButton i{`
++`background:transparent!important;`
++`color:inherit!important;`
++`text-shadow:none!important;`
++`}`
 // ===== hero-search 表单（apkcombo 等）：整体胶囊玻璃容器 =====
 +`html body form.hero-search,`
 +`html body form[role="search"].hero-search{`
