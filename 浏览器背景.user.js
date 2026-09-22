@@ -1435,6 +1435,131 @@ if(/(^|\.)nmc\.cn$/.test(Utils.getHost())){
     }
   `;
 }
+if(/(^|\.)chacuo\.net$/.test(Utils.getHost())){
+  css += `
+  html body .mail_hero,
+  html body .mail_hero h3,
+  html body .mail_hero h3 *,
+  html body .mail_hero p,
+  html body .mail_hero p *,
+  html body .mail_hero_copy,
+  html body .mail_hero_copy *,
+  html body .mail_hero_copy strong,
+  html body .mail_hero_copy b,
+  html body .mail_hero_copy .blue,
+  html body .mail_hero_copy .text-primary,
+  html body .mail_hero a,
+  html body .mail_hero_copy a{
+    background:transparent!important;
+    background-color:transparent!important;
+    background-image:none!important;
+    box-shadow:none!important;
+  }
+
+  html body .mail_main_card,
+  html body .convert.radis.shadow.mail_main_card,
+  html body .convert.radis,
+  html body .mail_main_card .m_b10,
+  html body .mail_main_card .m_t10,
+  html body .mail_main_card .mail_console_bar,
+  html body .mail_main_card .textarea,
+  html body .mail_main_card table,
+  html body .mail_main_card thead,
+  html body .mail_main_card tbody,
+  html body .mail_main_card tr,
+  html body .mail_main_card th,
+  html body .mail_main_card td{
+    background:transparent!important;
+    background-color:transparent!important;
+    background-image:none!important;
+    box-shadow:none!important;
+  }
+
+  html body #mailtooltipss,
+  html body #mailview td,
+  html body #mailview thead td{
+    background:transparent!important;
+    background-color:transparent!important;
+    background-image:none!important;
+  }
+
+  html body #navbar_left,
+  html body #navbar_left .navbar-collapse,
+  html body #navbar_left .list-group,
+  html body #navbar_left .list-group-item,
+  html body #navbar_left .list-group-item-info,
+  html body #navbar_left .list-group-item.text-center,
+  html body #navbar_left .mail_nav_title,
+  html body #navbar_left .mail_nav_title strong,
+  html body #navbar_left .hidden-xs,
+  html body #navbar_left .ad1293{
+    background:transparent!important;
+    background-color:transparent!important;
+    background-image:none!important;
+    box-shadow:none!important;
+    border-color:transparent!important;
+  }
+  html body #navbar_left .list-group-item:hover,
+  html body #navbar_left .list-group-item:focus{
+    background-color:rgba(255,255,255,.10)!important;
+    border-radius:10px!important;
+  }
+  html body #navbar_left .mail_nav_title strong{
+    color:inherit!important;
+    opacity:.7!important;
+  }
+
+  html body #navbar_bottom,
+  html body #navbar_bottom *,
+  html body .mail_workspace,
+  html body .mail_workspace .mail_form_shell,
+  html body .mail_workspace .form-group,
+  html body .mail_workspace .input-group,
+  html body .mail_workspace .mail_status_bar,
+  html body .mail_workspace .mail_inbox_panel,
+  html body .mail_workspace .panel,
+  html body .mail_workspace .panel-body,
+  html body .mail_workspace .panel-heading,
+  html body .mail_workspace .table-responsive,
+  html body .mail_workspace table,
+  html body .mail_workspace thead,
+  html body .mail_workspace tbody,
+  html body .mail_workspace tr,
+  html body .mail_workspace th,
+  html body .mail_workspace td,
+  html body .mail_workspace .bg-info,
+  html body .mail_workspace .mail_updates,
+  html body .mail_workspace .cc-ul,
+  html body .mail_workspace .alert,
+  html body .mail_workspace .alert-info{
+    background:transparent!important;
+    background-color:transparent!important;
+    background-image:none!important;
+    box-shadow:none!important;
+  }
+
+  html body .mail_main_card,
+  html body .mail_workspace .panel,
+  html body .mail_workspace .panel-body,
+  html body .mail_workspace .table,
+  html body .mail_workspace th,
+  html body .mail_workspace td,
+  html body #maillist th,
+  html body #maillist td{
+    border-color:rgba(255,255,255,.18)!important;
+  }
+
+  html body .mail_hero_copy .blue,
+  html body .mail_hero_copy .text-primary,
+  html body .mail_workspace #stat_total,
+  html body .mail_workspace #stat_refuse,
+  html body .mail_workspace #stat_suc,
+  html body .mail_workspace #stat_cur{
+    color:#98DD98!important;
+  }
+  `;
+}
+
 /* === apkcombo hero-search：胶囊玻璃 === */
 css += `
 /* 外层：胶囊玻璃容器 */
