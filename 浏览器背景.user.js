@@ -1042,6 +1042,44 @@ if(/(^|\.)apkmirror\.com$/.test(Utils.getHost())){
   }
   `;
 }
+css += `
+/* === 上传区/GIF 压缩卡片：彻底透明 === */
+html body label.upload-zone,
+html body .upload-zone,
+html body .upload-zone *,
+html body .upload-zone::before,
+html body .upload-zone::after,
+html body .upload-zone *::before,
+html body .upload-zone *::after,
+html body .upload-zone-inner,
+html body .upload-zone-inner *,
+html body .comp-icon-plus,
+html body .comp-icon-plus *,
+html body .upload-icon,
+html body .plus,
+html body .plus::before,
+html body .plus::after{
+  background:transparent!important;
+  background-color:transparent!important;
+  background-image:none!important;
+  box-shadow:none!important;
+  -webkit-box-shadow:none!important;
+  border-color:transparent!important;
+  outline:none!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+  filter:none!important;
+}
+/* 那个加号如果是伪元素画的，就直接把它清掉 */
+html body .comp-icon-plus::before,
+html body .comp-icon-plus::after,
+html body .plus::before,
+html body .plus::after{
+  background:transparent!important;
+  background-image:none!important;
+  box-shadow:none!important;
+}
+`;
  css += `
  html body img[data-nimg="fill"][class*="mix-blend-multiply"]{
    opacity:0!important;
@@ -1571,6 +1609,59 @@ css += `html body h2,html body h2 *,`
 
  css += ADM_SEARCH_GLASS_CSS;
 
+/* === 内联代码/高亮提示框完全透明 === */
+css += `
+html body code,
+html body code.mdx-code-inline,
+html body .mdx-code-inline,
+html body :not(pre) > code,
+html body kbd,
+html body samp,
+html body mark,
+html body ins,
+html body del,
+html body .mdx-highlight,
+html body [class*="mdx-highlight"]{
+  background:transparent!important;
+  background-color:transparent!important;
+  background-image:none!important;
+  box-shadow:none!important;
+  border:0!important;
+  outline:none!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+  color:inherit!important;
+}
+html body code *,
+html body code.mdx-code-inline *,
+html body .mdx-code-inline *,
+html body kbd *,
+html body samp *,
+html body mark *,
+html body ins *,
+html body del *,
+html body .mdx-highlight *,
+html body [class*="mdx-highlight"] *,
+html body .mdx-highlight::before,
+html body .mdx-highlight::after,
+html body [class*="mdx-highlight"]::before,
+html body [class*="mdx-highlight"]::after{
+  background:transparent!important;
+  background-color:transparent!important;
+  background-image:none!important;
+  box-shadow:none!important;
+  border:0!important;
+  outline:none!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+}
+html body [data-highlight-icon]::before,
+html body [data-highlight-icon]::after{
+  background:transparent!important;
+  background-image:none!important;
+}
+`;
+
  return css+ROOT_HARDEN;}
 };
 
@@ -1586,7 +1677,7 @@ isNmcSite(){return /(^|\.)nmc\.cn$/.test(Utils.getHost());},
 symblCSS(){
  return `/* === symbl.cc 清场：把页面底图露出来 === */
 html body,
-html body *:not(img):not(svg):not(video):not(canvas):not(iframe){
+html body *:not(img):not(svg):not(video):not(iframe){
   background-color:transparent!important;
 }
 html body::before,
