@@ -520,6 +520,113 @@ const TAB_GLASS_CSS=
 `filter:none!important;`+
 `opacity:1!important;`+
 `}`;
+
+const ADM_SEARCH_GLASS_CSS=
+`html body .adm-search-bar-input-box.adm-search-bar-input-box,`+
+`html body .adm-search-bar .adm-search-bar-input-box{`+
+`border:0!important;`+
+`border-width:0!important;`+
+`border-style:none!important;`+
+`border-color:transparent!important;`+
+`background:rgba(255,255,255,.10)!important;`+
+`background-color:rgba(255,255,255,.10)!important;`+
+`background-image:none!important;`+
+`backdrop-filter:blur(16px) saturate(130%)!important;`+
+`-webkit-backdrop-filter:blur(16px) saturate(130%)!important;`+
+`border-radius:9999px!important;`+
+`box-shadow:`+
+`inset 0 0 0 1px rgba(255,255,255,.30),`+
+`inset 1.5px -1.5px 1px -1px rgba(255,255,255,.92),`+
+`inset -1.5px 1.5px 1px -1px rgba(255,255,255,.90),`+
+`inset 0 0 3px rgba(15,23,42,.35),`+
+`0 8px 20px rgba(15,23,42,.16)!important;`+
+`outline:0 none transparent!important;`+
+`-webkit-focus-ring-color:transparent!important;`+
+`overflow:hidden!important;`+
+`isolation:isolate!important;`+
+`transform:translateZ(0)!important;`+
+`padding:6px 16px!important;`+
+`box-sizing:border-box!important;`+
+`transition:background-color .2s,box-shadow .2s!important;`+
+`}`
++`html body .adm-search-bar-input-box.adm-search-bar-input-box:hover,`+
+`html body .adm-search-bar-input-box.adm-search-bar-input-box:focus-within,`+
+`html body .adm-search-bar-input-box.adm-search-bar-input-box:has(input:focus){`+
+`border:0!important;`+
+`border-width:0!important;`+
+`border-color:transparent!important;`+
+`background:rgba(255,255,255,.16)!important;`+
+`background-color:rgba(255,255,255,.16)!important;`+
+`box-shadow:`+
+`inset 0 0 0 1px rgba(255,255,255,.42),`+
+`inset 1.5px -1.5px 1px -1px rgba(255,255,255,.92),`+
+`inset -1.5px 1.5px 1px -1px rgba(255,255,255,.90),`+
+`inset 0 0 3px rgba(15,23,42,.35),`+
+`0 8px 20px rgba(15,23,42,.16)!important;`+
+`outline:0 none transparent!important;`+
+`-webkit-focus-ring-color:transparent!important;`+
+`}`
+/* 内层包装全透明 */
++`html body .adm-search-bar .adm-input,`+
+`html body .adm-search-bar-input,`+
+`html body .adm-input.adm-search-bar-input{`+
+`background:transparent!important;`+
+`background-color:transparent!important;`+
+`background-image:none!important;`+
+`border:0!important;`+
+`box-shadow:none!important;`+
+`outline:0 none transparent!important;`+
+`-webkit-focus-ring-color:transparent!important;`+
+`backdrop-filter:none!important;`+
+`-webkit-backdrop-filter:none!important;`+
+`}`
+/* input 本体 */
++`html body .adm-search-bar .adm-input-element,`+
+`html body .adm-input-element.adm-input-element{`+
+`background:transparent!important;`+
+`background-color:transparent!important;`+
+`background-image:none!important;`+
+`border:0!important;`+
+`border-radius:9999px!important;`+
+`box-shadow:none!important;`+
+`-webkit-box-shadow:none!important;`+
+`outline:0 none transparent!important;`+
+`outline-width:0!important;`+
+`outline-style:none!important;`+
+`outline-offset:0!important;`+
+`-webkit-focus-ring-color:transparent!important;`+
+`-webkit-appearance:none!important;`+
+`appearance:none!important;`+
+`-webkit-tap-highlight-color:transparent!important;`+
+`caret-color:currentColor!important;`+
+`color:inherit!important;`+
+`}`
+/* 聚焦 / 激活全状态兜底 */
++`html body .adm-search-bar .adm-input-element:focus,`+
+`html body .adm-search-bar .adm-input-element:focus-visible,`+
+`html body .adm-search-bar .adm-input-element:active,`+
+`html body .adm-input-element.adm-input-element:focus,`+
+`html body .adm-input-element.adm-input-element:focus-visible{`+
+`outline:0 none transparent!important;`+
+`outline-width:0!important;`+
+`outline-style:none!important;`+
+`-webkit-focus-ring-color:transparent!important;`+
+`box-shadow:none!important;`+
+`-webkit-box-shadow:none!important;`+
+`border:0!important;`+
+`border-color:transparent!important;`+
+`}`
++`html body .adm-search-bar .adm-input-element::placeholder{`+
+`color:inherit!important;`+
+`opacity:.6!important;`+
+`}`
++`html body .adm-input-element[type="search"]::-webkit-search-cancel-button,`+
+`html body .adm-input-element[type="search"]::-webkit-search-decoration{`+
+`-webkit-appearance:none!important;`+
+`appearance:none!important;`+
+`display:none!important;`+
+`}`;
+
 const XPC='[data-testid="primaryColumn"]',XABB='[data-testid="app-bar-back"]',XNAV='nav[aria-live="polite"][role="navigation"]';
 const X_CSS=`${XPC} div:has(${XNAV}),${XPC} div:has(> div > div > ${XNAV}),${XPC} div:has(> ${XABB}),${XPC} div:has(> div > ${XABB}),${XPC} > div:first-child,${XPC} > div:first-child > div,${XPC} > div:first-child > div > div{background-color:${_T};${BF0}}${XPC} .r-1e5uvyk{${BF0}}${XPC} .r-17c3jg3{background-color:${_T};}${XNAV},${XNAV} > div,${XNAV} div[role="tablist"],${XNAV} div[role="presentation"],${XNAV} div[role="tab"]{background-color:${_T};${BF0}}`;
 
@@ -1144,7 +1251,6 @@ if(/(^|\.)nmc\.cn$/.test(Utils.getHost())){
   }
   `;
 }
-/* === 天气站 navbar 搜索框：胶囊玻璃 === */
 css += `
 html body form.searchForm .input-group.searchInput{
   display:flex!important;
@@ -1462,6 +1568,8 @@ css += `html body h2,html body h2 *,`
      + `background-color:transparent!important;`
      + `background-image:none!important;`
      + `box-shadow:none!important;}`;
+
+ css += ADM_SEARCH_GLASS_CSS;
 
  return css+ROOT_HARDEN;}
 };
@@ -2303,6 +2411,62 @@ fix(force){
 }
 };
 // ===== 新增结束 =====
+
+const AdmSearchFixer={
+_bound:false,_last:0,
+clearEl(el){
+ if(!el||!el.style)return;
+ try{
+  el.style.setProperty('outline','0 none transparent','important');
+  el.style.setProperty('outline-width','0','important');
+  el.style.setProperty('outline-style','none','important');
+  el.style.setProperty('outline-color','transparent','important');
+  el.style.setProperty('outline-offset','0','important');
+  el.style.setProperty('-webkit-focus-ring-color','transparent','important');
+  el.style.setProperty('-webkit-tap-highlight-color','transparent','important');
+  el.style.setProperty('box-shadow','none','important');
+  el.style.setProperty('-webkit-box-shadow','none','important');
+  el.style.setProperty('border-color','transparent','important');
+ }catch(e){}
+},
+clearBox(box){
+ if(!box||!box.style)return;
+ try{
+  box.style.setProperty('outline','0 none transparent','important');
+  box.style.setProperty('-webkit-focus-ring-color','transparent','important');
+  box.style.setProperty('border-width','0','important');
+  box.style.setProperty('border-style','none','important');
+  box.style.setProperty('border-color','transparent','important');
+ }catch(e){}
+},
+fix(){
+ try{if(typeof CaptchaGuard!=='undefined'&&CaptchaGuard.active)return;}catch(e){}
+ const now=Date.now();
+ if(now-AdmSearchFixer._last<300)return;
+ AdmSearchFixer._last=now;
+ document.querySelectorAll('.adm-search-bar-input-box').forEach(box=>{
+  AdmSearchFixer.clearBox(box);
+  box.querySelectorAll('.adm-input,.adm-input-element,input').forEach(AdmSearchFixer.clearEl);
+ });
+},
+bind(){
+ if(AdmSearchFixer._bound)return;
+ AdmSearchFixer._bound=true;
+ const onFocus=e=>{
+  const t=e.target;
+  if(!t||!t.classList)return;
+  if(t.classList.contains('adm-input-element')||t.classList.contains('adm-input')){
+   AdmSearchFixer.clearEl(t);
+   const box=t.closest?t.closest('.adm-search-bar-input-box'):null;
+   if(box)AdmSearchFixer.clearBox(box);
+  }
+ };
+ document.addEventListener('focusin',onFocus,true);
+ document.addEventListener('focus',onFocus,true);
+},
+init(){AdmSearchFixer.bind();AdmSearchFixer.fix();}
+};
+
 const ImageTools={
 
 compress(dataUrl,target,cb){
@@ -2830,7 +2994,8 @@ observe(){
    SiteAdapters.stripXHeaderBlur();
    ShadowFixer.run();
    FloatPanel.ensureAlive();
-   HamburgerFixer.fix();},urgent?0:200);
+   HamburgerFixer.fix();
+   AdmSearchFixer.fix();},urgent?0:200);
  }).observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['class','open','aria-hidden','style','data-state']});},
 init(){
  document.addEventListener('visibilitychange',()=>{if(document.hidden)OverlayEnhancer.stopScanTimer();else OverlayEnhancer.startScanTimer();});
@@ -2839,14 +3004,16 @@ init(){
  StyleManager.applyStyleFull();
  Bootstrap.bindGlobalListeners();
  Bootstrap.observe();
- document.addEventListener('DOMContentLoaded',()=>{CaptchaGuard.throttledCheck();StyleManager.applyAgain();ShadowFixer.run();FloatPanel.create();OverlayEnhancer.startScanTimer();HamburgerFixer.fix(true);});
+ AdmSearchFixer.init();
+ document.addEventListener('DOMContentLoaded',()=>{CaptchaGuard.throttledCheck();StyleManager.applyAgain();ShadowFixer.run();FloatPanel.create();OverlayEnhancer.startScanTimer();HamburgerFixer.fix(true);AdmSearchFixer.fix();});
  addEventListener('load',()=>{
   CaptchaGuard.throttledCheck();StyleManager.applyAgain();ShadowFixer.run();FloatPanel.create();
   HamburgerFixer.fix(true);
-  setTimeout(()=>{FloatPanel.ensureAlive();StyleManager.applyStyleFull();ShadowFixer.run();HamburgerFixer.fix(true);},500);  setTimeout(()=>{FloatPanel.ensureAlive();StyleManager.applyStyleFull();ShadowFixer.run();HamburgerFixer.fix(true);},2000);});
+  AdmSearchFixer.fix();
+  setTimeout(()=>{FloatPanel.ensureAlive();StyleManager.applyStyleFull();ShadowFixer.run();HamburgerFixer.fix(true);AdmSearchFixer.fix();},500);  setTimeout(()=>{FloatPanel.ensureAlive();StyleManager.applyStyleFull();ShadowFixer.run();HamburgerFixer.fix(true);AdmSearchFixer.fix();},2000);});
  HamburgerFixer.fix(true);
+ AdmSearchFixer.fix();
  Menus.register();}
 };
-
 Bootstrap.init();
 })();
