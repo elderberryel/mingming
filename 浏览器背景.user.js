@@ -1251,6 +1251,46 @@ html body form.searchForm #hotCity .cities a:hover{
   border-radius:6px!important;
 }
 `;
+/* === nmc.cn 导航下拉子菜单：透明 LGGC 玻璃模糊 === */
+if(/(^|\.)nmc\.cn$/.test(Utils.getHost())){
+  css += `
+  html body .navbar_sub,
+  html body .navbar_sub.shadow{
+    background-color:rgba(255,255,255,.08)!important;
+    background-image:none!important;
+    backdrop-filter:blur(18px) saturate(130%)!important;
+    -webkit-backdrop-filter:blur(18px) saturate(130%)!important;
+    border:1px solid rgba(255,255,255,.28)!important;
+    border-top:0!important;
+    border-radius:0 0 ${LGGC.overlayRadius} ${LGGC.overlayRadius}!important;
+    box-shadow:${LGGC.shadow}!important;
+    overflow:hidden!important;
+    isolation:isolate!important;
+    transform:translateZ(0)!important;
+    padding:6px 0!important;
+    }
+  /* 子菜单内部全部透明，只留玻璃底 */
+  html body .navbar_sub ul,
+  html body .navbar_sub li,
+  html body .navbar_sub li a,
+  html body .navbar_sub li a:hover,
+  html body .navbar_sub li a:focus{
+    background-color:transparent!important;
+    background-image:none!important;
+    }
+  /* 条目悬停：LGGC 灰白高光 */
+  html body .navbar_sub li a{
+    border-radius:10px!important;
+    transition:background-color .2s!important;
+    }
+  html body .navbar_sub li a:hover{
+    background-color:rgba(255,255,255,.10)!important;
+    }
+  html body .navbar_sub li a.city{
+    border-right-color:transparent!important;
+    }
+  `;
+}
 /* === apkcombo hero-search：胶囊玻璃 === */
 css += `
 /* 外层：胶囊玻璃容器 */
