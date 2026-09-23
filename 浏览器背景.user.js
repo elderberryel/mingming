@@ -6,6 +6,8 @@
 // @author       明明
 // @match        *://*/*
 // @run-at       document-start
+// @exclude      *://chatgpt.com/*
+// @exclude      *://*.chatgpt.com/*
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_registerMenuCommand
@@ -24,7 +26,7 @@ const _t0=(document.title||'').toLowerCase();
 if(_t0&&CF_TITLE_RE.test(_t0))return;
 try{if(typeof window._cf_chl_opt!=='undefined')return;}catch(e){}
 
-const SCRIPT_VERSION=(typeof GM_info!=='undefined'&&GM_info&&GM_info.script&&GM_info.script.version)||'6.9.1';
+const SCRIPT_VERSION=(typeof GM_info!=='undefined'&&GM_info&&GM_info.script&&GM_info.script.version)||'6.9.4';
 const CONFIG_VERSION=SCRIPT_VERSION,NODE_ID_VERSION='v89';
 const CACHE_AVAILABLE=typeof caches!=='undefined'&&typeof caches.open==='function';
 if(!CACHE_AVAILABLE)console.warn('[浏览器背景] 当前环境不支持 CacheStorage，大图片将仅存于 GM 存储，可能影响性能');
@@ -61,6 +63,51 @@ const LGGC={
   filter:b=>`blur(${(Math.max(0,Number(b)||0)*0.35).toFixed(2)}px) saturate(100%)`
 };
 
+const InlineStyleRestorer={
+  _records:new WeakMap(),
+  _targets:new Set(),
+  set(el,prop,value){
+    if(!el||!el.style)return;
+    const cur=el.style.getPropertyValue(prop);
+    const prio=el.style.getPropertyPriority(prop);
+    if(cur===value&&prio==='important')return;
+    let rec=InlineStyleRestorer._records.get(el);
+    if(!rec){
+      rec=Object.create(null);
+      InlineStyleRestorer._records.set(el,rec);
+      InlineStyleRestorer._targets.add(el);
+    }
+    if(!(prop in rec)){
+      rec[prop]={
+        value:el.style.getPropertyValue(prop),
+        priority:el.style.getPropertyPriority(prop),
+        lastSet:null
+      };
+    }
+    rec[prop].lastSet=value;
+    el.style.setProperty(prop,value,'important');
+  },
+  restoreAll(){
+    for(const el of InlineStyleRestorer._targets){
+      const rec=InlineStyleRestorer._records.get(el);
+      if(!rec)continue;
+      for(const prop in rec){
+        try{
+          const cur=el.style.getPropertyValue(prop);
+          const curPrio=el.style.getPropertyPriority(prop);
+          const info=rec[prop];
+          if(cur!==info.lastSet||curPrio!=='important')continue;
+          if(info.value)el.style.setProperty(prop,info.value,info.priority||'');
+          else el.style.removeProperty(prop);
+        }catch(e){}
+      }
+      InlineStyleRestorer._records.delete(el);
+    }
+    InlineStyleRestorer._targets.clear();
+  }
+};
+const setImp=(el,prop,value)=>InlineStyleRestorer.set(el,prop,value);
+
 const BG0=`background:${_T};background-color:${_T};background-image:none!important;`;
 const SH0='box-shadow:none!important;',BD0=`border-color:${_T};`;
 const BF0='backdrop-filter:none!important;-webkit-backdrop-filter:none!important;';
@@ -96,8 +143,8 @@ const VUETIFY_CSS=`
 .v-table,.v-data-table,.v-data-table__wrapper,
 .v-field,.v-input,.v-textarea,.v-select__selection,.v-picker,
 .v-avatar,.v-avatar__underlay{
-  background:${_T}!important;
-  background-color:${_T}!important;
+  background:transparent!important;
+  background-color:transparent!important;
   background-image:none!important;
   box-shadow:none!important;
 }
@@ -163,25 +210,20 @@ const _SF_CAPS='html body #searchForm #fileInputButton,html body #searchForm .se
 const _SF_BTNS='html body .sb-btn,html body button.sb-btn,html body [class*="sb-btn"],html body #searchForm #searchButton';
 
 const SEARCH_GLASS_CSS=
- /* sb-input-wrap 清场 */
  `html body .sb-input-wrap,html body [class*="sb-input-wrap"]{${_SF_CLEAR}padding:0!important;}`
- /* 图搜页外层容器清场 */
 +`html body #searchForm #fileRowContainer,html body #searchForm #searchRowContainer,html body #searchForm .multi-select-container{`
 +`background:transparent!important;background-color:transparent!important;`
 +`background-image:none!important;box-shadow:none!important;border-color:transparent!important;}`
- /* 灰白玻璃输入框组 */
 +`${_SF_INPUTS}{${_SF_BASE}${_SF_GRAY}${_SF_SHADOW}padding:0 16px!important;outline:none!important;}`
 +`${_SF_URLI}{padding:8px 18px!important;}`
 +_sfHov(_SF_INPUTS)+`{${_SF_HOVER}}`
 +`${_SF_PORTAL}:hover,${_SF_PORTAL}:focus,${_SF_PORTAL}:focus-within{${_SF_SHADOW}}`
 +_sfPlc(_SF_INPUTS)+`{${_SF_PH}}`
- /* 灰白玻璃胶囊控件组 */
 +`${_SF_CAPS}{${_SF_BASE}${_SF_GRAY}${_SF_SHADOW}}`
 +_sfG(_SF_CAPS)+`{${_SF_HOVER}}`
 +`html body #searchForm .searchCB{padding:5px 12px!important;cursor:pointer!important;}`
 +`html body #searchForm #fileInputButton{cursor:pointer!important;}`
 +`html body #searchForm #database-dropdown-button{cursor:pointer!important;user-select:none!important;}`
- /* 文件 input 覆盖层 */
 +`html body #searchForm #fileInputButton{position:relative!important;display:inline-flex!important;`
 +`align-items:center!important;justify-content:center!important;overflow:hidden!important;}`
 +`html body #searchForm #fileInput{position:absolute!important;inset:0!important;width:100%!important;`
@@ -190,11 +232,9 @@ const SEARCH_GLASS_CSS=
 +`backdrop-filter:none!important;-webkit-backdrop-filter:none!important;}`
 +`html body #searchForm #fileInputLabel{position:relative!important;pointer-events:none!important;`
 +`background:transparent!important;color:inherit!important;border:0!important;box-shadow:none!important;}`
- /* 复选框 */
 +`html body #searchForm .searchCB input[type="checkbox"]{background:transparent!important;`
 +`background-image:none!important;border:1px solid rgba(255,255,255,.45)!important;`
 +`box-shadow:none!important;accent-color:#98DD98!important;margin-right:4px!important;}`
- /* 数据库下拉面板 */
 +`html body #searchForm .multi-select-dropdown{`
 +`background-color:rgba(28,30,38,.72)!important;background-image:none!important;`
 +`backdrop-filter:blur(18px) saturate(140%)!important;`
@@ -216,7 +256,6 @@ const SEARCH_GLASS_CSS=
 +`box-shadow:none!important;border-color:transparent!important;border-radius:10px!important;}`
 +`html body #searchForm .multi-select-dropdown label:hover,`
 +`html body #searchForm .multi-select-dropdown label:hover>div{background-color:rgba(255,255,255,.10)!important;}`
- /* 绿色玻璃按钮 */
 +`${_SF_BTNS}{${_SF_BASE}`
 +`background-color:rgba(152,221,152,.22)!important;`
 +`border:1px solid rgba(152,221,152,.42)!important;`
@@ -566,7 +605,6 @@ const ADM_SEARCH_GLASS_CSS=
 `outline:0 none transparent!important;`+
 `-webkit-focus-ring-color:transparent!important;`+
 `}`
-/* 内层包装全透明 */
 +`html body .adm-search-bar .adm-input,`+
 `html body .adm-search-bar-input,`+
 `html body .adm-input.adm-search-bar-input{`+
@@ -580,7 +618,6 @@ const ADM_SEARCH_GLASS_CSS=
 `backdrop-filter:none!important;`+
 `-webkit-backdrop-filter:none!important;`+
 `}`
-/* input 本体 */
 +`html body .adm-search-bar .adm-input-element,`+
 `html body .adm-input-element.adm-input-element{`+
 `background:transparent!important;`+
@@ -601,7 +638,6 @@ const ADM_SEARCH_GLASS_CSS=
 `caret-color:currentColor!important;`+
 `color:inherit!important;`+
 `}`
-/* 聚焦 / 激活全状态兜底 */
 +`html body .adm-search-bar .adm-input-element:focus,`+
 `html body .adm-search-bar .adm-input-element:focus-visible,`+
 `html body .adm-search-bar .adm-input-element:active,`+
@@ -630,7 +666,7 @@ const ADM_SEARCH_GLASS_CSS=
 const XPC='[data-testid="primaryColumn"]',XABB='[data-testid="app-bar-back"]',XNAV='nav[aria-live="polite"][role="navigation"]';
 const X_CSS=`${XPC} div:has(${XNAV}),${XPC} div:has(> div > div > ${XNAV}),${XPC} div:has(> ${XABB}),${XPC} div:has(> div > ${XABB}),${XPC} > div:first-child,${XPC} > div:first-child > div,${XPC} > div:first-child > div > div{background-color:${_T};${BF0}}${XPC} .r-1e5uvyk{${BF0}}${XPC} .r-17c3jg3{background-color:${_T};}${XNAV},${XNAV} > div,${XNAV} div[role="tablist"],${XNAV} div[role="presentation"],${XNAV} div[role="tab"]{background-color:${_T};${BF0}}`;
 
-const TIEBA_CSS=`.forum_content,.forum_content .main,#content_wrap,.content_leftList,.j-content-leftList,.thread_list_bottom,.th_footer_bright,.th_footer_l,#frs_list_pager,.pagination-default,.aside,#aside,[id^="pagelet_frs-list"],[id^="pagelet_platform"],[id^="pagelet_live"],[id^="pagelet_frs-aside"],.forum_content .thread_list,.forum_content li,.forum_content .t_con,.pb_content,.left_section,.right_section,.core_title_wrap_bright,.core_title_bg,.j_core_title_bg,.tittle_fill_dom,.p_postlist,.l_post,.l_post_bright,.j_l_post,.d_post_content_main,.d_post_content,.p_content,.core_reply,.core_reply_wrapper,.core_reply_content,.j_lzl_container,.core_reply_tail,.post-tail-wrap,.pb_footer,.p_thread,.thread_theme_5,.thread_theme_7,.l_thread_info,.card_top_wrap,.card_top,.card_title,.card_head,.card_num,.sign_mod_bright,#sign_mod,.region-login,#embedded-login,.region_bright,.app_download_box,.topic_list_box,.topic_list,.item_hd,#tieba-notice,.unordered-list,.tb_rich_poster_container,.tb_rich_poster,.poster_head,.poster_body,.editor_wrapper,.editor_content_wrapper,.ueditor_container,.old_style_wrapper,.edui-container,.edui-editor-body,.edui-editor-middle,.edui-body-container,.poster_component,.editor_bottom_panel,.right_section .region_bright,#pb_content,#thread_theme_5,#thread_theme_7,.nav_wrap,.nav_wrap_add_border,#tb_nav,.nav_list,.j_nav_list,.j_tbnav_tab,.content-sec,.left-sec,.right-sec,.r-top-sec,.r-left-sec,.r-right-sec,.left-cont-wraper,#left-cont-wraper,.aggregate_entrance_wrap,.aggregate_entrance_title,.entrance_item,.u-f-t,.f-d-w,#f-d-w,.f-d-item,.f-d-item-content,.directory-wraper,.all-wraper,.all,.more-txt,.center-fixed,.forum_rcmd,#forum_rcmd,.class_title,.hot_icon_wrap,.rcmd_forum_list,.rcmd_forum_item,.rcmd_forum_link,.rcmd_forum_info,.sub_nav_wrap,.sub_nav_list,.nav_bar_fixd,#sub_nav_wrap,#like-tag-nav,#info-section,.new_list,#new_list,.j_feed_li,.n_right,.n_txt,.n_reply,.n_img,.title-tag-wraper,.thread-name-wraper,.list-post-num,.right_wrap,#right_wrap,.notice_item,#notice_item,.notice_list,.notice,.topic_list_hot,.topic_item,.btn_more,.data_loading,.data_error_bar,.lu-home-wrapper,.lu-home-wrapper-seat{${BG0}${SH0}${BD0}}#frs_list_pager .pagination-item,.pagination-default .pagination-item,.pager_theme_4 a,.pager_theme_5 a{${BG0}${BD3}}.j_signbtn,.sign_btn_bright{background:rgba(0,0,0,.25)!important;background-color:rgba(0,0,0,.25)!important;background-image:none!important;${SH0}border:1px solid rgba(255,255,255,.3)!important;border-radius:6px!important;}.j_feed_li{border-bottom:1px solid rgba(255,255,255,.12)!important;}.pass-text-input{background-color:rgba(255,255,255,.9)!important;color:#333!important;}.edui-body-container,#ueditor_replace{background-color:rgba(255,255,255,.08)!important;}`;
+const TIEBA_CSS=`.forum_content,.forum_content .main,#content_wrap,.content_leftList,.j-content-leftList,.thread_list_bottom,.th_footer_bright,.th_footer_l,#frs_list_pager,.pagination-default,.aside,#aside,[id^="pagelet_frs-list"],[id^="pagelet_platform"],[id^="pagelet_live"],[id^="pagelet_frs-aside"],.forum_content .thread_list,.forum_content li,.forum_content .t_con,.pb_content,.left_section,.right_section,.core_title_wrap_bright,.core_title_bg,.j_core_title_bg,.tittle_fill_dom,.p_postlist,.l_post,.l_post_bright,.j_l_post,.d_post_content_main,.d_post_content,.p_content,.core_reply,.core_reply_wrapper,.core_reply_content,.j_lzl_container,.core_reply_tail,.post-tail-wrap,.pb_footer,.p_thread,.thread_theme_5,.thread_theme_7,.l_thread_info,.card_top_wrap,.card_top,.card_title,.card_head,.card_num,.sign_mod_bright,#sign_mod,.region-login,#embedded-login,.region_bright,.app_download_box,.topic_list_box,.topic_list,.item_hd,#tieba-notice,.unordered-list,.tb_rich_poster_container,.tb_rich_poster,.poster_head,.poster_body,.editor_wrapper,.editor_content_wrap,.ueditor_container,.old_style_wrapper,.edui-container,.edui-editor-body,.edui-editor-middle,.edui-body-container,.poster_component,.editor_bottom_panel,.right_section .region_bright,#pb_content,#thread_theme_5,#thread_theme_7,.nav_wrap,.nav_wrap_add_border,#tb_nav,.nav_list,.j_nav_list,.j_tbnav_tab,.content-sec,.left-sec,.right-sec,.r-top-sec,.r-left-sec,.r-right-sec,.left-cont-wraper,#left-cont-wraper,.aggregate_entrance_wrap,.aggregate_entrance_title,.entrance_item,.u-f-t,.f-d-w,#f-d-w,.f-d-item,.f-d-item-content,.directory-wraper,.all-wraper,.all,.more-txt,.center-fixed,.forum_rcmd,#forum_rcmd,.class_title,.hot_icon_wrap,.rcmd_forum_list,.rcmd_forum_item,.rcmd_forum_link,.rcmd_forum_info,.sub_nav_wrap,.sub_nav_list,.nav_bar_fixd,#sub_nav_wrap,#like-tag-nav,#info-section,.new_list,#new_list,.j_feed_li,.n_right,.n_txt,.n_reply,.n_img,.title-tag-wraper,.thread-name-wraper,.list-post-num,.right_wrap,#right_wrap,.notice_item,#notice_item,.notice_list,.notice,.topic_list_hot,.topic_item,.btn_more,.data_loading,.data_error_bar,.lu-home-wrapper,.lu-home-wrapper-seat{${BG0}${SH0}${BD0}}#frs_list_pager .pagination-item,.pagination-default .pagination-item,.pager_theme_4 a,.pager_theme_5 a{${BG0}${BD3}}.j_signbtn,.sign_btn_bright{background:rgba(0,0,0,.25)!important;background-color:rgba(0,0,0,.25)!important;background-image:none!important;${SH0}border:1px solid rgba(255,255,255,.3)!important;border-radius:6px!important;}.j_feed_li{border-bottom:1px solid rgba(255,255,255,.12)!important;}.pass-text-input{background-color:rgba(255,255,255,.9)!important;color:#333!important;}.edui-body-container,#ueditor_replace{background-color:rgba(255,255,255,.08)!important;}`;
 
 const CASHIER_CSS=`[class*="e3-strong-cashier"],[class*="e3-strong-cashier"] *,[class*="mfy_h-popup-module"],[class*="mfy_h-popup-module"] *,[class*="mfy_h-checkbox-module"],[class*="mfy_h-checkbox-module"] *,[class*="mfy_h-button-module"],[class*="mfy_h-button-module"] *{background:transparent!important;background-color:transparent!important;background-image:none!important;box-shadow:none!important;border-color:transparent!important;}[class*="e3-strong-cashier__card--active"],[class*="e3-strong-cashier__card-item--active"]{outline:1px solid rgba(255,255,255,.35)!important;border-radius:10px!important;}[class*="e3-strong-cashier__h5-method-indicator"]{background:rgba(255,255,255,.15)!important;}[class*="e3-strong-cashier__badge"]{background:linear-gradient(90deg,#ff7a45,#ff4d4f)!important;background-color:transparent!important;}`;
 
@@ -657,9 +693,14 @@ getTopDomain(host){
  host=Utils.normalizeHost(host);
  if(!host)return '';
  if(/^\d+\.\d+\.\d+\.\d+$/.test(host))return host;
+ const HOSTED=['github.io','gitlab.io','bitbucket.io','gitee.io','netlify.app','vercel.app','pages.dev','glitch.me','repl.co','replit.dev','blogspot.com','wordpress.com','tumblr.com','wixsite.com','squarespace.com','webflow.io','herokuapp.com','firebaseapp.com','web.app','surge.sh','now.sh','onrender.com','railway.app','fly.dev','deno.dev','workers.dev','koyeb.app','fly.io','ngrok.io','ngrok-free.app','trycloudflare.com','pages.github.io'];
+ for(const suf of HOSTED){
+  if(host===suf)return host;
+  if(host.endsWith('.'+suf))return host;
+ }
  const p=host.split('.');
  if(p.length<=2)return host;
- const sld=['com','net','org','gov','edu','co','ac','ne','or','go'];
+ const sld=['com','net','org','gov','edu','co','ac','ne','or','go','info','biz','mobi','name','pro','aero','asia','cat','coop','jobs','museum','tel','travel','xxx'];
  if(sld.includes(p[p.length-2])&&p[p.length-1].length<=3)return p.slice(-3).join('.');
  return p.slice(-2).join('.');},
 isDataImageUrl(u){return typeof u==='string'&&/^data:image\//i.test(u.trim());},
@@ -690,13 +731,28 @@ revokeBlob(key){
  if(u){try{URL.revokeObjectURL(u);}catch(e){}delete ImageStore._blobCache[key];}},
 saveGMBackup(k,d){try{Store.set(GM_BACKUP_PREFIX+k,d);}catch(e){console.warn('[浏览器背景] 备份图片到 GM 失败',e);}},
 async _put(key,dataUrl){if(!CACHE_AVAILABLE)return;try{const c=await caches.open(CACHE_NAME),b=Utils.dataUrlToBlob(dataUrl);await c.put(new Request('/'+key),new Response(b,{headers:{'Content-Type':b.type||'image/jpeg'}}));}catch(e){console.warn('[浏览器背景] 写入缓存失败',e);}},
-store(dataUrl,key,origName){
+async _exists(key){
+ if(!CACHE_AVAILABLE)return false;
+ try{
+  const c=await caches.open(CACHE_NAME);
+  const r=await c.match(new Request('/'+key));
+  return !!r;
+ }catch(e){return false;}
+},
+async store(dataUrl,key,origName){
  const ck=key||ImageStore.generateCacheKey();
- return ImageStore._put(ck,dataUrl).then(()=>{
-  ImageStore.saveGMBackup(ck,dataUrl);
-  if(origName)ImageStore.saveOriginalFilename(ck,origName);
-  return ck;
- });},
+ let cacheOk=false,gmOk=false;
+ try{
+  await ImageStore._put(ck,dataUrl);
+  cacheOk=await ImageStore._exists(ck);
+ }catch(e){console.warn('[浏览器背景] 图片写入缓存失败',e);}
+ try{
+  Store.set(GM_BACKUP_PREFIX+ck,dataUrl);
+  gmOk=true;
+ }catch(e){console.warn('[浏览器背景] 图片备份到 GM 失败',e);}
+ if(!cacheOk&&!gmOk)return null;
+ if(origName)ImageStore.saveOriginalFilename(ck,origName);
+ return ck;},
 async get(key){ if(CACHE_AVAILABLE&&ImageStore._blobUsable!==false){
   try{
    const c=await caches.open(CACHE_NAME);
@@ -740,10 +796,10 @@ const Config={
 _cache:null,_cacheTime:0,
 invalidate(){Config._cache=null;Config._cacheTime=0;},
 getList(){return Utils.safeJSONParse(Store.get(KEYS.siteList,'[]'),[]);},
-setList(a){Store.set(KEYS.siteList,JSON.stringify(a));},
+setList(a){Store.set(KEYS.siteList,JSON.stringify(a));Config.invalidate();},
 inSiteList(host){const td=Utils.getTopDomain(host);if(!td)return false;return Config.getList().some(i=>Utils.getTopDomain(i)===td||Utils.hostMatch(i,host));},
 getSiteMap(){return Utils.safeJSONParse(Store.get(KEYS.siteConfigMap,'{}'),{});},
-setSiteMap(m){Store.set(KEYS.siteConfigMap,JSON.stringify(m));},
+setSiteMap(m){Store.set(KEYS.siteConfigMap,JSON.stringify(m));Config.invalidate();},
 getSite(h){return Config.getSiteMap()[h]||null;},
 setSite(h,c){const m=Config.getSiteMap();m[h]=c;Config.setSiteMap(m);},
 removeSite(h){const m=Config.getSiteMap();delete m[h];Config.setSiteMap(m);},
@@ -806,33 +862,48 @@ reset(){if(LivePreview.overlayBlur!==null||LivePreview.overlayAlpha!==null||Live
 };
 
 const BackgroundImage={
-url:null,cacheKey:null,ready:false,_readyCallbacks:[],
+url:null,cacheKey:null,ready:false,_readyCallbacks:[],_seq:0,
 setUrl(u){BackgroundImage.url=u||null;},
 onReady(cb){if(BackgroundImage.ready){cb();return;}BackgroundImage._readyCallbacks.push(cb);},
 notifyReady(){BackgroundImage.ready=true;BackgroundImage._readyCallbacks.forEach(cb=>{try{cb();}catch(e){}});BackgroundImage._readyCallbacks=[];},
 async preload(){
+ const seq=++BackgroundImage._seq;
  const cfg=Config.merge(Utils.getHost());
- if(!cfg.enabled){BackgroundImage.ready=true;BackgroundImage.cacheKey=null;BackgroundImage.setUrl(null);BackgroundImage.notifyReady();return;}
+ if(!cfg.enabled){
+  if(seq!==BackgroundImage._seq)return;
+  BackgroundImage.ready=true;BackgroundImage.cacheKey=null;BackgroundImage.setUrl(null);BackgroundImage.notifyReady();return;}
  if(ImageStore.isCacheKey(cfg.url)){
   const key=ImageStore.extractCacheKey(cfg.url);
-  if(key===BackgroundImage.cacheKey&&BackgroundImage.url){BackgroundImage.ready=true;BackgroundImage.notifyReady();return;}
+  if(key===BackgroundImage.cacheKey&&BackgroundImage.url){
+   if(seq!==BackgroundImage._seq)return;
+   BackgroundImage.ready=true;BackgroundImage.notifyReady();return;}
   if(BackgroundImage.cacheKey&&BackgroundImage.cacheKey!==key)ImageStore.revokeBlob(BackgroundImage.cacheKey);
   const u=await ImageStore.get(key);
+  if(seq!==BackgroundImage._seq)return;
   BackgroundImage.cacheKey=key;BackgroundImage.setUrl(u||null);
  }else if(Utils.isDataImageUrl(cfg.url)){
+  if(seq!==BackgroundImage._seq)return;
+  BackgroundImage.cacheKey=null;BackgroundImage.setUrl(cfg.url);
   if(!Store.get(MIGRATE_FLAG,false)){
-   const ck=await ImageStore.store(cfg.url,null,'migrated_image.jpg');
-   if(ck){
-    const h=Utils.getHost(),nu=ImageStore.buildCacheKeyUrl(ck);
-    if(Config.getSite(h)&&Config.getSite(h).url===cfg.url)Config.setSite(h,Object.assign({},Config.getSite(h),{url:nu}));
-    else Store.set(KEYS.url,nu);
-    Config.invalidate();BackgroundImage.cacheKey=ck;BackgroundImage.setUrl(cfg.url);
-   }else{
+   try{
+    const ck=await ImageStore.store(cfg.url,null,'migrated_image.jpg');
+    if(ck){
+     const h=Utils.getHost(),nu=ImageStore.buildCacheKeyUrl(ck);
+     const sc=Config.getSite(h);
+     if(sc&&sc.url===cfg.url)Config.setSite(h,Object.assign({},sc,{url:nu}));
+     else Store.set(KEYS.url,nu);
+     Config.invalidate();
+    }else{
+     Store.set(MIGRATE_FLAG,true);
+     console.warn('[浏览器背景] 图片迁移失败，保留原始 data URL（已标记避免重复尝试）');
+    }
+   }catch(e){
     Store.set(MIGRATE_FLAG,true);
-    console.warn('[浏览器背景] 图片迁移到本地缓存失败，继续使用原始 data URL（已标记避免重复尝试）');
+    console.warn('[浏览器背景] 图片迁移异常，保留原始 data URL',e);
    }
   }
  }else{BackgroundImage.cacheKey=null;BackgroundImage.setUrl(cfg.url);}
+ if(seq!==BackgroundImage._seq)return;
  BackgroundImage.ready=true;BackgroundImage.notifyReady();}
 };
 
@@ -845,7 +916,7 @@ background(cfg,finalUrl){
 
  return `html,body{${BG0}}#bgCanvas{display:none!important;}${bgCss}body::before{${PSEUDO0.replace('-2147483647','-2147483646')}background:${_T};}`
 
- +`*:not(img):not(svg):not(video):not(canvas):not(pre):not(code):not(kbd):not(samp):not(mark):not(ins):not(del):not(.translate-ui):not(.translate-ui *):not(.cf-turnstile):not(.h-captcha):not(.g-recaptcha):not(input):not(select):not(textarea):not([id^="typeaheadDropdown"]):not(.search-suggest):not(.sug-list):not(.s-sug):not([class*="suggest"]):not([class*="dropdown"]):not([class*="autocomplete"]):not([class*="highlight"]):not([class*="Highlight"]):not([class*="badge"]):not([class*="Badge"]):not([id*="search-result"]):not([id*="search-results"]):not([class*="search-result"]):not([role="listbox"]):not([role="menu"]){background-color:${_T};}`
+ +`*:not(img):not(svg):not(video):not(canvas):not(pre):not(code):not(kbd):not(samp):not(mark):not(ins):not(del):not(.translate-ui):not(.translate-ui *):not(.cf-turnstile):not(.h-captcha):not(.g-recaptcha):not(input):not(select):not(textarea):not([id^="typeaheadDropdown"]):not(.search-suggest):not(.sug-list):not(.s-sug):not([class*="suggest"]):not([class*="dropdown"]):not([class*="autocomplete"]):not([class*="highlight"]):not([class*="Highlight"]):not([class*="badge"]):not([class*="Badge"]):not([id*="search-result"]):not([id*="search-results"]):not([class*="search-result"]):not([role="listbox"]):not([role="menu"])${FLOAT_BALL_EXEMPT_CSS}{background-color:${_T};}`
  +`#container,#header,#logo,#wrapper,#page,#main,.container,.wrapper,header,footer,nav,.navbar,.top-bar,.row1,.header,.logo,#top,.top,#site-header,.site-header{${BG0}${SH0}${BD0}}`
  +`#header::before,#header::after,#top::before,#top::after,#topbar::before,#topbar::after,#top-bar::before,#top-bar::after,#topBar::before,#topBar::after,#mobile-topbar::before,#mobile-topbar::after,#mobileTopbar::before,#mobileTopbar::after,#mobile-header::before,#mobile-header::after,#mobile-nav::before,#mobile-nav::after,#mobile-bar::before,#mobile-bar::after,#navbar::before,#navbar::after,#nav-bar::before,#nav-bar::after,#masthead::before,#masthead::after,#site-header::before,#site-header::after,#page-header::before,#page-header::after,#app-bar::before,#app-bar::after,#toolbar::before,#toolbar::after,header::before,header::after,nav::before,nav::after{${BG0}${SH0}${BF0}}`
  +`#additional-info,.user-content,#script-info,.width-constraint,#install-area,.good-bad,.discussion-list,article,.post-body,.entry-content,.markdown-body,.topic-body,.post-content,#readme,.Box-body{${BG0}${SH0}${BD0}--bg-color:${_T};--color-canvas-default:${_T};}`
@@ -978,10 +1049,6 @@ if(SiteAdapters.isXSite()){
   }`;
 }
  if(SiteAdapters.isTiebaSite())css+=TIEBA_CSS;
- if(SiteAdapters.isDeepSeekSite()){
-   const ov=Config.getEffectiveOverlayValues();
-   css+=SiteAdapters.deepseekOverlayCSS(ov.blur,ov.alpha);
- }
  if(SiteAdapters.is123PanSite()){
    const ov=Config.getEffectiveOverlayValues();
    css+=CASHIER_CSS;
@@ -1042,6 +1109,205 @@ if(/(^|\.)apkmirror\.com$/.test(Utils.getHost())){
   }
   `;
 }
+/* === apkcombo：汉堡按钮 + 展开面板玻璃（模糊受"弹层模糊"滑块控制） === */
+if(/(^|\.)apkcombo\.(com|org)$/.test(Utils.getHost())){
+  const nb=Number(cfg.nativeElementBlur)||0;
+  const BF=nb>0
+    ?`backdrop-filter:blur(${nb}px) saturate(140%)!important;-webkit-backdrop-filter:blur(${nb}px) saturate(140%)!important;`
+    :`backdrop-filter:none!important;-webkit-backdrop-filter:none!important;`;
+  css += `
+  /* 汉堡按钮：LGGC 玻璃胶囊 */
+  html body .navbar-burger,
+  html body .navbar-burger.burger,
+  html body .navbar-burger.is-active{
+    box-sizing:border-box!important;
+    width:44px!important;
+    height:44px!important;
+    padding:0!important;
+    margin:0!important;
+    display:inline-flex!important;
+    flex-direction:column!important;
+    align-items:center!important;
+    justify-content:center!important;
+    gap:4px!important;
+    background-color:rgba(255,255,255,.10)!important;
+    background-image:none!important;
+    backdrop-filter:blur(16px) saturate(130%)!important;
+    -webkit-backdrop-filter:blur(16px) saturate(130%)!important;
+    border:1px solid rgba(255,255,255,.30)!important;
+    border-radius:9999px!important;
+    box-shadow:${LGGC.shadow}!important;
+    isolation:isolate!important;
+    transform:translateZ(0)!important;
+    cursor:pointer!important;
+    transition:background-color .2s,border-color .2s!important;
+  }
+  html body .navbar-burger.burger:hover,
+  html body .navbar-burger.is-active{
+    background-color:rgba(255,255,255,.16)!important;
+    border-color:rgba(255,255,255,.42)!important;
+  }
+  html body .navbar-burger.burger span,
+  html body .navbar-burger.is-active span{
+    display:block!important;
+    width:18px!important;
+    height:2px!important;
+    margin:0!important;
+    padding:0!important;
+    background-color:currentColor!important;
+    background-image:none!important;
+    border:0!important;
+    border-radius:2px!important;
+    box-shadow:none!important;
+    opacity:1!important;
+    transform:none!important;
+  }
+
+  /* 展开面板：LGGC 浅色玻璃面板，模糊跟滑块走 */
+  html body .navbar-menu,
+  html body .navbar-menu.is-active{
+    background-color:rgba(255,255,255,.10)!important;
+    background-image:none!important;
+    ${BF}
+    border:1px solid rgba(255,255,255,.30)!important;
+    border-radius:20px!important;
+    box-shadow:${LGGC.shadow}!important;
+    isolation:isolate!important;
+    transform:translateZ(0)!important;
+    overflow:hidden!important;
+    margin-top:8px!important;
+    padding:8px!important;
+  }
+  html body .navbar-menu .navbar-start,
+  html body .navbar-menu .navbar-end,
+  html body .navbar-menu .navbar-item,
+  html body .navbar-menu .navbar-link{
+    background:transparent!important;
+    background-color:transparent!important;
+    background-image:none!important;
+    box-shadow:none!important;
+  }
+  html body .navbar-menu .navbar-item,
+  html body .navbar-menu .navbar-link{
+    border-radius:10px!important;
+    transition:background-color .2s!important;
+  }
+  html body .navbar-menu .navbar-item:hover,
+  html body .navbar-menu .navbar-link:hover{
+    background-color:rgba(255,255,255,.10)!important;
+  }
+
+  /* 语言下拉：浅色玻璃面板，模糊跟滑块走 */
+  html body .navbar-menu .navbar-dropdown,
+  html body .navbar-dropdown{
+    background-color:rgba(255,255,255,.12)!important;
+    background-image:none!important;
+    ${BF}
+    border:1px solid rgba(255,255,255,.30)!important;
+    border-radius:18px!important;
+    box-shadow:${LGGC.shadow}!important;
+    overflow:hidden!important;
+    isolation:isolate!important;
+    transform:translateZ(0)!important;
+    padding:6px!important;
+    margin-top:6px!important;
+  }
+  html body .navbar-menu .navbar-dropdown ul,
+  html body .navbar-menu .navbar-dropdown li,
+  html body .navbar-menu .navbar-dropdown li *,
+  html body .navbar-menu .navbar-dropdown a{
+    background:transparent!important;
+    background-color:transparent!important;
+    background-image:none!important;
+    box-shadow:none!important;
+    border-color:transparent!important;
+  }
+  html body .navbar-menu .navbar-dropdown li,
+  html body .navbar-menu .navbar-dropdown a{
+    border-radius:10px!important;
+    transition:background-color .2s!important;
+  }
+  html body .navbar-menu .navbar-dropdown li:hover,
+  html body .navbar-menu .navbar-dropdown a:hover{
+    background-color:rgba(255,255,255,.14)!important;
+  }
+  `;
+}
+/* === apkpure.com：自带菜单改为 LGGC 毛玻璃，模糊跟随「弹层模糊」滑块 === */
+if(/(^|\.)apkpure\.com$/.test(Utils.getHost())){
+  const nb=Number(cfg.nativeElementBlur)||0;
+  const BF=nb>0
+    ?`backdrop-filter:blur(${nb}px) saturate(140%)!important;-webkit-backdrop-filter:blur(${nb}px) saturate(140%)!important;`
+    :`backdrop-filter:none!important;-webkit-backdrop-filter:none!important;`;
+  const dark=cfg.theme===1;
+  const txtColor=dark?'#ddd':'#222';
+  const glassBg=dark?`rgba(${LGGC.bgDark},.45)`:`rgba(${LGGC.bgLight},.12)`;
+  const glassBorder=dark?'rgba(255,255,255,.18)':'rgba(255,255,255,.45)';
+  css += `
+  /* 全局主题色会把菜单文字刷成浅灰，这里改回可读深色（或跟随主题） */
+  html body #nav_new,
+  html body #nav_new *:not(i):not(svg):not(svg *),
+  html body .nav_new,
+  html body .nav_new *:not(i):not(svg):not(svg *){
+    color:${txtColor}!important;
+  }
+  /* 菜单面板：LGGC 毛玻璃，模糊由"弹层模糊"滑块控制 */
+  html body #nav_new,
+  html body .nav_new{
+    background-color:${glassBg}!important;
+    background-image:none!important;
+    ${BF}
+    border:1px solid ${glassBorder}!important;
+    box-shadow:${LGGC.shadow}!important;
+    isolation:isolate!important;
+    transform:translateZ(0)!important;
+  }
+  /* 菜单内部项保留透明底，交给面板做玻璃 */
+  html body #nav_new .item,
+  html body #nav_new .item>a,
+  html body #nav_new .item>span,
+  html body #nav_new .nav_user_new,
+  html body #nav_new .close_item,
+  html body #nav_new .menu-divider,
+  html body #nav_new .nav_submenu,
+  html body #nav_new .nav_submenu-item,
+  html body #nav_new .menu_list,
+  html body #nav_new .menu_body,
+  html body #nav_new .nav-action-list,
+  html body #nav_new .nav-action{
+    background-color:transparent!important;
+    background-image:none!important;
+    box-shadow:none!important;
+  }
+  /* 头像保留圆形 */
+  html body #nav_new .nav_user_img{
+    border-radius:50%!important;
+    visibility:visible!important;
+    opacity:1!important;
+  }
+  /* 图标继承色 */
+  html body #nav_new svg,
+  html body #nav_new svg *,
+  html body #nav_new i,
+  html body #nav_new i::before,
+  html body #nav_new i::after{
+    fill:currentColor!important;
+    stroke:currentColor!important;
+    color:inherit!important;
+    visibility:visible!important;
+    opacity:1!important;
+  }
+  /* 遮罩保持原生半透明黑 */
+  html body #shadow{
+    background:rgba(0,0,0,.5)!important;
+    backdrop-filter:none!important;
+    -webkit-backdrop-filter:none!important;
+    border-radius:0!important;
+    box-shadow:none!important;
+    overflow:visible!important;
+  }
+  `;
+}
 css += `
 /* === 上传区/GIF 压缩卡片：彻底透明 === */
 html body label.upload-zone,
@@ -1070,7 +1336,6 @@ html body .plus::after{
   -webkit-backdrop-filter:none!important;
   filter:none!important;
 }
-/* 那个加号如果是伪元素画的，就直接把它清掉 */
 html body .comp-icon-plus::before,
 html body .comp-icon-plus::after,
 html body .plus::before,
@@ -1114,8 +1379,6 @@ if(/(^|\.)ip138\.com$/.test(Utils.getHost())){
     box-shadow:none!important;
     border-color:transparent!important;
   }
-
-  /* === 输入框：灰白玻璃胶囊 === */
   html body input.input-text[type],
   html body input#ip{
     border-radius:9999px!important;
@@ -1147,8 +1410,6 @@ if(/(^|\.)ip138\.com$/.test(Utils.getHost())){
     color:inherit!important;
     opacity:.6!important;
   }
-
-  /* === 查询按钮：绿色玻璃胶囊 === */
   html body input.input-button[type],
   html body a.input-button[href]{
     border-radius:9999px!important;
@@ -1183,8 +1444,6 @@ if(/(^|\.)ip138\.com$/.test(Utils.getHost())){
     background-color:rgba(152,221,152,.34)!important;
     border-color:rgba(152,221,152,.60)!important;
   }
-
-  /* === 表单容器清场 === */
   html body .mod-search .search,
   html body .mod-form .bd,
   html body .mod-form .bd form{
@@ -1195,10 +1454,8 @@ if(/(^|\.)ip138\.com$/.test(Utils.getHost())){
   }
   `;
 }
-/* === nmc.cn 下拉按钮：胶囊玻璃 === */
 if(/(^|\.)nmc\.cn$/.test(Utils.getHost())){
   css += `
-  /* 按钮本体：绿色玻璃胶囊，覆盖内联蓝底 */
   html body button#nmc-product-list.btn.dropdown-toggle,
   html body button#nmc-product-list,
   html body button.btn.btn-default.dropdown-toggle[id="dropdownMenu1"],
@@ -1228,12 +1485,10 @@ if(/(^|\.)nmc\.cn$/.test(Utils.getHost())){
     padding:0 18px!important;
     font-weight:600!important;
   }
-  /* #nmc-product-list 原来内联写了 width:100%，保留 100% 也行，改成自适应就把下面这行留空 */
   html body button#nmc-product-list{
     width:auto!important;
     min-width:40px!important;
   }
-  /* 悬停/展开态 */
   html body button#nmc-product-list:hover,
   html body button#nmc-product-list:focus,
   html body button#nmc-product-list[aria-expanded="true"],
@@ -1245,7 +1500,6 @@ if(/(^|\.)nmc\.cn$/.test(Utils.getHost())){
     border-color:rgba(152,221,152,.60)!important;
     color:inherit!important;
   }
-  /* 图标与 caret */
   html body button#nmc-product-list .iconfont,
   html body button#nmc-product-list i,
   html body button.btn.btn-default.dropdown-toggle .caret{
@@ -1257,7 +1511,6 @@ if(/(^|\.)nmc\.cn$/.test(Utils.getHost())){
     border-top-color:currentColor!important;
     border-bottom-color:currentColor!important;
   }
-  /* 下拉面板：深玻璃 */
   html body .dropdown.open > .dropdown-menu,
   html body .dropdown-menu{
     background-color:rgba(28,30,38,.72)!important;
@@ -1364,7 +1617,6 @@ html body form.searchForm #indexSearchButton i{
   color:inherit!important;
   text-shadow:none!important;
 }
-/* 热门城市下拉：浅玻璃面板，避免与胶囊抢样式 */
 html body form.searchForm #hotCity{
   background-color:rgba(28,30,38,.72)!important;
   background-image:none!important;
@@ -1395,7 +1647,6 @@ html body form.searchForm #hotCity .cities a:hover{
   border-radius:6px!important;
 }
 `;
-/* === nmc.cn 导航下拉子菜单：透明 LGGC 玻璃模糊 === */
 if(/(^|\.)nmc\.cn$/.test(Utils.getHost())){
   css += `
   html body .navbar_sub,
@@ -1413,7 +1664,6 @@ if(/(^|\.)nmc\.cn$/.test(Utils.getHost())){
     transform:translateZ(0)!important;
     padding:6px 0!important;
     }
-  /* 子菜单内部全部透明，只留玻璃底 */
   html body .navbar_sub ul,
   html body .navbar_sub li,
   html body .navbar_sub li a,
@@ -1422,7 +1672,6 @@ if(/(^|\.)nmc\.cn$/.test(Utils.getHost())){
     background-color:transparent!important;
     background-image:none!important;
     }
-  /* 条目悬停：LGGC 灰白高光 */
   html body .navbar_sub li a{
     border-radius:10px!important;
     transition:background-color .2s!important;
@@ -1455,7 +1704,6 @@ if(/(^|\.)chacuo\.net$/.test(Utils.getHost())){
     background-image:none!important;
     box-shadow:none!important;
   }
-
   html body .mail_main_card,
   html body .convert.radis.shadow.mail_main_card,
   html body .convert.radis,
@@ -1474,7 +1722,6 @@ if(/(^|\.)chacuo\.net$/.test(Utils.getHost())){
     background-image:none!important;
     box-shadow:none!important;
   }
-
   html body #mailtooltipss,
   html body #mailview td,
   html body #mailview thead td{
@@ -1482,7 +1729,6 @@ if(/(^|\.)chacuo\.net$/.test(Utils.getHost())){
     background-color:transparent!important;
     background-image:none!important;
   }
-
   html body #navbar_left,
   html body #navbar_left .navbar-collapse,
   html body #navbar_left .list-group,
@@ -1508,7 +1754,6 @@ if(/(^|\.)chacuo\.net$/.test(Utils.getHost())){
     color:inherit!important;
     opacity:.7!important;
   }
-
   html body #navbar_bottom,
   html body #navbar_bottom *,
   html body .mail_workspace,
@@ -1537,7 +1782,6 @@ if(/(^|\.)chacuo\.net$/.test(Utils.getHost())){
     background-image:none!important;
     box-shadow:none!important;
   }
-
   html body .mail_main_card,
   html body .mail_workspace .panel,
   html body .mail_workspace .panel-body,
@@ -1548,7 +1792,6 @@ if(/(^|\.)chacuo\.net$/.test(Utils.getHost())){
   html body #maillist td{
     border-color:rgba(255,255,255,.18)!important;
   }
-
   html body .mail_hero_copy .blue,
   html body .mail_hero_copy .text-primary,
   html body .mail_workspace #stat_total,
@@ -1559,10 +1802,7 @@ if(/(^|\.)chacuo\.net$/.test(Utils.getHost())){
   }
   `;
 }
-
-/* === apkcombo hero-search：胶囊玻璃 === */
 css += `
-/* 外层：胶囊玻璃容器 */
 html body form.hero-search[role="search"],
 html body form[role="search"].hero-search,
 html body form.hero-search{
@@ -1599,8 +1839,6 @@ html body form.hero-search:focus-within{
   background-color:rgba(255,255,255,.16)!important;
   border-color:rgba(255,255,255,.42)!important;
 }
-
-/* 输入框：透明、无边框，占满剩余空间 */
 html body form.hero-search > input[name="search"],
 html body form.hero-search > input[type="text"],
 html body form.hero-search input{
@@ -1632,8 +1870,6 @@ html body form.hero-search input::placeholder{
   color:inherit!important;
   opacity:.6!important;
 }
-
-/* 提交按钮：绿色玻璃胶囊 */
 html body form.hero-search > button.btn.btn-brand[type="submit"],
 html body form.hero-search > button.btn.btn-brand,
 html body form.hero-search > button[type="submit"]{
@@ -1681,8 +1917,6 @@ html body form.hero-search > button[type="submit"]:focus{
   border-color:rgba(152,221,152,.60)!important;
   color:inherit!important;
 }
-
-/* 按钮里的 SVG 图标继承色，不遮挡 */
 html body form.hero-search > button.btn.btn-brand svg,
 html body form.hero-search > button.btn.btn-brand svg use,
 html body form.hero-search > button.btn.btn-brand svg path,
@@ -1734,7 +1968,6 @@ css += `html body h2,html body h2 *,`
 
  css += ADM_SEARCH_GLASS_CSS;
 
-/* === 内联代码/高亮提示框完全透明 === */
 css += `
 html body code,
 html body code.mdx-code-inline,
@@ -1792,15 +2025,14 @@ html body [data-highlight-icon]::after{
 
 const SiteAdapters={
 isXSite(){const h=Utils.getHost();return /(^|\.)x\.com$/.test(h)||/(^|\.)twitter\.com$/.test(h);},
-isTiebaSite(){return /(^|\.)tieba\.baidu.com$/.test(Utils.getHost());},
-isDeepSeekSite(){return /(^|\.)deepseek\.com$/.test(Utils.getHost());},
+isTiebaSite(){return /(^|\.)tieba\.baidu\.com$/.test(Utils.getHost());},
 is123PanSite(){return /(^|\.)123pan\.(com|cn)$/.test(Utils.getHost());},
 isGoogleSite(){return /(^|\.)google\.[a-z.]+$/.test(Utils.getHost());},
 isSymblSite(){return /(^|\.)symbl\.cc$/.test(Utils.getHost());},
 isNmcSite(){return /(^|\.)nmc\.cn$/.test(Utils.getHost());},
 
 symblCSS(){
- return `/* === symbl.cc 清场：把页面底图露出来 === */
+ return `/* === symbl.cc 清场 === */
 html body,
 html body *:not(img):not(svg):not(video):not(iframe){
   background-color:transparent!important;
@@ -1811,8 +2043,6 @@ html body *::before,
 html body *::after{
   background-color:transparent!important;
 }
-
-/* === 1. 主页搜索框：外层全部透明，只保留内部一层胶囊 === */
 html body .search-form__form--main,
 html body #search-form.search-form__form--main,
 html body .search-form-main,
@@ -1833,8 +2063,6 @@ html body .main-page__search-wrapper{
   transform:none!important;
   isolation:auto!important;
 }
-
-/* === 2. 移动端展开的搜索浮层：外层玻璃面板（排除 --main） === */
 html body .search-form__form:not(.search-form__form--main),
 html body #search-form:not(.search-form__form--main){
   background-color:rgba(255,255,255,.08)!important;
@@ -1853,8 +2081,6 @@ html body #search-form:not(.search-form__form--main){
   padding:10px!important;
   box-sizing:border-box!important;
 }
-
-/* === 3. 搜索框胶囊（主页/浮层通用） === */
 html body .search-form__block-input{
   background-color:rgba(255,255,255,.10)!important;
   background-image:none!important;
@@ -1916,8 +2142,6 @@ html body .search-form__mobile-open-button{
   box-shadow:none!important;
   color:inherit!important;
 }
-
-/* === 4. 搜索结果下拉/热门查询：浅色玻璃面板 === */
 html body .search-result{
   background-color:rgba(255,255,255,.05)!important;
   background-image:none!important;
@@ -1960,8 +2184,6 @@ html body .search-result__history-title{
   color:inherit!important;
   opacity:.6!important;
 }
-
-/* === 5. 搜索页 .input-search 搜索框（胶囊玻璃） === */
 html body .input-search{
   background-color:rgba(255,255,255,.10)!important;
   background-image:none!important;
@@ -2013,8 +2235,6 @@ html body .input-search__btn{
   box-shadow:none!important;
   color:inherit!important;
 }
-
-/* === 6. 搜索页标签按钮透明胶囊玻璃 === */
 html body .search-page__tabs-wrapper,
 html body .search-page__tabs-wrapper .gradient,
 html body .search-page__tabs-wrapper .gradient--left,
@@ -2104,82 +2324,6 @@ pan123OverlayCSS(blur,alpha){
  +`transform:translateZ(0)!important;`
  +`isolation:isolate!important;}`;
 },
-deepseekOverlayCSS(blur,alpha){
- const b=Number(blur)||0,a=Number(alpha);
- const alphaVal=Number.isFinite(a)?Utils.clamp(a,0,.8):.1;
- const gf=b>0?LGGC.filter(b):'none';
- const bg=`rgba(${LGGC.bgDark},${alphaVal})`;
- return `._871cbca,.d72636e2,.aaff8b8f,.ec4f5d61,.f79352dc{`
- +`background:${bg}!important;`
- +`background-color:${bg}!important;`
- +`background-image:none!important;`
- +`backdrop-filter:${gf}!important;`
- +`-webkit-backdrop-filter:${gf}!important;`
- +`box-shadow:${LGGC.shadow}!important;`
- +`border:1px double ${LGGC.border}!important;`
- +`border-radius:${LGGC.overlayRadius}!important;`
- +`overflow:hidden!important;}`
- +`._245c867,._34a54ec,._245c867._34a54ec,`
- +`._245c867 *,._34a54ec *,`
- +`._245c867::before,._245c867::after,`
- +`._34a54ec::before,._34a54ec::after,`
- +`.c99b79f8,.c99b79f8 *,.c99b79f8::before,.c99b79f8::after,`
- +`._5ab5d64,._5ab5d64 *,`
- +`._5255ff8,._4d41763{`
- +`background:transparent!important;`
- +`background-color:transparent!important;`
- +`background-image:none!important;`
- +`box-shadow:none!important;}`
- +`.ds-scroll-area,._6d215eb,`
- +`.ds-scroll-area::before,.ds-scroll-area::after,`
- +`._6d215eb::before,._6d215eb::after,`
- +`.ds-scroll-area > div,._6d215eb > div{`
- +`background:transparent!important;`
- +`background-color:transparent!important;`
- +`background-image:none!important;`
- +`box-shadow:none!important;}`
- +`.ds-scroll-area__gradient,.ds-scroll-area__fade,`
- +`[class*="ds-scroll-area--"] [class*="gradient"],`
- +`[class*="ds-scroll-area--"] [class*="fade"]{display:none!important;background-image:none!important;}`
- +`._546d736,._546d736 *,`
- +`._546d736::before,._546d736::after,`
- +`.b64fb9ae,`
- +`.c08e6e93,._254829d,`
- +`.ds-focus-ring,`
- +`.ds-button__background,` +`[class*="_546d736"][aria-current="page"],` +`[class*="_546d736"][data-active="true"],`
- +`[class*="_546d736"]:hover,`
- +`a[href^="/a/chat/s/"],`
- +`a[href^="/a/chat/s/"] *,`
- +`a[href^="/a/chat/s/"]::before,`
- +`a[href^="/a/chat/s/"]::after{`
- +`background:transparent!important;`
- +`background-color:transparent!important;`
- +`background-image:none!important;`
- +`box-shadow:none!important;}`
- +`a[href^="/a/chat/s/"][aria-current="page"],`
- +`a[href^="/a/chat/s/"][data-active="true"],`
- +`a[href^="/a/chat/s/"].active{`
- +`background-color:rgba(255,255,255,.08)!important;`
- +`background-image:none!important;`
- +`border-radius:8px!important;}`
- +`.fbb737a4,.fbb737a4 *,`
- +`.fbb737a4::before,.fbb737a4::after,`
- +`.ds-collapsible-text,.ds-collapsible-text *,`
- +`.ds-collapsible-text::before,.ds-collapsible-text::after,`
- +`.ds-collapsible-text-toggle-button,`
- +`.ds-collapsible-text-toggle-button *,`
- +`.ds-collapsible-text-toggle-button::before,`
- +`.ds-collapsible-text-toggle-button::after,`
- +`._5b3c8cd,.d077096d,._08f18f8,`
- +`.d630ec62{`
- +`background:transparent!important;`
- +`background-color:transparent!important;`
- +`background-image:none!important;`
- +`box-shadow:none!important;}` +`[class*="collapsible"][class*="gradient"],` +`[class*="collapsible"][class*="fade"],`
- +`[class*="collapsible"] [class*="gradient"],`
- +`[class*="collapsible"] [class*="fade"]{`
- +`display:none!important;`
- +`background-image:none!important;}`;},
 stripXHeaderBlur(){
  if(!SiteAdapters.isXSite()||CaptchaGuard.active)return;
  if(!Config.merge(Utils.getHost()).enabled)return;
@@ -2194,8 +2338,11 @@ stripXHeaderBlur(){
   if(!el||!el.style||prot(el))return;
   st=st||getComputedStyle(el);
   const bf=st.backdropFilter||st.webkitBackdropFilter||'';
-  if(bf&&bf!=='none'){el.style.setProperty('backdrop-filter','none','important');el.style.setProperty('-webkit-backdrop-filter','none','important');}
-  if(glass(st.backgroundColor||''))el.style.setProperty('background-color','transparent','important');};
+  if(bf&&bf!=='none'){
+   setImp(el,'backdrop-filter','none');
+   setImp(el,'-webkit-backdrop-filter','none');
+  }
+  if(glass(st.backgroundColor||''))setImp(el,'background-color','transparent');};
  const strip=anchor=>{
   if(!anchor)return;
   const col=anchor.closest?anchor.closest(XPC):null,stop=col||document.body;
@@ -2214,7 +2361,11 @@ stripXHeaderBlur(){
  document.querySelectorAll(XABB).forEach(strip);
  document.querySelectorAll(XNAV).forEach(nav=>{
   strip(nav);
-  if(!prot(nav)){nav.style.setProperty('background-color','transparent','important');nav.style.setProperty('backdrop-filter','none','important');nav.style.setProperty('-webkit-backdrop-filter','none','important');}});
+  if(!prot(nav)){
+   setImp(nav,'background-color','transparent');
+   setImp(nav,'backdrop-filter','none');
+   setImp(nav,'-webkit-backdrop-filter','none');
+  }});
  const X_BLUE=/rgb\(\s*29\s*,\s*155\s*,\s*240\s*\)|rgb\(\s*0\s*,\s*149\s*,\s*246\s*\)|#1d9bf0|#1da1f2/i;
  document.querySelectorAll('input[data-testid="SearchBox_Search_Input"]').forEach(inp=>{
   let el=inp,hops=0;
@@ -2259,7 +2410,9 @@ removeStyle(){
  const s=StyleManager.styleNode||document.getElementById(STYLE_ID);
  if(s){s.remove();StyleManager.styleNode=null;}
  const nb=StyleManager.nativeBlurNode||document.getElementById(NATIVE_BLUR_STYLE_ID);
- if(nb){nb.remove();StyleManager.nativeBlurNode=null;}},
+ if(nb){nb.remove();StyleManager.nativeBlurNode=null;}
+ InlineStyleRestorer.restoreAll();
+ ShadowFixer.restore();},
 applyNativeBlur(b,theme){
  const css=b<=0?'':StyleBuilder.nativeBlur(b,theme);
  let s=StyleManager.nativeBlurNode||document.getElementById(NATIVE_BLUR_STYLE_ID);
@@ -2319,7 +2472,6 @@ isRealCaptcha(el){
  const r=el.getBoundingClientRect();
  return r.width>20&&r.height>20;},
 findVisible(){
- // 先查 CF 结构特征，命中即视为挑战页
  if(CaptchaGuard.isCfStructure())return true;
  if(!document.body)return false;
  for(const sel of CAPTCHA_SELECTORS){
@@ -2327,7 +2479,7 @@ findVisible(){
  return false;},
 check(){
  const host=Utils.getHost();
- if(SPA_WHITELIST.some(d=>host.includes(d))){if(CaptchaGuard.active){CaptchaGuard.active=false;StyleManager.applyStyle();}return;}
+ if(SPA_WHITELIST.some(d=>host===d||host.endsWith('.'+d))){if(CaptchaGuard.active){CaptchaGuard.active=false;StyleManager.applyStyle();}return;}
  if(CF_TITLE_RE.test((document.title||'').toLowerCase())){
    if(CaptchaGuard._enterTimer){clearTimeout(CaptchaGuard._enterTimer);CaptchaGuard._enterTimer=null;}
    if(CaptchaGuard._recoverTimer){clearTimeout(CaptchaGuard._recoverTimer);CaptchaGuard._recoverTimer=null;}
@@ -2353,6 +2505,7 @@ check(){
 
 const ShadowFixer={
 _done:new WeakSet(),
+_injectedStyles:[],
 _lastRun:0,
 _SKIP:/eruda|chobitsu|chii|devtools|inspector|translate-ui|tu-panel|tu-btn|vie-browser-bg/i,
 CSS:':host{background-color:transparent!important;background-image:none!important;}'
@@ -2381,12 +2534,20 @@ _inject(root){
      const s=document.createElement('style');
      s.textContent=ShadowFixer.CSS;
      sr.appendChild(s);
+     ShadowFixer._injectedStyles.push(s);
     }catch(e){}
     ShadowFixer._inject(sr);
    }
   }
   el=walker.nextNode();
  }},
+restore(){
+ for(const s of ShadowFixer._injectedStyles){
+  try{s.remove();}catch(e){}
+ }
+ ShadowFixer._injectedStyles=[];
+ ShadowFixer._done=new WeakSet();
+},
 run(){
  try{
   if(CaptchaGuard.active)return;
@@ -2404,11 +2565,15 @@ _marked:new WeakSet(),_lastApplied:new WeakMap(),_keywordCache:new WeakMap(),_ra
 _lastScan:0,_scanMinInterval:1500,
 isExcludedElement(el){
  if(!el||!el.nodeType)return false;
+ // apkpure：整个 header 内的元素（菜单、汉堡、搜索等）一律不处理
+ if(el.closest&&el.closest('#header'))return true;
+ if(el.id==='nav_new'||el.id==='shadow')return true;
+ if(el.closest&&el.closest('#nav_new'))return true;
+ if(el.closest&&el.closest('.nav_container'))return true;
  if(el.closest&&el.closest('.search-form,.search-form__form,#search-form,.search-result'))return true;
  const slot=el.getAttribute&&el.getAttribute('data-slot');
  if(slot&&slot.indexOf('sidebar')===0)return true;
  if(el.closest&&el.closest('#goTopBottom,#tbSettingsBtn,#tbSettingsPanel,.tb-settings-btn,.tb-settings-panel'))return true;
- // ===== 排除轮播/幻灯片/缩略图里的遮罩层 =====
  const cl0=el.classList;
  if(cl0&&(cl0.contains('mask')||cl0.contains('overlay')||cl0.contains('shade')||cl0.contains('cover')||cl0.contains('veil'))){
   if(el.closest&&el.closest(
@@ -2421,7 +2586,6 @@ isExcludedElement(el){
    '[class*="swiper"],[class*="carousel"],[class*="slider"],[class*="thumbnail"]'
   ))return true;
  }
- // ===== 排除轮播结束 =====
  const cl=el.classList;
  if(cl&&(cl.contains('tb-settings-btn')||cl.contains('tb-settings-panel')))return true;
  if(cl&&cl.contains('translate-ui'))return true;
@@ -2437,19 +2601,23 @@ isExcludedElement(el){
  if(el.tagName==='IFRAME'){const s=el.src||'';if(s.includes('challenges.cloudflare.com')||s.includes('hcaptcha.com')||s.includes('recaptcha'))return true;}
  if(el.getAttribute&&el.getAttribute('role')==='menu'&&el.tagName==='DETAILS-MENU')return true;
  return false;},
-isOverlayVisible(el,st){
- if(!el||!st)return false;
- if(st.display==='none'||st.visibility==='hidden')return false;
- if(parseFloat(st.opacity||'1')<=0)return false;
+visibleRect(el,st){
+ if(!el||!st)return null;
+ if(st.display==='none'||st.visibility==='hidden')return null;
+ if(parseFloat(st.opacity||'1')<=0)return null;
  const r=el.getBoundingClientRect();
- return r.width>2&&r.height>2;},
+ if(r.width<=2||r.height<=2)return null;
+ return r;},
 getZIndex(st){const z=parseInt(st.zIndex||'0',10);return Number.isFinite(z)?z:0;},
 hasOverlayKeyword(el){
- if(OverlayEnhancer._keywordCache.has(el))return OverlayEnhancer._keywordCache.get(el);
- const txt=`${(el.className||'').toString().toLowerCase()} ${(el.id||'').toString().toLowerCase()}`;
- const role=(el.getAttribute&&el.getAttribute('role')||'').toLowerCase();
+ const sig=String(el.className||'')+'|'+(el.id||'')+'|'+((el.getAttribute&&el.getAttribute('role'))||'');
+ const cached=OverlayEnhancer._keywordCache.get(el);
+ if(cached&&cached.sig===sig)return cached.value;
+ const txt=(String(el.className||'')+' '+(el.id||'')).toLowerCase();
+ const role=((el.getAttribute&&el.getAttribute('role'))||'').toLowerCase();
  const r=/overlay|backdrop|mask|modal|drawer|popup|dialog|sheet|menu|popover|sidebar|side-nav|side-panel|nav-panel|offcanvas|slide-panel|flyout|panel|typeahead|autocomplete|search-result|search-results/.test(txt)||['listbox','menu','dialog','tooltip','grid','alertdialog'].includes(role);
- OverlayEnhancer._keywordCache.set(el,r);return r;},
+ OverlayEnhancer._keywordCache.set(el,{sig,value:r});
+ return r;},
 hasOverlayBg(st){const bg=st.backgroundColor||'';return bg.includes('rgb')||(st.backdropFilter&&st.backdropFilter!=='none')||(st.webkitBackdropFilter&&st.webkitBackdropFilter!=='none');},
 htmlBodyLocked(){
  if(!document.body)return false;
@@ -2469,8 +2637,8 @@ findLikelyOverlays(){
   if(OverlayEnhancer.isExcludedElement(el))continue;
   const st=getComputedStyle(el),pos=st.position;
   if(pos!=='fixed'&&pos!=='absolute')continue;
-  if(!OverlayEnhancer.isOverlayVisible(el,st))continue;
-  const r=el.getBoundingClientRect();
+  const r=OverlayEnhancer.visibleRect(el,st);
+  if(!r)continue;
   if(r.width<30||r.height<30)continue;
   const z=OverlayEnhancer.getZIndex(st);
   let matched=false;
@@ -2483,11 +2651,11 @@ findLikelyOverlays(){
 dedupe(arr){const out=[];for(const it of arr){let skip=false;for(const k of out){if(k.el.contains(it.el)){skip=true;break;}}if(!skip)out.push(it);}return out;},
 write(item,blur,alpha){
  const el=item.el,gf=LGGC.filter(blur);
- el.style.setProperty('backdrop-filter',gf,'important');
- el.style.setProperty('-webkit-backdrop-filter',gf,'important');
- el.style.setProperty('background-color',
-   item.useWhite?`rgba(${LGGC.bgLight},${alpha})`:`rgba(${LGGC.bgDark},${alpha})`,'important');
- el.style.setProperty('box-shadow',LGGC.shadow,'important');
+ setImp(el,'backdrop-filter',gf);
+ setImp(el,'-webkit-backdrop-filter',gf);
+ setImp(el,'background-color',
+   item.useWhite?`rgba(${LGGC.bgLight},${alpha})`:`rgba(${LGGC.bgDark},${alpha})`);
+ setImp(el,'box-shadow',LGGC.shadow);
 
  try{
   const r=el.getBoundingClientRect();
@@ -2495,15 +2663,15 @@ write(item,blur,alpha){
   const isFullscreen = r.width >= vw*0.98 && r.height >= vh*0.98;
   const cur = parseFloat(getComputedStyle(el).borderRadius) || 0;
   if(!isFullscreen && cur < 8){
-   el.style.setProperty('border-radius',LGGC.overlayRadius,'important');
+   setImp(el,'border-radius',LGGC.overlayRadius);
    const ov = getComputedStyle(el).overflow;
    if(!el.style.getPropertyValue('overflow') || ov === 'visible'){
-    el.style.setProperty('overflow','hidden','important');
+    setImp(el,'overflow','hidden');
    }
   }
  }catch(e){}
 
- if(item.pointerNone)el.style.setProperty('pointer-events','auto','important');
+ if(item.pointerNone)setImp(el,'pointer-events','auto');
  OverlayEnhancer._marked.add(el);
  OverlayEnhancer._lastApplied.set(el,{blur,alpha});},
 _run(force){
@@ -2556,10 +2724,13 @@ fix(force){
   if(typeof CaptchaGuard!=='undefined'&&CaptchaGuard.active)return;
   if(!Config.merge(Utils.getHost()).enabled)return;
  }catch(e){return;}
+ // apkpure 自带菜单：完全跳过，避免干扰它自己的开关逻辑
+ if(/(^|\.)apkpure\.com$/.test(Utils.getHost()))return;
  let btns;
  try{
   btns=document.querySelectorAll(
-   'button.navbar-toggle,'+ // 新增：Bootstrap 风格汉堡按钮
+   'button.navbar-toggle,'+
+   'div.navbar-burger,div.burger,[class*="navbar-burger"],'+
    'button[aria-label*="菜单"],button[aria-label*="导航"],'+
    'button[aria-label*="menu"],button[aria-label*="Menu"],'+
    'button[aria-label*="Toggle"],button[aria-label*="toggle"],'+
@@ -2569,6 +2740,10 @@ fix(force){
  for(const btn of btns){
   if(!btn||!btn.style)continue;
   if(btn.id&&/^vie-browser-bg/.test(btn.id))continue;
+  // 排除 apkpure 自带菜单相关
+  if(btn.id==='nav_new'||btn.id==='menu_btn')continue;
+  if(btn.closest&&btn.closest('#nav_new'))continue;
+  if(btn.closest&&btn.closest('#header'))continue;
   
   try{
    if(btn.getAttribute('role')==='combobox')continue;
@@ -2577,7 +2752,6 @@ fix(force){
    if(/select|listbox|combobox|dropdown/i.test(ac))continue;
   }catch(e){}
 
-  // ===== 排除遮罩层、蒙层或抽屉相关的元素 =====
   const clazz = (typeof btn.className === 'string' ? btn.className : '').toLowerCase();
   const idStr = (btn.id || '').toLowerCase();
   if (clazz.includes('mask') || clazz.includes('overlay') || clazz.includes('backdrop') || clazz.includes('drawer') ||
@@ -2585,7 +2759,6 @@ fix(force){
       continue;
   }
 
-  // ===== 排除尺寸过大的按钮 =====
   const rect = btn.getBoundingClientRect();
   const vw = window.innerWidth || document.documentElement.clientWidth || 360;
   const vh = window.innerHeight || document.documentElement.clientHeight || 640;
@@ -2595,32 +2768,31 @@ fix(force){
   }
 
   try{
-   // 按钮本体：LGGC 玻璃胶囊
-   btn.style.setProperty('background','rgba(255,255,255,.10)','important');
-   btn.style.setProperty('background-color','rgba(255,255,255,.10)','important');
-   btn.style.setProperty('background-image','none','important');
-   btn.style.setProperty('backdrop-filter','blur(16px) saturate(130%)','important');
-   btn.style.setProperty('-webkit-backdrop-filter','blur(16px) saturate(130%)','important');
-   btn.style.setProperty('border','1px solid rgba(255,255,255,.30)','important');
-   btn.style.setProperty('border-color','rgba(255,255,255,.30)','important');
-   btn.style.setProperty('border-radius','9999px','important');
-   btn.style.setProperty('box-shadow',LGGC.shadow,'important');
-   btn.style.setProperty('isolation','isolate','important');
-   btn.style.setProperty('transform','translateZ(0)','important');
-   btn.style.setProperty('cursor','pointer','important');
+   setImp(btn,'background','rgba(255,255,255,.10)');
+   setImp(btn,'background-color','rgba(255,255,255,.10)');
+   setImp(btn,'background-image','none');
+   setImp(btn,'backdrop-filter','blur(16px) saturate(130%)');
+   setImp(btn,'-webkit-backdrop-filter','blur(16px) saturate(130%)');
+   setImp(btn,'border','1px solid rgba(255,255,255,.30)');
+   setImp(btn,'border-color','rgba(255,255,255,.30)');
+   setImp(btn,'border-radius','9999px');
+   setImp(btn,'box-shadow',LGGC.shadow);
+   setImp(btn,'isolation','isolate');
+   setImp(btn,'transform','translateZ(0)');
+   setImp(btn,'cursor','pointer');
    
    const isMobileMenu = btn.tagName==='A'&&btn.classList&&btn.classList.contains('only-mobile');
    const lineColor = isMobileMenu ? '#333' : 'currentColor';
    const spans=btn.querySelectorAll('span');
    for(const sp of spans){
-    if(sp.children.length>0)continue;   // 有子元素 = 是包裹层，跳过
-    if(sp.classList.contains('sr-only'))continue; // 跳过隐藏文本
-    sp.style.setProperty('display','block','important');
-    sp.style.setProperty('background-color',lineColor,'important');
-    sp.style.setProperty('background-image','none','important');
-    sp.style.setProperty('box-shadow','none','important');
-    sp.style.setProperty('opacity','1','important');
-    sp.style.setProperty('visibility','visible','important');
+    if(sp.children.length>0)continue;
+    if(sp.classList.contains('sr-only'))continue;
+    setImp(sp,'display','block');
+    setImp(sp,'background-color',lineColor);
+    setImp(sp,'background-image','none');
+    setImp(sp,'box-shadow','none');
+    setImp(sp,'opacity','1');
+    setImp(sp,'visibility','visible');
    }
   }catch(e){}
  }
@@ -2633,30 +2805,33 @@ _bound:false,_last:0,
 clearEl(el){
  if(!el||!el.style)return;
  try{
-  el.style.setProperty('outline','0 none transparent','important');
-  el.style.setProperty('outline-width','0','important');
-  el.style.setProperty('outline-style','none','important');
-  el.style.setProperty('outline-color','transparent','important');
-  el.style.setProperty('outline-offset','0','important');
-  el.style.setProperty('-webkit-focus-ring-color','transparent','important');
-  el.style.setProperty('-webkit-tap-highlight-color','transparent','important');
-  el.style.setProperty('box-shadow','none','important');
-  el.style.setProperty('-webkit-box-shadow','none','important');
-  el.style.setProperty('border-color','transparent','important');
+  setImp(el,'outline','0 none transparent');
+  setImp(el,'outline-width','0');
+  setImp(el,'outline-style','none');
+  setImp(el,'outline-color','transparent');
+  setImp(el,'outline-offset','0');
+  setImp(el,'-webkit-focus-ring-color','transparent');
+  setImp(el,'-webkit-tap-highlight-color','transparent');
+  setImp(el,'box-shadow','none');
+  setImp(el,'-webkit-box-shadow','none');
+  setImp(el,'border-color','transparent');
  }catch(e){}
 },
 clearBox(box){
  if(!box||!box.style)return;
  try{
-  box.style.setProperty('outline','0 none transparent','important');
-  box.style.setProperty('-webkit-focus-ring-color','transparent','important');
-  box.style.setProperty('border-width','0','important');
-  box.style.setProperty('border-style','none','important');
-  box.style.setProperty('border-color','transparent','important');
+  setImp(box,'outline','0 none transparent');
+  setImp(box,'-webkit-focus-ring-color','transparent');
+  setImp(box,'border-width','0');
+  setImp(box,'border-style','none');
+  setImp(box,'border-color','transparent');
  }catch(e){}
 },
 fix(){
- try{if(typeof CaptchaGuard!=='undefined'&&CaptchaGuard.active)return;}catch(e){}
+ try{
+  if(typeof CaptchaGuard!=='undefined'&&CaptchaGuard.active)return;
+  if(!Config.merge(Utils.getHost()).enabled)return;
+ }catch(e){return;}
  const now=Date.now();
  if(now-AdmSearchFixer._last<300)return;
  AdmSearchFixer._last=now;
@@ -2669,6 +2844,10 @@ bind(){
  if(AdmSearchFixer._bound)return;
  AdmSearchFixer._bound=true;
  const onFocus=e=>{
+  try{
+   if(typeof CaptchaGuard!=='undefined'&&CaptchaGuard.active)return;
+   if(!Config.merge(Utils.getHost()).enabled)return;
+  }catch(err){return;}
   const t=e.target;
   if(!t||!t.classList)return;
   if(t.classList.contains('adm-input-element')||t.classList.contains('adm-input')){
@@ -2704,7 +2883,6 @@ compress(dataUrl,target,cb){
 
   let format;
   if(hasAlpha){
-
    const test=c.toDataURL('image/webp',0.9);
    format=test.indexOf('data:image/webp')===0?'image/webp':'image/png';
   }else{
@@ -2798,6 +2976,7 @@ async function compressSmart(d){
  catch(e){console.warn('[浏览器背景] 图片压缩失败，使用原始数据存储',e);return{compressed:d,method:0};}
 }
 const wU16=(v,o,n)=>v.setUint16(o,n,true),wU32=(v,o,n)=>v.setUint32(o,n,true);
+const FLAG_UTF8=0x0800;
 async function build(entries){
  const ps=[];
  for(const e of entries){
@@ -2811,14 +2990,14 @@ async function build(entries){
  let off=0;const lo=[];
  for(const p of ps){
   lo.push(off);
-  wU32(vw,off,0x04034b50);wU16(vw,off+4,20);wU16(vw,off+6,0);wU16(vw,off+8,p.method);
+  wU32(vw,off,0x04034b50);wU16(vw,off+4,20);wU16(vw,off+6,FLAG_UTF8);wU16(vw,off+8,p.method);
   wU16(vw,off+10,0);wU16(vw,off+12,0);wU32(vw,off+14,p.crc);wU32(vw,off+18,p.cs);
   wU32(vw,off+22,p.os);wU16(vw,off+26,p.nb.length);wU16(vw,off+28,0);
   u8.set(p.nb,off+30);u8.set(p.compressed,off+30+p.nb.length);
   off+=30+p.nb.length+p.cs;}
  for(let i=0;i<ps.length;i++){
   const p=ps[i];
-  wU32(vw,off,0x02014b50);wU16(vw,off+4,20);wU16(vw,off+6,20);wU16(vw,off+8,0);
+  wU32(vw,off,0x02014b50);wU16(vw,off+4,20);wU16(vw,off+6,20);wU16(vw,off+8,FLAG_UTF8);
   wU16(vw,off+10,p.method);wU16(vw,off+12,0);wU16(vw,off+14,0);wU32(vw,off+16,p.crc);
   wU32(vw,off+20,p.cs);wU32(vw,off+24,p.os);wU16(vw,off+28,p.nb.length);wU16(vw,off+30,0);
   wU16(vw,off+32,0);wU16(vw,off+34,0);wU16(vw,off+36,0);wU32(vw,off+38,0);wU32(vw,off+42,lo[i]);
@@ -2834,7 +3013,7 @@ async function parse(zip){
  while(pos+30<=zip.length){
   if(vw.getUint32(pos,true)!==0x04034b50)break;
   const method=vw.getUint16(pos+8,true),cs=vw.getUint32(pos+18,true),nl=vw.getUint16(pos+26,true),el=vw.getUint16(pos+28,true);
-  const name=new TextDecoder().decode(zip.slice(pos+30,pos+30+nl));
+  const name=new TextDecoder('utf-8').decode(zip.slice(pos+30,pos+30+nl));
   const ds=pos+30+nl+el,cd=zip.slice(ds,ds+cs);
   if(name.endsWith('/')){pos=ds+cs;continue;}
   let fd;
@@ -2907,7 +3086,10 @@ async importZip(){
   try{
    const uz=await Zip.parse(new Uint8Array(await file.arrayBuffer()));
    if(!uz['config.json'])throw new Error('缺少 config.json');
-   const cd=JSON.parse(new TextDecoder().decode(uz['config.json'])),ik={};
+   const cd=JSON.parse(new TextDecoder().decode(uz['config.json']));
+   if(!cd||typeof cd!=='object')throw new Error('config.json 格式无效');
+   if(!cd.global||typeof cd.global!=='object')throw new Error('config.json 缺少 global 字段');
+   const ik={};
    const MM={png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',gif:'image/gif',webp:'image/webp',svg:'image/svg+xml'};
    for(const p in uz){
     if(p.startsWith('images/')&&p!=='images/'){
@@ -2915,11 +3097,11 @@ async importZip(){
      const k=await ImageStore.store(Utils.uint8ArrayToDataUrl(uz[p],MM[ext]||'image/jpeg'),null,fn);
      if(k)ik[fn]=ImageStore.buildCacheKeyUrl(k);}}
    const gr=(cd.global&&cd.global.remoteUrl)||'',gl=cd.global.url,gc=(gl&&ik[gl])?ik[gl]:'';
-   cd.global.url=gr?gr:(gc?gc:DEFAULTS.url);
+   cd.global.url=gc||gr||DEFAULTS.url;
    if(cd.siteConfigMap){
     for(const h in cd.siteConfigMap){
      const sc=cd.siteConfigMap[h],sr=sc.remoteUrl||'',sl=sc.url||'',sk=(sl&&ik[sl])?ik[sl]:'';
-     if(sr)sc.url=sr;else if(sk)sc.url=sk;else delete sc.url;
+     if(sk)sc.url=sk;else if(sr)sc.url=sr;else delete sc.url;
      delete sc.remoteUrl;}}
    ImportExport.applyImported(cd);alert('导入成功：'+file.name);
   }catch(e){alert('导入失败：'+e.message);}});
@@ -3174,7 +3356,7 @@ register(){
 };
 
 const Bootstrap={
-_listenersBound:false,_mutationTimer:null,
+_listenersBound:false,_mutationTimer:null,_mutationUrgent:false,
 bindGlobalListeners(){
  if(Bootstrap._listenersBound)return;
  Bootstrap._listenersBound=true;
@@ -3186,32 +3368,51 @@ bindGlobalListeners(){
 },
 
 observe(){
+ const runWork=(urgent)=>{
+  Bootstrap._mutationTimer=null;
+  Bootstrap._mutationUrgent=false;
+  const cfg=Config.merge(Utils.getHost());
+  if(cfg.enabled&&!CaptchaGuard.active&&!document.getElementById(STYLE_ID)){StyleManager.styleNode=null;StyleManager.applyStyle();}
+  const ov=Config.getEffectiveOverlayValues();
+  if(cfg.enabled&&!CaptchaGuard.active&&(ov.blur>0||ov.alpha>0))OverlayEnhancer.request(urgent);
+  SiteAdapters.stripXHeaderBlur();
+  ShadowFixer.run();
+  FloatPanel.ensureAlive();
+  HamburgerFixer.fix();
+  AdmSearchFixer.fix();
+ };
  new MutationObserver((muts)=>{
   CaptchaGuard.throttledCheck();
 
+  // apkpure 自带菜单变化不触发脚本重扫
+  let skipAll=true;
   let urgent=false;
   for(const m of muts){
    if(m.type!=='childList')continue;
+   const tgt=m.target;
+   if(tgt&&tgt.nodeType===1&&(tgt.id==='nav_new'||tgt.id==='shadow'||(tgt.closest&&(tgt.closest('#nav_new')||tgt.closest('#header')))))continue;
+   skipAll=false;
    for(const n of m.addedNodes){
     if(n.nodeType!==1)continue;
+    if(n.id==='nav_new'||(n.closest&&(n.closest('#nav_new')||n.closest('#header'))))continue;
     let st;
     try{st=getComputedStyle(n);}catch(e){continue;}
     if(st.position==='fixed'||st.position==='absolute'||st.zIndex!=='auto'){urgent=true;break;}
    }
    if(urgent)break;
   }
+  if(skipAll)return;
 
-  if(Bootstrap._mutationTimer)clearTimeout(Bootstrap._mutationTimer);
-  Bootstrap._mutationTimer=setTimeout(()=>{
-   const cfg=Config.merge(Utils.getHost());
-   if(cfg.enabled&&!CaptchaGuard.active&&!document.getElementById(STYLE_ID)){StyleManager.styleNode=null;StyleManager.applyStyle();}
-   const ov=Config.getEffectiveOverlayValues();
-   if(cfg.enabled&&!CaptchaGuard.active&&(ov.blur>0||ov.alpha>0))OverlayEnhancer.request(urgent);
-   SiteAdapters.stripXHeaderBlur();
-   ShadowFixer.run();
-   FloatPanel.ensureAlive();
-   HamburgerFixer.fix();
-   AdmSearchFixer.fix();},urgent?0:200);
+  if(Bootstrap._mutationTimer!==null){
+   if(urgent&&!Bootstrap._mutationUrgent){
+    Bootstrap._mutationUrgent=true;
+    clearTimeout(Bootstrap._mutationTimer);
+    Bootstrap._mutationTimer=setTimeout(()=>runWork(true),0);
+   }
+   return;
+  }
+  Bootstrap._mutationUrgent=urgent;
+  Bootstrap._mutationTimer=setTimeout(()=>runWork(urgent),urgent?0:200);
  }).observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['class','open','aria-hidden','style','data-state']});},
 init(){
  document.addEventListener('visibilitychange',()=>{if(document.hidden)OverlayEnhancer.stopScanTimer();else OverlayEnhancer.startScanTimer();});
@@ -3221,12 +3422,29 @@ init(){
  Bootstrap.bindGlobalListeners();
  Bootstrap.observe();
  AdmSearchFixer.init();
- document.addEventListener('DOMContentLoaded',()=>{CaptchaGuard.throttledCheck();StyleManager.applyAgain();ShadowFixer.run();FloatPanel.create();OverlayEnhancer.startScanTimer();HamburgerFixer.fix(true);AdmSearchFixer.fix();});
+
+ const onReady=()=>{
+  CaptchaGuard.throttledCheck();
+  StyleManager.applyAgain();
+  ShadowFixer.run();
+  FloatPanel.create();
+  OverlayEnhancer.startScanTimer();
+  HamburgerFixer.fix(true);
+  AdmSearchFixer.fix();
+ };
+
+ if(document.readyState==='loading'){
+  document.addEventListener('DOMContentLoaded',onReady,{once:true});
+ }else{
+  onReady();
+ }
+
  addEventListener('load',()=>{
   CaptchaGuard.throttledCheck();StyleManager.applyAgain();ShadowFixer.run();FloatPanel.create();
   HamburgerFixer.fix(true);
   AdmSearchFixer.fix();
-  setTimeout(()=>{FloatPanel.ensureAlive();StyleManager.applyStyleFull();ShadowFixer.run();HamburgerFixer.fix(true);AdmSearchFixer.fix();},500);  setTimeout(()=>{FloatPanel.ensureAlive();StyleManager.applyStyleFull();ShadowFixer.run();HamburgerFixer.fix(true);AdmSearchFixer.fix();},2000);});
+  setTimeout(()=>{FloatPanel.ensureAlive();StyleManager.applyStyleFull();ShadowFixer.run();HamburgerFixer.fix(true);AdmSearchFixer.fix();},500);
+  setTimeout(()=>{FloatPanel.ensureAlive();StyleManager.applyStyleFull();ShadowFixer.run();HamburgerFixer.fix(true);AdmSearchFixer.fix();},2000);},{once:true});
  HamburgerFixer.fix(true);
  AdmSearchFixer.fix();
  Menus.register();}
