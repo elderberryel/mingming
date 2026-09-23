@@ -875,7 +875,7 @@ extraCSS(cfg,ov){
  if(SiteAdapters.isTiebaSite())   css+=TIEBA_CSS;
  if(SiteAdapters.is123PanSite())  css+=CASHIER_CSS+SiteAdapters.pan123OverlayCSS(ov.blur,ov.alpha);
  if(SiteAdapters.isSymblSite())   css+=SiteAdapters.symblCSS();
- if(/(^|\.)github\.com$/.test(Utils.getHost()))   css+=SiteAdapters.githubMenuCSS();
+if(/(^|\.)github\.com$/.test(Utils.getHost()))   css+=SiteAdapters.githubMenuCSS(ov.blur,ov.alpha);
  if(/(^|\.)apkmirror\.com$/.test(Utils.getHost()))css+=SiteAdapters.apkmirrorCSS();
  if(SiteAdapters.isApkComboSite())css+=SiteAdapters.apkcomboCSS(cfg.nativeElementBlur);
  if(SiteAdapters.isApkPureSite()) css+=SiteAdapters.apkpureCSS(cfg);
@@ -897,7 +897,13 @@ xMediaRestoreCSS(){ return `
   }`;},
 
 /* ==== GitHub 详情菜单 ==== */
-githubMenuCSS(){ return `details-menu[role="menu"]{background:transparent!important;background-color:transparent!important;`
+githubMenuCSS(blur,alpha){
+ const b=Number(blur)||0,a=Number(alpha);
+ const alphaVal=Number.isFinite(a)?Utils.clamp(a,0,.8):.1;
+ const gf=b>0?LGGC.filter(b):'none';
+ const bg=`rgba(${LGGC.bgDark},${alphaVal})`;
+
+ return `details-menu[role="menu"]{background:transparent!important;background-color:transparent!important;`
  +BF_NONE+`box-shadow:none!important;border:0!important;overflow:visible!important;}`
  +`details-menu[role="menu"] .SelectMenu-modal{background:rgba(28,30,38,.88)!important;background-color:rgba(28,30,38,.88)!important;`
  +BF16_150+`border:1px double rgba(255,255,255,.18)!important;border-radius:16px!important;`
@@ -907,10 +913,16 @@ githubMenuCSS(){ return `details-menu[role="menu"]{background:transparent!import
  +`details-menu[role="menu"] .SelectMenu-list a.SelectMenu-item{background:transparent!important;background-color:transparent!important;`
  +`box-shadow:none!important;border:0!important;}`
  +`details-menu[role="menu"] .SelectMenu-list a.SelectMenu-item:hover{background:rgba(255,255,255,.10)!important;}`
- +`details-menu[role="menu"] .SelectMenu-list a.SelectMenu-item[aria-checked="true"]{background:rgba(255,255,255,.06)!important;}`;},
+ +`details-menu[role="menu"] .SelectMenu-list a.SelectMenu-item[aria-checked="true"]{background:rgba(255,255,255,.06)!important;}`
 
-apkmirrorCSS(){ return `html body .search-filter-button{display:none!important;}`
- +`html body .searchbox-parent.open .search-filter-button{display:inline-flex!important;align-items:center!important;justify-content:center!important;}`;},
+ +`#__primerPortalRoot__ [role="dialog"],`
+ +`#__primerPortalRoot__ .Overlay,`
+ +`#__primerPortalRoot__ dialog{`
+ +`background:${bg}!important;background-color:${bg}!important;background-image:none!important;`
+ +`backdrop-filter:${gf}!important;-webkit-backdrop-filter:${gf}!important;`
+ +`box-shadow:${LGGC.shadow}!important;border-radius:${LGGC.overlayRadius}!important;`
+ +`overflow:hidden!important;transform:translateZ(0)!important;isolation:isolate!important;}`;
+},
 
 apkcomboCSS(nb){
  const BFv=nb>0?BF(nb,140):BF_NONE;
@@ -2377,8 +2389,7 @@ init(){
   CaptchaGuard.throttledCheck();StyleManager.applyAgain();ShadowFixer.run();FloatPanel.create();
   HamburgerFixer.fix(true);
   AdmSearchFixer.fix();
-  setTimeout(()=>{FloatPanel.ensureAlive();StyleManager.applyStyleFull();ShadowFixer.run();HamburgerFixer.fix(true);AdmSearchFixer.fix();},500);
-  setTimeout(()=>{FloatPanel.ensureAlive();StyleManager.applyStyleFull();ShadowFixer.run();HamburgerFixer.fix(true);AdmSearchFixer.fix();},2000);
+  setTimeout(()=>{FloatPanel.ensureAlive();StyleManager.applyStyleFull();ShadowFixer.run();HamburgerFixer.fix(true);AdmSearchFixer.fix();},500);  setTimeout(()=>{FloatPanel.ensureAlive();StyleManager.applyStyleFull();ShadowFixer.run();HamburgerFixer.fix(true);AdmSearchFixer.fix();},2000);
  },{once:true});
  HamburgerFixer.fix(true);
  AdmSearchFixer.fix();
