@@ -99,7 +99,7 @@
 <body>
 <div class="wrap">
   <h1>APNG 分解下载器</h1>
-  <p class="sub">把 APNG 动画拆成一张张独立的 PNG 帧，可预览、单帧下载或打包 ZIP。支持一次选择多张图，全部在本地浏览器完成，不会上传任何数据。</p>
+  <p class="sub">把 APNG 动画拆成一张张独立的 PNG 帧，可预览、单帧下载或打包 ZIP。支持一次选择多张图</p>
 
   <div class="drop" id="drop">
     <input type="file" id="file" accept="image/png,image/apng,.png,.apng" multiple hidden>
@@ -120,9 +120,7 @@
 <div class="toast" id="toast"></div>
 
 <script>
-/* =========================================================
-   基础工具
-   ========================================================= */
+ 
 const PNG_SIG = new Uint8Array([0x89,0x50,0x4E,0x47,0x0D,0x0A,0x1A,0x0A]);
 const EMPTY = new Uint8Array(0);
 
@@ -144,7 +142,6 @@ function crc32(data) {
   for (let i = 0; i < data.length; i++) c = CRC_TABLE[(c ^ data[i]) & 0xFF] ^ (c >>> 8);
   return (c ^ 0xFFFFFFFF) >>> 0;
 }
-
 function concatBytes(list) {
   let total = 0;
   for (const b of list) total += b.length;
@@ -153,7 +150,6 @@ function concatBytes(list) {
   for (const b of list) { out.set(b, off); off += b.length; }
   return out;
 }
-
 function makeChunk(type, data) {
   const len = data.length;
   const buf = new Uint8Array(12 + len);
@@ -167,11 +163,9 @@ function makeChunk(type, data) {
   dv.setUint32(8 + len, crc32(buf.subarray(4, 8 + len)));
   return buf;
 }
-
 function esc(s) {
   return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 }
-
 function toast(msg) {
   const el = document.getElementById('toast');
   el.textContent = msg;
@@ -179,14 +173,10 @@ function toast(msg) {
   clearTimeout(el._t);
   el._t = setTimeout(() => el.classList.remove('show'), 2200);
 }
-
 const pad3 = n => String(n).padStart(3, '0');
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const frameName = (item, i) => `${item.baseName}_frame_${pad3(i)}.png`;
 
-/* =========================================================
-   PNG 块解析
-   ========================================================= */
 function parseChunks(bytes) {
   for (let i = 0; i < 8; i++) {
     if (bytes[i] !== PNG_SIG[i]) throw new Error('不是有效的 PNG 文件');
@@ -219,9 +209,6 @@ function parseFcTL(d) {
   };
 }
 
-/* =========================================================
-   解析 APNG -> 帧列表
-   ========================================================= */
 function parseAPNG(arrayBuffer) {
   const bytes = new Uint8Array(arrayBuffer);
   const chunks = parseChunks(bytes);
@@ -238,7 +225,6 @@ function parseAPNG(arrayBuffer) {
   const numFrames = u32(acTL.data, 0);
   const numPlays  = u32(acTL.data, 4);
 
-  // 收集需要保留的辅助块（按 PNG 规范要求的先后顺序）
   const AUX_ORDER = ['cHRM','gAMA','iCCP','sBIT','sRGB','PLTE','tRNS','hIST','bKGD','pHYs'];
   const aux = [];
   for (const type of AUX_ORDER) {
@@ -247,7 +233,6 @@ function parseAPNG(arrayBuffer) {
     }
   }
 
-  // 判断 IDAT 是否属于第一帧（第一个 fcTL 出现在第一个 IDAT 之前）
   const firstFctl = chunks.findIndex(c => c.type === 'fcTL');
   const firstIdat = chunks.findIndex(c => c.type === 'IDAT');
   const idatInFrame0 = firstFctl !== -1 && firstIdat !== -1 && firstIdat > firstFctl;
@@ -270,9 +255,6 @@ function parseAPNG(arrayBuffer) {
   return { width, height, numFrames, numPlays, ihdr, aux, frames };
 }
 
-/* =========================================================
-   把一帧重建成独立的 PNG 文件
-   ========================================================= */
 function buildFramePNG(frame, ihdr, aux) {
   const w = frame.fctl.width;
   const h = frame.fctl.height;
@@ -300,9 +282,6 @@ function buildFramePNG(frame, ihdr, aux) {
   return concatBytes(parts);
 }
 
-/* =========================================================
-   ZIP 打包（store 模式，无压缩）
-   ========================================================= */
 function buildZip(files) {
   const enc = new TextEncoder();
   const localParts = [];
@@ -375,9 +354,6 @@ function buildZip(files) {
   return new Blob([...localParts, ...centralParts, end], { type: 'application/zip' });
 }
 
-/* =========================================================
-   Canvas 合成（把帧偏移 / dispose / blend 应用到完整画布）
-   ========================================================= */
 function loadImage(blob) {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(blob);
@@ -434,9 +410,6 @@ async function compositeFrames(state) {
   return out;
 }
 
-/* =========================================================
-   下载辅助
-   ========================================================= */
 function saveBlob(blob, name) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -448,9 +421,6 @@ function saveBlob(blob, name) {
   setTimeout(() => URL.revokeObjectURL(url), 8000);
 }
 
-/* =========================================================
-   状态 & DOM
-   ========================================================= */
 const items = [];          // 已解析的文件集合
 let uid = 0;
 
@@ -464,10 +434,7 @@ const btnClear    = document.getElementById('btnClear');
 
 const DISPOSE_NAME = { 0: 'NONE', 1: 'BACKGROUND', 2: 'PREVIOUS' };
 const BLEND_NAME   = { 0: 'SOURCE', 1: 'OVER' };
-
-/* =========================================================
-   选择 / 拖放
-   ========================================================= */
+ 
 dropEl.addEventListener('click', () => fileEl.click());
 
 fileEl.addEventListener('change', e => {
@@ -484,9 +451,6 @@ dropEl.addEventListener('drop', e => {
   if (e.dataTransfer && e.dataTransfer.files.length) handleFiles(e.dataTransfer.files);
 });
 
-/* =========================================================
-   批量处理
-   ========================================================= */
 async function handleFiles(fileList) {
   const arr = Array.from(fileList || []);
   if (!arr.length) return;
@@ -529,11 +493,8 @@ async function buildItem(file) {
   });
 
   return state;
-}
-
-/* =========================================================
-   渲染单个文件卡片
-   ========================================================= */
+} 
+  
 function renderItem(item) {
   const card = document.createElement('section');
   card.className = 'file-card';
@@ -601,10 +562,7 @@ function renderItem(item) {
     });
   });
 }
-
-/* =========================================================
-   移除 / 清空
-   ========================================================= */
+   
 function removeItem(item) {
   const idx = items.indexOf(item);
   if (idx === -1) return;
@@ -630,10 +588,6 @@ function updateGlobal() {
   const total = items.reduce((a, b) => a + b.frames.length, 0);
   globalCount.textContent = `已加载 ${n} 个文件，共 ${total} 帧`;
 }
-
-/* =========================================================
-   输出 & 下载
-   ========================================================= */
 async function getOutputs(item) {
   if (item.el.composite.checked) {
     if (!item.compositeCache) {
