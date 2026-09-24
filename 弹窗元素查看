@@ -1,0 +1,575 @@
+// ==UserScript==
+// @name         弹窗元素查看
+// @namespace    http://tampermonkey.net/
+// @version      3.0
+// @description  弹窗元素查看
+// @author       You
+// @match        *://*/*
+// @exclude      *://*.chatgpt.com/*
+// @exclude      *://*.x.com/*
+// @exclude      *://*.github.com/*
+// @grant        none
+// @run-at       document-start
+// ==/UserScript==
+
+(function() {
+    'use strict';
+    let epTTPolicy = null;
+    try {
+        if (window.trustedTypes && typeof window.trustedTypes.createPolicy === 'function') {
+            epTTPolicy = window.trustedTypes.createPolicy('ep-pick-policy', {
+                createHTML: s => s
+            });
+        }
+    } catch (e) { /* 站点 CSP 不允许该名字时静默降级 */ }
+
+    function setHTML(el, html) {
+        if (!el) return;
+        html = String(html == null ? '' : html);
+        if (epTTPolicy) {
+            try { el.innerHTML = epTTPolicy.createHTML(html); return; } catch (e) {}
+        }
+        try { el.innerHTML = html; }
+        catch (e) {
+            try {
+                const doc = new DOMParser().parseFromString(html, 'text/html');
+                while (el.firstChild) el.removeChild(el.firstChild);
+                while (doc.body.firstChild) el.appendChild(doc.body.firstChild);
+            } catch (e2) { console.warn('[EP] setHTML fallback failed:', e2); }
+        }
+    }
+
+    let isPicking = false;
+    let currentHoveredEl = null;
+    let selectedElements = [];
+
+    let touchStartEl = null;
+    let touchStartCoords = null;
+
+    let uiHost = null;
+    let shadowRoot = null;
+    let fab = null;
+    let tipText = null;
+    let finishBtn = null;
+
+    let highlightStyleEl = null;
+    let mbGuardObserver = null;
+
+    // 注入主文档的高亮样式
+    function injectHighlightStyle() {
+        if (document.getElementById('ep-highlight-style')) return;
+        const style = document.createElement('style');
+        style.id = 'ep-highlight-style';
+        style.textContent = `
+            .ep-selected-element {
+                outline: 3px solid #28a745 !important;
+                outline-offset: -1px;
+                transition: outline 0.15s ease;
+            }
+        `;
+        (document.head || document.documentElement).appendChild(style);
+        highlightStyleEl = style;
+    }
+
+    function initUI() {
+        if (uiHost) return;
+        uiHost = document.createElement('div');
+        uiHost.id = 'ep-host-' + Date.now();
+        uiHost.style.cssText = 'position:fixed; inset:0; z-index:2147483647; pointer-events:none;';
+        document.documentElement.appendChild(uiHost);
+        shadowRoot = uiHost.attachShadow({ mode: 'open' });
+    }
+
+    function ensureGlassStyles() {
+        if (shadowRoot.getElementById('ep-fab-style')) return;
+        const st = document.createElement('style');
+        st.id = 'ep-fab-style';
+        st.textContent = `
+            /* ============ 悬浮球 ============ */
+            .ep-fab {
+                position: fixed;
+                bottom: 80px;
+                left: 50%;
+                transform: translateX(-50%);
+                width: 56px;
+                height: 56px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 26px;
+                line-height: 1;
+                box-sizing: border-box;
+                border-radius: 9999px;
+                background: rgba(255, 255, 255, 0.18);
+                border: 1px double rgba(255, 255, 255, 0.55);
+                color: rgba(17, 24, 39, 0.92);
+                overflow: hidden;
+                isolation: isolate;
+                backdrop-filter: blur(8px) saturate(140%);
+                -webkit-backdrop-filter: blur(8px) saturate(140%);
+                box-shadow:
+                    inset 1.5px -1.5px 1px -1px rgba(255, 255, 255, .92),
+                    inset -1.5px 1.5px 1px -1px rgba(255, 255, 255, .9),
+                    inset 0 0 3px rgba(15, 23, 42, .35),
+                    0 16px 32px rgba(15, 23, 42, .18);
+                z-index: 2147483647;
+                cursor: pointer;
+                pointer-events: auto;
+                user-select: none;
+                -webkit-user-select: none;
+                transition: transform .15s ease, box-shadow .15s ease;
+            }
+            .ep-fab::before {
+                content: "";
+                position: absolute;
+                pointer-events: none;
+                border-radius: inherit;
+                top: 35%;
+                left: 50%;
+                transform: translateX(-50%);
+                width: calc(100% - 14px);
+                height: calc(100% - 14px);
+                border: 1px double rgba(0, 0, 0, .18);
+                filter: blur(6px);
+            }
+            .ep-fab::after {
+                content: "";
+                position: absolute;
+                inset: 0;
+                border-radius: inherit;
+                pointer-events: none;
+            }
+            .ep-fab > * { position: relative; z-index: 1; }
+            .ep-fab:active {
+                transform: translateX(-50%) scale(0.94);
+                box-shadow:
+                    inset 1.5px -1.5px 1px -1px rgba(255, 255, 255, .92),
+                    inset -1.5px 1.5px 1px -1px rgba(255, 255, 255, .9),
+                    inset 0 0 3px rgba(15, 23, 42, .35),
+                    0 8px 16px rgba(15, 23, 42, .18);
+            }
+
+            /* ============ 玻璃按钮 ============ */
+            .ep-glass-btn {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                gap: 4px;
+                padding: 6px 12px;
+                border: 1px double rgba(255, 255, 255, 0.45);
+                border-radius: 9999px;
+                background: rgba(255, 255, 255, 0.01);
+                color: var(--ep-btn-color, #ffffff);
+                font-size: 12px;
+                font-weight: bold;
+                font-family: inherit;
+                line-height: 1.2;
+                cursor: pointer;
+                box-sizing: border-box;
+                overflow: hidden;
+                isolation: isolate;
+                position: relative;
+                backdrop-filter: blur(8px) saturate(140%);
+                -webkit-backdrop-filter: blur(8px) saturate(140%);
+                box-shadow:
+                    inset 1.5px -1.5px 1px -1px rgba(255, 255, 255, .92),
+                    inset -1.5px 1.5px 1px -1px rgba(255, 255, 255, .9),
+                    inset 0 0 3px rgba(15, 23, 42, .30),
+                    0 6px 14px rgba(15, 23, 42, .18);
+                text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+                transition: transform .15s ease, box-shadow .15s ease, background .15s ease;
+            }
+            .ep-glass-btn::before {
+                content: "";
+                position: absolute;
+                pointer-events: none;
+                border-radius: inherit;
+                top: 35%;
+                left: 50%;
+                transform: translateX(-50%);
+                width: calc(100% - 10px);
+                height: calc(100% - 10px);
+                border: 1px double rgba(0, 0, 0, .16);
+                filter: blur(5px);
+            }
+            .ep-glass-btn:active {
+                transform: scale(0.96);
+                box-shadow:
+                    inset 1.5px -1.5px 1px -1px rgba(255, 255, 255, .92),
+                    inset -1.5px 1.5px 1px -1px rgba(255, 255, 255, .9),
+                    inset 0 0 3px rgba(15, 23, 42, .30),
+                    0 3px 8px rgba(15, 23, 42, .18);
+            }
+        `;
+        shadowRoot.appendChild(st);
+    }
+
+    function createFAB() {
+        if (fab) return;
+        initUI();
+        ensureGlassStyles();
+
+        fab = document.createElement('div');
+        fab.className = 'ep-fab';
+        setHTML(fab, '<span>🕵️</span>');
+
+        fab.addEventListener('touchstart', (e) => {
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+        }, { capture: true });
+
+        fab.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+            enterPickingMode();
+        }, { capture: true });
+
+        shadowRoot.appendChild(fab);
+    }
+
+    function showTip() {
+        initUI();
+        ensureGlassStyles();
+        let tip = shadowRoot.getElementById('ep-tip');
+        if (!tip) {
+            tip = document.createElement('div');
+            tip.id = 'ep-tip';
+            tip.style.cssText = `
+                position:fixed; bottom:140px; left:50%; transform:translateX(-50%);
+                background:rgba(255,255,255,0.01); color:#fff; padding:8px 12px; border-radius:20px;
+                font-size:13px; font-weight:bold;
+                box-shadow:
+                    inset 1.5px -1.5px 1px -1px rgba(255,255,255,.92),
+                    inset -1.5px 1.5px 1px -1px rgba(255,255,255,.9),
+                    inset 0 0 3px rgba(15,23,42,.28),
+                    0 10px 24px rgba(15,23,42,0.22);
+                pointer-events:auto; z-index:2147483647; white-space:nowrap; max-width: 95vw;
+                display: flex; align-items: center; gap: 8px;
+                border: 1px double rgba(255,255,255,0.55);
+                backdrop-filter: blur(8px) saturate(140%);
+                -webkit-backdrop-filter: blur(8px) saturate(140%);
+                text-shadow: 0 1px 3px rgba(0,0,0,0.45);
+            `;
+            setHTML(tip, `
+                <span id="ep-tip-text" style="color:#ffcc00; flex-shrink: 0;">🕵️ 点击选择/取消 (0)</span>
+                <button id="ep-cancel" class="ep-glass-btn" style="--ep-btn-color:#ff7b7b;">❌ 取消</button>
+                <button id="ep-finish" class="ep-glass-btn" style="display:none; --ep-btn-color:#7be58c;">✅ 查看</button>
+            `);
+            shadowRoot.appendChild(tip);
+
+            tipText = shadowRoot.getElementById('ep-tip-text');
+            finishBtn = shadowRoot.getElementById('ep-finish');
+
+            shadowRoot.getElementById('ep-cancel').addEventListener('click', (e) => { e.stopPropagation(); exitPickingMode(true); });
+            finishBtn.addEventListener('click', (e) => { e.stopPropagation(); exitPickingMode(false); });
+        }
+        tip.style.display = 'flex';
+        updateTipUI();
+    }
+
+    function updateTipUI() {
+        if (!tipText) return;
+        const count = selectedElements.length;
+        tipText.textContent = `🕵️ 点击选择/取消 (${count})`;
+        if (finishBtn) finishBtn.style.display = count > 0 ? 'inline-flex' : 'none';
+    }
+
+    function hideTip() {
+        const tip = shadowRoot?.getElementById('ep-tip');
+        if (tip) tip.style.display = 'none';
+    }
+
+    // 获取元素完整 HTML
+    function getElementHTML(el) {
+        const clone = el.cloneNode(true);
+        const cleanup = (node) => {
+            if (node.nodeType === 1) {
+                node.classList.remove('ep-selected-element');
+                if (node.classList.length === 0) node.removeAttribute('class');
+                node.style.removeProperty('outline');
+                if (!node.getAttribute('style')) node.removeAttribute('style');
+                Array.from(node.children).forEach(cleanup);
+            }
+        };
+        cleanup(clone);
+        return clone.outerHTML;
+    }
+
+    function escapeHTML(str) {
+        return str.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+    }
+
+    function showResultsPanel() {
+        initUI();
+        ensureGlassStyles();
+        let panel = shadowRoot.getElementById('ep-panel');
+        if (panel) panel.remove();
+
+        panel = document.createElement('div');
+        panel.id = 'ep-panel';
+        panel.style.cssText = `
+            position:fixed; top:50%; left:50%; transform:translate(-50%, -50%);
+            background:rgba(20, 20, 25, 0.98); color:#eee; padding:20px; border-radius:16px;
+            width:340px; max-width:94vw; max-height:85vh; overflow-y:auto;
+            box-shadow:0 10px 30px rgba(0,0,0,0.6); border:1px solid rgba(255,255,255,0.1);
+            pointer-events:auto; z-index:2147483647; font-size:14px; line-height:1.5;
+        `;
+
+        let listHTML = '';
+        const selectors = [];
+        const htmls = [];
+
+        selectedElements.forEach((el, index) => {
+            const tag = el.tagName.toLowerCase();
+            const classes = el.classList.length ? '.' + Array.from(el.classList).filter(c => c !== 'ep-selected-element').join('.') : '';
+            const selector = getCssSelector(el);
+            const htmlCode = getElementHTML(el);
+            selectors.push(selector);
+            htmls.push(htmlCode);
+
+            const htmlPreview = escapeHTML(htmlCode.length > 2000 ? htmlCode.substring(0, 2000) + '\n...[已截断]' : htmlCode);
+
+            listHTML += `
+                <div style="background:rgba(255,255,255,0.05); padding:12px; border-radius:10px; margin-bottom:10px; border:1px solid rgba(255,255,255,0.05);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                        <span style="color:#98DD98; font-family:monospace; font-size:13px;">${tag}${classes ? '<span style="color:#888; font-size:11px;"> ' + escapeHTML(classes.substring(0, 20)) + (classes.length > 20 ? '...' : '') + '</span>' : ''}</span>
+                    </div>
+
+                    <div style="color:#888; font-size:11px; margin:6px 0 3px;">CSS 选择器</div>
+                    <div class="ep-selector-text" style="background:rgba(0,0,0,0.4); padding:8px; border-radius:6px; font-family:monospace; word-break:break-all; color:#ffcc00; font-size:11px; user-select:all; -webkit-user-select:all;">
+                        ${selector}
+                    </div>
+                    <button class="ep-copy-selector ep-glass-btn" data-idx="${index}" style="margin-top:6px; --ep-btn-color:#64b4ff;">复制选择器</button>
+
+                    <div style="color:#888; font-size:11px; margin:10px 0 3px;">HTML 内容</div>
+                    <div class="ep-html-text" style="background:rgba(0,0,0,0.4); padding:8px; border-radius:6px; font-family:monospace; white-space:pre-wrap; word-break:break-all; color:#98DD98; font-size:11px; max-height:150px; overflow-y:auto; user-select:all; -webkit-user-select:all;">${htmlPreview}</div>
+                    <button class="ep-copy-html ep-glass-btn" data-idx="${index}" style="margin-top:6px; --ep-btn-color:#98DD98;">复制 HTML</button>
+                </div>
+            `;
+        });
+
+        setHTML(panel, `
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:10px;">
+                <h3 style="margin:0; font-size:16px; color:#98DD98;">🕵️ 已选 ${selectedElements.length} 个元素</h3>
+                <button id="ep-close-panel" class="ep-glass-btn" style="--ep-btn-color:#ffffff; font-size:13px;">关闭</button>
+            </div>
+            <div style="display:flex; gap:8px; margin-bottom:15px;">
+                <button id="ep-copy-all-selectors" class="ep-glass-btn" style="
+                    flex:1; padding:12px; --ep-btn-color:#64b4ff; font-size:13px;
+                ">📋 所有选择器</button>
+                <button id="ep-copy-all-html" class="ep-glass-btn" style="
+                    flex:1; padding:12px; --ep-btn-color:#98DD98; font-size:13px;
+                ">📋 所有 HTML</button>
+            </div>
+            <div id="ep-list">${listHTML}</div>
+        `);
+
+        shadowRoot.appendChild(panel);
+
+        shadowRoot.getElementById('ep-close-panel').addEventListener('click', () => panel.remove());
+
+        shadowRoot.getElementById('ep-copy-all-selectors').addEventListener('click', (e) => {
+            e.preventDefault();
+            copyToClipboard(selectors.join(', '), e.currentTarget, '📋 所有选择器');
+        });
+
+        shadowRoot.getElementById('ep-copy-all-html').addEventListener('click', (e) => {
+            e.preventDefault();
+            copyToClipboard(htmls.join('\n\n'), e.currentTarget, '📋 所有 HTML');
+        });
+
+        panel.querySelectorAll('.ep-copy-selector').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                const idx = parseInt(btn.getAttribute('data-idx'));
+                copyToClipboard(selectors[idx], btn, '复制选择器');
+            });
+        });
+
+        panel.querySelectorAll('.ep-copy-html').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                const idx = parseInt(btn.getAttribute('data-idx'));
+                copyToClipboard(htmls[idx], btn, '复制 HTML');
+            });
+        });
+    }
+
+    function copyToClipboard(text, btn, originalText) {
+        const fallback = () => {
+            const ta = document.createElement('textarea');
+            ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+            document.body.appendChild(ta); ta.select();
+            try { document.execCommand('copy'); success(); } catch (e) { alert('复制失败，请长按手动复制。'); }
+            document.body.removeChild(ta);
+        };
+
+        const success = () => {
+            btn.textContent = '✅ 已复制';
+            btn.style.setProperty('--ep-btn-color', '#ffffff');
+            btn.style.background = 'rgba(40, 167, 69, 0.55)';
+            setTimeout(() => {
+                btn.textContent = originalText;
+                btn.style.removeProperty('--ep-btn-color');
+                btn.style.background = '';
+            }, 1500);
+        };
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(success).catch(fallback);
+        } else { fallback(); }
+    }
+
+    function getCssSelector(el) {
+        if (!el || el === document.body || el === document.documentElement) return 'body';
+        if (el.id) return `#${CSS.escape(el.id)}`;
+        let path = [];
+        let current = el;
+        while (current && current !== document.body && current !== document.documentElement) {
+            let selector = current.tagName.toLowerCase();
+            if (current.id) { path.unshift(`#${CSS.escape(current.id)}`); break; }
+            if (current.classList && current.classList.length > 0) {
+                const validClasses = Array.from(current.classList).filter(c => c !== 'ep-selected-element' && !/^[a-z0-9]{5,8}$/i.test(c));
+                if (validClasses.length > 0) selector += '.' + validClasses.map(c => CSS.escape(c)).join('.');
+            }
+            let sibling = current, nth = 1;
+            while (sibling = sibling.previousElementSibling) { if (sibling.tagName === current.tagName) nth++; }
+            if (nth > 1 || current.nextElementSibling) selector += `:nth-of-type(${nth})`;
+            path.unshift(selector);
+            current = current.parentElement;
+            if (path.length > 3) break;
+        }
+        return path.join(' > ');
+    }
+
+    function setOutline(el) {
+        if (currentHoveredEl && currentHoveredEl !== el) {
+            if (!currentHoveredEl.classList.contains('ep-selected-element')) {
+                currentHoveredEl.style.outline = currentHoveredEl.__ep_orig_outline || '';
+            }
+        }
+        if (el && el !== document.body && el !== document.documentElement && !uiHost.contains(el)) {
+            if (!el.classList.contains('ep-selected-element')) {
+                el.__ep_orig_outline = el.style.outline;
+                el.style.outline = '3px solid #98DD98';
+            }
+            currentHoveredEl = el;
+        }
+    }
+
+    function clearOutline() {
+        if (currentHoveredEl) {
+            if (!currentHoveredEl.classList.contains('ep-selected-element')) {
+                currentHoveredEl.style.outline = currentHoveredEl.__ep_orig_outline || '';
+            }
+            currentHoveredEl = null;
+        }
+    }
+
+    function getEventCoords(e) {
+        if (e.touches && e.touches.length > 0) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        if (e.changedTouches && e.changedTouches.length > 0) return { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY };
+        return { x: 0, y: 0 };
+    }
+
+    function globalBlocker(e) {
+        if (e.composedPath && e.composedPath().includes(uiHost)) return;
+
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        if (e.cancelable) e.preventDefault();
+
+        if (e.type === 'click') return;
+
+        if (e.type === 'touchstart') {
+            const coords = getEventCoords(e);
+            touchStartCoords = coords;
+            const el = document.elementFromPoint(coords.x, coords.y);
+            if (el && el !== document.body && el !== document.documentElement && !uiHost.contains(el)) {
+                touchStartEl = el;
+                setOutline(el);
+            } else {
+                touchStartEl = null;
+            }
+        } else if (e.type === 'touchmove') {
+            const coords = getEventCoords(e);
+            if (touchStartCoords && (Math.abs(coords.x - touchStartCoords.x) > 10 || Math.abs(coords.y - touchStartCoords.y) > 10)) {
+                clearOutline();
+                touchStartEl = null;
+            }
+        } else if (e.type === 'touchend') {
+            if (touchStartEl) {
+                const idx = selectedElements.indexOf(touchStartEl);
+                if (idx === -1) {
+                    selectedElements.push(touchStartEl);
+                    touchStartEl.classList.add('ep-selected-element');
+                    touchStartEl.style.outline = touchStartEl.__ep_orig_outline || '';
+                } else {
+                    selectedElements.splice(idx, 1);
+                    touchStartEl.classList.remove('ep-selected-element');
+                }
+                updateTipUI();
+            }
+            clearOutline();
+            touchStartEl = null;
+            touchStartCoords = null;
+        }
+    }
+
+    function enterPickingMode() {
+        if (isPicking) return;
+        isPicking = true;
+        selectedElements = [];
+        if (fab) fab.style.display = 'none';
+        showTip();
+        injectHighlightStyle();
+
+        const evts = ['touchstart', 'touchmove', 'touchend', 'click'];
+        evts.forEach(evt => document.addEventListener(evt, globalBlocker, { capture: true, passive: false }));
+    }
+
+    function exitPickingMode(isCancel) {
+        if (!isPicking) return;
+        isPicking = false;
+        hideTip();
+        clearOutline();
+        if (fab) fab.style.display = 'flex';
+
+        const snapshot = selectedElements.slice();
+
+        document.querySelectorAll('.ep-selected-element').forEach(el => {
+            el.classList.remove('ep-selected-element');
+        });
+
+        const evts = ['touchstart', 'touchmove', 'touchend', 'click'];
+        evts.forEach(evt => document.removeEventListener(evt, globalBlocker, true));
+
+        if (!isCancel && snapshot.length > 0) {
+            selectedElements = snapshot;
+            showResultsPanel();
+        }
+        selectedElements = [];
+    }
+
+    function ensureMounted() {
+        if (uiHost && !document.documentElement.contains(uiHost)) {
+            document.documentElement.appendChild(uiHost);
+        }
+        if (highlightStyleEl) {
+            const styleParent = document.head || document.documentElement;
+            if (!styleParent.contains(highlightStyleEl)) {
+                styleParent.appendChild(highlightStyleEl);
+            }
+        }
+    }
+
+    function startGuard() {
+        mbGuardObserver = new MutationObserver(() => ensureMounted());
+        mbGuardObserver.observe(document.documentElement, { childList: true, subtree: true });
+        window.addEventListener('load', ensureMounted);
+    }
+
+    createFAB();
+    startGuard();
+})();
