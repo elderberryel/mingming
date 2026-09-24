@@ -5,11 +5,9 @@
 // @description  元素隐藏
 // @author       明明
 // @match        *://*/*
-// @exclude      *://chatgpt.com/*
 // @exclude      *://*.chatgpt.com/*
-// @exclude      *://zh.flightaware.com/*
 // @exclude      *://*.zh.flightaware.com/*
-// @exclude      *://pqjc.site/*
+// @exclude      *://*.apkpure.com/*
 // @exclude      *://*.pqjc.site/*
 // @run-at       document-start
 // @grant        GM_addStyle
