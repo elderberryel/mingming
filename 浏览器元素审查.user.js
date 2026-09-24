@@ -4,6 +4,9 @@
 // @version      5.0
 // @author       明明
 // @match        *://*/*
+// @exclude      *://*.x.com/*
+// @exclude      *://*.chatgpt.com/*
+// @exclude      *://*.github.com/*
 // @grant        GM_addStyle
 // @grant        GM_setClipboard
 // @grant        GM_registerMenuCommand
@@ -15,6 +18,31 @@
 
 (function(){
 'use strict';
+
+let mbTTPolicy=null;
+try{
+  if(window.trustedTypes&&typeof window.trustedTypes.createPolicy==='function'){
+    mbTTPolicy=window.trustedTypes.createPolicy('mb-debug-policy',{
+      createHTML:s=>s,
+      createScript:s=>s
+    });
+  }
+}catch(e){/* 站点 CSP 的 trusted-types 指令不允许该名字时静默降级 */}
+function setHTML(el,html){
+  if(!el)return;
+  html=String(html==null?'':html);
+  if(mbTTPolicy){
+    try{el.innerHTML=mbTTPolicy.createHTML(html);return;}catch(e){}
+  }
+  try{el.innerHTML=html;}catch(e){
+    try{
+      const doc=new DOMParser().parseFromString(html,'text/html');
+      while(el.firstChild)el.removeChild(el.firstChild);
+      while(doc.body.firstChild)el.appendChild(doc.body.firstChild);
+    }catch(e2){console.warn('[mb] setHTML fallback failed:',e2);}
+  }
+}
+
 let isDebugMode=!1,isLogging=!1,isPicking=!1,currentTarget=null,activePreviewStyle=null,adUpdateTimer=null,historyStack=[],searchResults=[],currentSearchIdx=-1;
 const DEFAULT_SVG=`<svg viewBox="0 0 24 24"> <rect x="6" y="6" width="14" height="14" rx="2.5" stroke="currentColor" stroke-width="1.8" fill="none" style="color:var(--mb-text); opacity:0.7;"/> <path d="M9 10h8M9 13h5M9 16h8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" style="color:var(--mb-text); opacity:0.4;"/><g transform="translate(2, 2)"><path d="M4.5 4.5l6.5 6.5M4.5 4.5v5.5M4.5 4.5h5.5" stroke="#007aff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></g></svg>`;
 const host=document.createElement('div');
@@ -94,7 +122,7 @@ globalStyle.textContent=`.mb-inspect-hl{outline:2px dashed #ff4757 !important;ou
 (document.head||document.documentElement).appendChild(globalStyle);
 const panel=document.createElement('div');
 panel.id='mb-debug-panel';
-panel.innerHTML=`
+setHTML(panel,`
 <div id="mb-debug-header">
 <div class="mb-header-left"><span class="mb-tool-btn" id="mb-btn-pick">🎯选取</span></div>
 <div class="mb-header-middle">
@@ -138,7 +166,7 @@ panel.innerHTML=`
 <div id="mb-code-display" style="flex:1;overflow:auto;padding:15px;font-family:monospace;font-size:12px;white-space:pre;background:var(--mb-item-bg);line-height:1.5;"></div>
 </div>
 </div>
-<div id="mb-resize-handle" title="拖动缩放"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M15 1 L15 6 M15 1 L10 1 M15 1 L8 8" stroke="#ff4757" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div>`;
+<div id="mb-resize-handle" title="拖动缩放"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M15 1 L15 6 M15 1 L10 1 M15 1 L8 8" stroke="#ff4757" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div>`);
 shadow.appendChild(panel);
 const trigger=document.createElement('div');
 trigger.id='mb-debug-trigger';
@@ -237,26 +265,26 @@ rules.sort((a,b)=>{const getWeight=s=>{if(s.includes(' + '))return 0;const hasDo
 return rules.filter(r=>{const parts=r.split(/###?/),host=parts[0],selector=parts[1];if(!selector)return!1;if(selector.includes('target=')&&!selector.includes('href')&&!selector.includes('onclick'))return!1;if(!host&&selector==='a')return!1;if(selector.includes('[srcid')||selector.includes('[tpl')||r.includes(' + ')||/\[(?!(?:style|width|height|class|id)\b)[^\]]+[\*^]?=/.test(selector)||selector.startsWith('a['))return!0;return!['div','span','p','li','ul','ins','section','article'].includes(selector.split('[')[0]);});
 }
 function renderAdPage(){
-if(!adContent)return;adContent.innerHTML='';
-if(!currentTarget){adContent.innerHTML='<div style="color:#999;padding:20px;">请先在网页上点击选取一个元素...</div>';return;}
+if(!adContent)return;setHTML(adContent,'');
+if(!currentTarget){setHTML(adContent,'<div style="color:#999;padding:20px;">请先在网页上点击选取一个元素...</div>');return;}
 const rules=generateSmartRules(currentTarget);
-if(!rules.length){adContent.innerHTML='<div style="color:#999;padding:20px;">该元素特征不足，未生成自动规则。</div>';return;}
+if(!rules.length){setHTML(adContent,'<div style="color:#999;padding:20px;">该元素特征不足，未生成自动规则。</div>');return;}
 rules.forEach(ruleText=>{
 let currentRule=ruleText;const originalRule=ruleText;
 const item=document.createElement('div');item.className='ad-rule-item';
 const updateUI=(isEditing=!1)=>{
 const isVia=!!(window.via&&window.via.cmd),isX=!!(window.mbrowser&&window.mbrowser.addCustomAdRule);
 let btnText=isVia?'添加到Via':(isX?'添加到Xbrowser':'复制');
-item.innerHTML=`<div class="ad-rule-display" ${isEditing?'contenteditable="true" style="border:1px solid #007bff;padding:5px;outline:none;background:var(--mb-bg);"':''}>${isEditing?currentRule:highlightAdRule(currentRule)}</div>
-<div class="ad-action-bar">${isEditing?`<button class="ad-mini-btn btn-save" style="background:#28a745;color:#fff;border:none;">保存</button><button class="ad-mini-btn btn-undo">撤销</button>`:`<button class="ad-mini-btn btn-copy">${btnText}</button><button class="ad-mini-btn btn-pre">预览执行</button><button class="ad-mini-btn btn-res">恢复单条</button><button class="ad-mini-btn btn-edit">编辑</button>`}</div>`;
+setHTML(item,`<div class="ad-rule-display" ${isEditing?'contenteditable="true" style="border:1px solid #007bff;padding:5px;outline:none;background:var(--mb-bg);"':''}>${isEditing?currentRule:highlightAdRule(currentRule)}</div>
+<div class="ad-action-bar">${isEditing?`<button class="ad-mini-btn btn-save" style="background:#28a745;color:#fff;border:none;">保存</button><button class="ad-mini-btn btn-undo">撤销</button>`:`<button class="ad-mini-btn btn-copy">${btnText}</button><button class="ad-mini-btn btn-pre">预览执行</button><button class="ad-mini-btn btn-res">恢复单条</button><button class="ad-mini-btn btn-edit">编辑</button>`}</div>`);
 if(isEditing){const d=item.querySelector('.ad-rule-display');setTimeout(()=>d.focus(),10);item.querySelector('.btn-save').onclick=()=>{currentRule=d.innerText.trim();updateUI(!1);};item.querySelector('.btn-undo').onclick=()=>{currentRule=originalRule;updateUI(!1);};}
-else{item.querySelector('.btn-copy').onclick=()=>{if(isX)window.mbrowser.addCustomAdRule(currentRule);else if(isVia)viaApiInject(currentRule);else api.setClipboard(currentRule);};item.querySelector('.btn-edit').onclick=()=>updateUI(!0);item.querySelector('.btn-pre').onclick=()=>{if(activePreviewStyle)activePreviewStyle.remove();activePreviewStyle=document.createElement('style');try{const isIdRule=currentRule.includes('###');let selector=currentRule.split(/###?/)[1];if(isIdRule&&!selector.startsWith('#'))selector='#'+selector;activePreviewStyle.innerHTML=`${selector} { display: none !important; }`;document.head.appendChild(activePreviewStyle);}catch(e){alert("语法错误");}};item.querySelector('.btn-res').onclick=()=>{if(activePreviewStyle)activePreviewStyle.remove();};}
+else{item.querySelector('.btn-copy').onclick=()=>{if(isX)window.mbrowser.addCustomAdRule(currentRule);else if(isVia)viaApiInject(currentRule);else api.setClipboard(currentRule);};item.querySelector('.btn-edit').onclick=()=>updateUI(!0);item.querySelector('.btn-pre').onclick=()=>{if(activePreviewStyle)activePreviewStyle.remove();activePreviewStyle=document.createElement('style');try{const isIdRule=currentRule.includes('###');let selector=currentRule.split(/###?/)[1];if(isIdRule&&!selector.startsWith('#'))selector='#'+selector;activePreviewStyle.textContent=`${selector} { display: none !important; }`;document.head.appendChild(activePreviewStyle);}catch(e){alert("语法错误");}};item.querySelector('.btn-res').onclick=()=>{if(activePreviewStyle)activePreviewStyle.remove();};}
 };
 updateUI();adContent.appendChild(item);
 });
 }
 function renderDataPage(){
-dataContent.innerHTML='';
+setHTML(dataContent,'');
 const getPaths=()=>{const p=window.location.pathname,s=p.split('/').filter(Boolean),r=['/',p];let c='';s.forEach(seg=>{c+='/'+seg;r.push(c);});return[...new Set(r)];};
 const getDoms=()=>{const d=window.location.hostname,r=[d,'.'+d],p=d.split('.');if(p.length>2){const root=p.slice(-2).join('.');r.push(root,'.'+root,'www.'+root,'.'+root);}return[...new Set(r)];};
 const configs=[
@@ -266,9 +294,9 @@ const configs=[
 ];
 configs.forEach(conf=>{
 const data=conf.get(),box=document.createElement('div');box.className='data-group-box';const keys=Object.keys(data);
-box.innerHTML=`<div style="font-weight:bold;font-size:16px;margin-bottom:10px;">${conf.emoji} ${conf.label} (${keys.length})</div>
+setHTML(box,`<div style="font-weight:bold;font-size:16px;margin-bottom:10px;">${conf.emoji} ${conf.label} (${keys.length})</div>
 <div class="data-action-bar"><button class="ad-mini-btn btn-copy-all">一键复制</button><button class="ad-mini-btn btn-clear-all" style="color:#d11;">一键清理</button></div>
-<div class="data-items-list" style="display:none;margin-top:10px;"></div>`;
+<div class="data-items-list" style="display:none;margin-top:10px;"></div>`);
 const list=box.querySelector('.data-items-list');
 box.onclick=e=>{if(e.target===box||e.target.parentElement===box)list.style.display=list.style.display==='none'?'block':'none';};
 box.querySelector('.btn-copy-all').onclick=e=>{e.stopPropagation();api.setClipboard(JSON.stringify(data,null,2));};
@@ -276,8 +304,8 @@ box.querySelector('.btn-clear-all').onclick=e=>{e.stopPropagation();if(confirm('
 keys.forEach(k=>{
 const item=document.createElement('div');item.className='data-item-card';let currentVal=data[k];
 const updateItemUI=(isEditing=!1)=>{
-item.innerHTML=`<div class="data-row-display"><span class="data-key-label">${k}</span> : <span class="data-val-text" ${isEditing?'contenteditable="true" style="border:1px solid #007bff;padding:2px;outline:none;background:var(--mb-bg);"':''}>${currentVal}</span></div>
-<div class="data-action-bar">${isEditing?`<button class="ad-mini-btn btn-save">确定</button><button class="ad-mini-btn btn-cancel">取消</button>`:`<button class="ad-mini-btn btn-copy">复制</button><button class="ad-mini-btn btn-edit">修改</button><button class="ad-mini-btn btn-del" style="color:#d11;">删除</button>`}</div>`;
+setHTML(item,`<div class="data-row-display"><span class="data-key-label">${k}</span> : <span class="data-val-text" ${isEditing?'contenteditable="true" style="border:1px solid #007bff;padding:2px;outline:none;background:var(--mb-bg);"':''}>${currentVal}</span></div>
+<div class="data-action-bar">${isEditing?`<button class="ad-mini-btn btn-save">确定</button><button class="ad-mini-btn btn-cancel">取消</button>`:`<button class="ad-mini-btn btn-copy">复制</button><button class="ad-mini-btn btn-edit">修改</button><button class="ad-mini-btn btn-del" style="color:#d11;">删除</button>`}</div>`);
 if(isEditing){const vd=item.querySelector('.data-val-text');setTimeout(()=>vd.focus(),10);item.querySelector('.btn-save').onclick=()=>{conf.set(k,vd.innerText.trim());currentVal=vd.innerText.trim();updateItemUI(!1);};item.querySelector('.btn-cancel').onclick=()=>updateItemUI(!1);}
 else{item.querySelector('.btn-copy').onclick=()=>api.setClipboard(currentVal);item.querySelector('.btn-edit').onclick=()=>updateItemUI(!0);item.querySelector('.btn-del').onclick=()=>{conf.del(k);item.remove();};}
 };
@@ -287,7 +315,7 @@ dataContent.appendChild(box);
 });
 }
 function renderIconPage(){
-iconContent.innerHTML=`<div class="icon-config-card"><div style="font-weight:bold;margin-bottom:10px;">位置与尺寸</div>
+setHTML(iconContent,`<div class="icon-config-card"><div style="font-weight:bold;margin-bottom:10px;">位置与尺寸</div>
 <div class="icon-config-row"><span>大小 (px):</span><input type="number" class="icon-input" id="in-icon-size" value="${api.getValue('mb_icon_size',32)}"></div>
 <div class="icon-config-row"><span>距离底部 (px):</span><input type="number" class="icon-input" id="in-icon-bottom" value="${api.getValue('mb_icon_bottom',95)}"></div>
 <div class="icon-config-row"><span>距离右侧 (px):</span><input type="number" class="icon-input" id="in-icon-right" value="${api.getValue('mb_icon_right',16)}"></div></div>
@@ -296,13 +324,13 @@ iconContent.innerHTML=`<div class="icon-config-card"><div style="font-weight:bol
 <div class="ad-action-bar" style="margin-top:10px;">
 <button class="ad-mini-btn" id="btn-icon-save" style="background:#007aff;color:#fff;border:none;">应用并保存</button>
 <button class="ad-mini-btn" id="btn-icon-reset">恢复默认</button>
-<button class="ad-mini-btn" id="btn-icon-temp-hide" style="color:#ff4757;">临时隐藏图标</button></div></div>`;
+<button class="ad-mini-btn" id="btn-icon-temp-hide" style="color:#ff4757;">临时隐藏图标</button></div></div>`);
 shadow.getElementById('btn-icon-save').onclick=()=>{api.setValue('mb_icon_size',parseInt(shadow.getElementById('in-icon-size').value));api.setValue('mb_icon_bottom',parseInt(shadow.getElementById('in-icon-bottom').value));api.setValue('mb_icon_right',parseInt(shadow.getElementById('in-icon-right').value));api.setValue('mb_icon_svg',shadow.getElementById('in-icon-svg').value);updateIconStyle();alert('保存成功');};
 shadow.getElementById('btn-icon-reset').onclick=()=>{if(confirm('确定恢复默认图标设置吗？')){api.setValue('mb_icon_size',32);api.setValue('mb_icon_bottom',95);api.setValue('mb_icon_right',16);api.setValue('mb_icon_svg',DEFAULT_SVG);renderIconPage();updateIconStyle();}};
 shadow.getElementById('btn-icon-temp-hide').onclick=()=>{if(trigger)trigger.style.display='none';alert('图标已临时隐藏，刷新页面即可恢复。');};
 }
 function renderSearchUI(bar){
-bar.innerHTML=`<div style="display:flex;flex-direction:column;width:100%;gap:8px;" id="mb-search-container">
+setHTML(bar,`<div style="display:flex;flex-direction:column;width:100%;gap:8px;" id="mb-search-container">
 <div style="display:flex;align-items:center;gap:5px;width:100%;">
 <button class="edit-btn" id="btn-search-prev">◀</button>
 <input type="text" id="mb-search-input" placeholder="输入关键词..." style="flex:1;height:34px;padding:0 8px;border:1px solid var(--mb-border);background:var(--mb-bg);color:var(--mb-text);border-radius:4px;outline:none;font-size:13px;">
@@ -310,12 +338,12 @@ bar.innerHTML=`<div style="display:flex;flex-direction:column;width:100%;gap:8px
 <button class="edit-btn" id="btn-search-next">▶</button></div>
 <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;opacity:0.8;">
 <span id="mb-search-count">就绪</span>
-<span class="edit-btn" id="btn-search-exit" style="color:#e74c3c;cursor:pointer;">退出搜索</span></div></div>`;
+<span class="edit-btn" id="btn-search-exit" style="color:#e74c3c;cursor:pointer;">退出搜索</span></div></div>`);
 const input=bar.querySelector('#mb-search-input'),countLab=bar.querySelector('#mb-search-count');
 const evTypes=['keydown','keyup','keypress','input','touchstart','mousedown','click'];
 const stopProp=e=>e.stopPropagation();
 const updateSelection=()=>{
-if(searchResults.length>0){currentSearchIdx=(currentSearchIdx+searchResults.length)%searchResults.length;const target=searchResults[currentSearchIdx];if(currentTarget)currentTarget.classList.remove('mb-inspect-hl');currentTarget=target;currentTarget.classList.add('mb-inspect-hl');const tc=shadow.getElementById('mb-dom-tree');if(tc){tc.innerHTML='';tc.appendChild(buildTree(currentTarget.parentElement||currentTarget,!0));setTimeout(()=>{const tl=tc.querySelector('.node-row.selected');if(tl)tl.scrollIntoView({behavior:'auto',block:'center'});},100);}target.scrollIntoView({behavior:'smooth',block:'center'});countLab.innerText=`结果: ${currentSearchIdx+1} / ${searchResults.length}`;}
+if(searchResults.length>0){currentSearchIdx=(currentSearchIdx+searchResults.length)%searchResults.length;const target=searchResults[currentSearchIdx];if(currentTarget)currentTarget.classList.remove('mb-inspect-hl');currentTarget=target;currentTarget.classList.add('mb-inspect-hl');const tc=shadow.getElementById('mb-dom-tree');if(tc){setHTML(tc,'');tc.appendChild(buildTree(currentTarget.parentElement||currentTarget,!0));setTimeout(()=>{const tl=tc.querySelector('.node-row.selected');if(tl)tl.scrollIntoView({behavior:'auto',block:'center'});},100);}target.scrollIntoView({behavior:'smooth',block:'center'});countLab.innerText=`结果: ${currentSearchIdx+1} / ${searchResults.length}`;}
 else countLab.innerText='未找到匹配';
 };
 const doSearch=()=>{
@@ -341,7 +369,7 @@ const actionsBar=shadow.getElementById('mb-node-actions');
 if(!currentTarget||!actionsBar)return;
 actionsBar.style.display='flex';
 if(actionsBar.getAttribute('data-mode')==='search'){renderSearchUI(actionsBar);return;}
-actionsBar.innerHTML='';
+setHTML(actionsBar,'');
 const btnHtml=document.createElement('button');btnHtml.className='edit-btn';btnHtml.id='btn-edit-html';actionsBar.appendChild(btnHtml);
 const btnEdit=document.createElement('button');btnEdit.className='edit-btn';btnEdit.id='btn-edit-node';actionsBar.appendChild(btnEdit);
 const btnImg=document.createElement('button');btnImg.className='edit-btn';btnImg.id='btn-edit-img';actionsBar.appendChild(btnImg);
@@ -364,11 +392,13 @@ btnHtml.onclick=e=>{e.stopPropagation();if(!editArea)return;if(editArea.style.di
 btnEdit.onclick=e=>{e.stopPropagation();if(currentTarget.contentEditable!=='true'&&currentTarget.getAttribute('contenteditable')!=='true'){saveHistory();stopPicking();['click','mousedown','mouseup','submit'].forEach(evName=>document.addEventListener(evName,preventInteraction,{capture:!0}));shrinkPanelForEdit();currentTarget.setAttribute('contenteditable','true');currentTarget.style.outline='2px dashed #ff4757';setTimeout(()=>{currentTarget.focus();try{const range=document.createRange(),sel=window.getSelection();range.selectNodeContents(currentTarget);range.collapse(!1);sel.removeAllRanges();sel.addRange(range);}catch(err){}},0);currentTarget.onblur=()=>finishTextEdit();currentTarget.onkeydown=ev=>{if(ev.key==='Enter'&&!ev.shiftKey){ev.preventDefault();currentTarget.blur();}};}else finishTextEdit();updateNodeActions();};
 btnDel.onclick=e=>{e.stopPropagation();if(confirm('确定删除该元素？')){saveHistory();clearAllHighlights();const p=currentTarget.parentElement,nextTarget=currentTarget.nextElementSibling||currentTarget.previousElementSibling||p;currentTarget.remove();currentTarget=(nextTarget&&nextTarget!==document.documentElement)?nextTarget:null;renderDOM();if(currentTarget)highlight(currentTarget);}};
 btnImg.onclick=e=>{e.stopPropagation();const input=document.createElement('input');input.type='file';input.accept='image/*';input.onchange=ev=>{const reader=new FileReader();reader.onload=rev=>{saveHistory();clearAllHighlights();if(currentTarget.tagName==='IMG')currentTarget.src=rev.target.result;else currentTarget.style.backgroundImage=`url(${rev.target.result})`;renderDOM();highlight(currentTarget);};reader.readAsDataURL(ev.target.files[0]);};input.click();};
-btnUndo.onclick=e=>{e.stopPropagation();const last=historyStack.pop();if(!last||!last.parent)return;if(currentTarget){currentTarget.setAttribute('contenteditable','false');currentTarget.onblur=null;currentTarget.onkeydown=null;currentTarget.style.outline='';['click','mousedown','mouseup','submit'].forEach(evName=>document.removeEventListener(evName,preventInteraction,{capture:!0}));}clearAllHighlights();const temp=document.createElement('div');temp.innerHTML=last.outerHTML;const restoredNode=temp.firstElementChild,existingNode=last.parent.children[last.index];if(existingNode)existingNode.replaceWith(restoredNode);else last.parent.appendChild(restoredNode);currentTarget=restoredNode;applyPanelHeight();startPicking();renderDOM();highlight(currentTarget);updateNodeActions();};
+btnUndo.onclick=e=>{e.stopPropagation();const last=historyStack.pop();if(!last||!last.parent)return;if(currentTarget){currentTarget.setAttribute('contenteditable','false');currentTarget.onblur=null;currentTarget.onkeydown=null;currentTarget.style.outline='';['click','mousedown','mouseup','submit'].forEach(evName=>document.removeEventListener(evName,preventInteraction,{capture:!0}));}clearAllHighlights();const temp=document.createElement('div');setHTML(temp,last.outerHTML);const restoredNode=temp.firstElementChild,existingNode=last.parent.children[last.index];if(existingNode)existingNode.replaceWith(restoredNode);else last.parent.appendChild(restoredNode);currentTarget=restoredNode;applyPanelHeight();startPicking();renderDOM();highlight(currentTarget);updateNodeActions();};
 }
 function updateIconStyle(){
-if(!trigger)return;const size=api.getValue('mb_icon_size',32),bottom=api.getValue('mb_icon_bottom',95),right=api.getValue('mb_icon_right',16),svgCode=api.getValue('mb_icon_svg',DEFAULT_SVG);
-trigger.style.width=size+'px';trigger.style.height=size+'px';trigger.style.bottom=bottom+'px';trigger.style.right=right+'px';trigger.innerHTML=svgCode;
+if(!trigger)return;
+const size=api.getValue('mb_icon_size',32),bottom=api.getValue('mb_icon_bottom',95),right=api.getValue('mb_icon_right',16),svgCode=api.getValue('mb_icon_svg',DEFAULT_SVG);
+trigger.style.width=size+'px';trigger.style.height=size+'px';trigger.style.bottom=bottom+'px';trigger.style.right=right+'px';
+setHTML(trigger,svgCode);
 const svgEl=trigger.querySelector('svg');if(svgEl){svgEl.style.width=(size*0.7)+'px';svgEl.style.height=(size*0.7)+'px';}
 }
 function buildTree(el,isRoot=!1){
@@ -382,7 +412,7 @@ const arrow=document.createElement('span');arrow.className='toggle-btn';arrow.in
 let html=`<span style="color:var(--mb-code-key);font-weight:bold;">&lt;${el.tagName.toLowerCase()}</span>`;
 for(let attr of el.attributes){let val=attr.value;if(attr.name==='class'){val=val.replace('mb-inspect-hl','').trim();if(!val)continue;}html+=` <span style="color:var(--mb-code-attr);"> ${attr.name}=</span><span style="color:var(--mb-code-val);">"${val}"</span>`;}
 html+=`<span style="color:var(--mb-code-key);font-weight:bold;">&gt;</span>`;
-const label=document.createElement('span');label.className='node-content';label.innerHTML=html;row.appendChild(label);
+const label=document.createElement('span');label.className='node-content';setHTML(label,html);row.appendChild(label);
 if(el===currentTarget){
 const editArea=document.createElement('div');editArea.className='html-edit-area';editArea.innerText=el.innerHTML;editArea.onclick=e=>e.stopPropagation();editArea.onkeydown=e=>e.stopPropagation();row.appendChild(editArea);
 if(el.contentEditable==='true'){el.style.outline='2px dashed #ff4757';el.style.backgroundColor='rgba(255,71,87,0.1)';}
@@ -391,7 +421,7 @@ const isInternalScript=el.tagName==='SCRIPT'&&!el.hasAttribute('src')&&el.textCo
 const isInternalStyle=el.tagName==='STYLE'&&!el.hasAttribute('href')&&el.textContent.trim().length>0;
 if(isInternalScript||isInternalStyle){
 const viewBtn=document.createElement('span');viewBtn.innerText=' [查看代码]';viewBtn.style.cssText="color:#007aff;cursor:pointer;font-weight:bold;margin-left:8px;";
-viewBtn.onclick=e=>{e.stopPropagation();const display=shadow.getElementById('mb-code-display'),title=shadow.getElementById('mb-code-title'),isJS=el.tagName==='SCRIPT';title.innerText=isJS?'JavaScript 格式化查看':'CSS 格式化查看';display.innerHTML=formatAndHighlight(el.textContent,isJS?'js':'css');shadow.getElementById('mb-btn-code-copy').onclick=()=>api.setClipboard(el.textContent);switchToPage(5);};
+viewBtn.onclick=e=>{e.stopPropagation();const display=shadow.getElementById('mb-code-display'),title=shadow.getElementById('mb-code-title'),isJS=el.tagName==='SCRIPT';title.innerText=isJS?'JavaScript 格式化查看':'CSS 格式化查看';setHTML(display,formatAndHighlight(el.textContent,isJS?'js':'css'));shadow.getElementById('mb-btn-code-copy').onclick=()=>api.setClipboard(el.textContent);switchToPage(5);};
 row.appendChild(viewBtn);
 }
 wrapper.appendChild(row);
@@ -404,7 +434,7 @@ row.onclick=e=>{e.stopPropagation();highlight(el);renderDOM();};
 return wrapper;
 }
 function renderDOM(){
-const treeContainer=shadow.getElementById('mb-dom-tree');if(!treeContainer)return;treeContainer.innerHTML='';
+const treeContainer=shadow.getElementById('mb-dom-tree');if(!treeContainer)return;setHTML(treeContainer,'');
 if(!currentTarget){const bar=shadow.getElementById('mb-node-actions');if(bar)bar.style.display='none';return;}
 treeContainer.appendChild(buildTree(currentTarget.parentElement||currentTarget,!0));
 updateNodeActions();
@@ -424,7 +454,7 @@ shadow.getElementById('mb-btn-code-back').onclick=()=>switchToPage(0);
 shadow.getElementById('mb-btn-close').onclick=()=>togglePanel(!1);
 shadow.getElementById('mb-btn-parent').onclick=()=>{if(currentTarget&&currentTarget.parentElement){highlight(currentTarget.parentElement);renderDOM();}};
 shadow.getElementById('mb-btn-restore').onclick=()=>{if(activePreviewStyle){activePreviewStyle.remove();activePreviewStyle=null;}};
-shadow.getElementById('btn-js-clear').onclick=()=>{jsLog.innerHTML='';};
+shadow.getElementById('btn-js-clear').onclick=()=>{setHTML(jsLog,'');};
 shadow.getElementById('btn-js-run').onclick=()=>{const code=jsInput.value.trim();if(!code)return;try{const result=window.eval(code);if(result!==undefined)addLog(result,'log-result');}catch(e){addLog(e.stack||e.message,'log-error');}};
 shadow.getElementById('btn-js-copy-all').onclick=()=>{const logs=Array.from(jsLog.querySelectorAll('.log-item'));if(!logs.length){alert('没有可复制的日志');return;}api.setClipboard(logs.map(el=>el.innerText).reverse().join('\n'));};
 api.registerMenu("开启/关闭审查面板",()=>togglePanel(!isDebugMode));
