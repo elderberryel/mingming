@@ -6,7 +6,6 @@
 // @author       明明
 // @match        *://*/*
 // @run-at       document-start
-// @exclude      *://chatgpt.com/*
 // @exclude      *://*.chatgpt.com/*
 // @grant        GM_getValue
 // @grant        GM_setValue
@@ -25,32 +24,37 @@ const _t0=(document.title||'').toLowerCase();
 if(_t0&&CF_TITLE_RE.test(_t0))return;
 try{if(typeof window._cf_chl_opt!=='undefined')return;}catch(e){}
 
+let _ttPolicy=null,_ttFailed=false;
+const _setHTML=(el,html)=>{
+ if(!_ttFailed&&typeof trustedTypes!=='undefined'&&trustedTypes.createPolicy){
+  if(!_ttPolicy){
+   try{_ttPolicy=trustedTypes.createPolicy('vie-bg-html',{createHTML:s=>s});}
+   catch(e){_ttPolicy=null;_ttFailed=true;}
+  }
+  if(_ttPolicy){try{el.innerHTML=_ttPolicy.createHTML(html);return;}catch(e){}}
+ }
+ try{el.innerHTML=html;}catch(e){console.warn('[浏览器背景] innerHTML 写入失败（CSP Trusted Types）',e);}
+};
 const SCRIPT_VERSION=(typeof GM_info!=='undefined'&&GM_info&&GM_info.script&&GM_info.script.version)||'6.9.4';
 const CONFIG_VERSION=SCRIPT_VERSION,NODE_ID_VERSION='v89';
 const CACHE_AVAILABLE=typeof caches!=='undefined'&&typeof caches.open==='function';
 if(!CACHE_AVAILABLE)console.warn('[浏览器背景] 当前环境不支持 CacheStorage，大图片将仅存于 GM 存储，可能影响性能');
-
 const THEME={LIGHT_TEXT:1,DARK_TEXT:2},THEME_LABEL={1:'浅字（暗底）',2:'深字（亮底）'},THEME_LABEL_SHORT={1:'浅字',2:'深字'};
 const isValidTheme=t=>t===1||t===2;
-
 const KEYS={url:'Vie背景图片',theme:'Vie背景',opacity:'Vie背景透明度',blur:'Vie背景模糊',enabled:'Vie背景启用',floatVisible:'Vie背景悬浮按钮显示',listMode:'Vie背景列表模式',floatPos:'Vie背景悬浮位置',nativeElementBlur:'Vie背景原生弹层模糊',overlayBlur:'Vie背景动态弹层模糊',overlayAlpha:'Vie背景动态弹层透明度',siteList:'Vie背景站点列表',siteConfigMap:'Vie背景站点配置'};
 const DEFAULTS={url:'https://im.gurl.eu.org/file/AgACAgEAAxkDAAEBp_1qmih0cKuixFJVVL37VIdQdW95pAACFgxrG95F0EQR6lJDI44cmAEAAwIAA3cAAz0E.jpeg',theme:1,opacity:.5,blur:0,enabled:true,floatVisible:true,listMode:'blacklist',floatPos:{right:10,bottom:90},nativeElementBlur:10,overlayBlur:10,overlayAlpha:.1};
 const STYLE_ID='vie-browser-bg-style-'+NODE_ID_VERSION,FLOAT_ID='vie-browser-bg-float-'+NODE_ID_VERSION,NATIVE_BLUR_STYLE_ID='vie-browser-bg-native-blur-style-'+NODE_ID_VERSION;
 const CACHE_NAME='vie-browser-bg-images-v1',CACHE_PREFIX='[cache:local]',GM_BACKUP_PREFIX='Vie背景图片备份_',GM_FILENAME_MAP='Vie背景图片文件名映射',MIGRATE_FLAG='Vie背景迁移标记';
 const COMPRESS_THRESHOLD=1024000,COMPRESS_TARGET=1024000,MAX_IMAGE_WIDTH=1600,MAX_IMAGE_HEIGHT=2560,MAX_FILE_SIZE=15728640;
 const SKELETON_BG='#999999',CONFIG_CACHE_TTL=500;
-
 const CAPTCHA_SELECTORS=['iframe[src*="challenges.cloudflare.com"]','iframe[src*="hcaptcha.com"]','iframe[src*="recaptcha.net"]','iframe[src*="recaptcha"]','.cf-turnstile','.h-captcha','.g-recaptcha'];
 const CAPTCHA_CSS_SELECTOR=CAPTCHA_SELECTORS.join(',');
 const CAPTCHA_IGNORE_SRC=/recaptcha\/api2\/(aframe|webworker)|recaptcha\/releases\/|recaptcha\/api\.js/;
 const SPA_WHITELIST=['pixiv.net','twitter.com','x.com','fanbox.cc'];
 const X_DROPDOWN_GUARD='[id^="typeaheadDropdown"],[role="listbox"],[role="menu"],[role="combobox"],[role="dialog"],.search-suggest,.sug-list,.s-sug,[class*="suggest"],[class*="dropdown"],[class*="autocomplete"],[class*="typeahead"],[id*="search-result"],[class*="search-result"]';
-
 const _T='transparent!important';
-
 const FLOAT_BALL_EXEMPT=['#goTopBottom','#tbSettingsBtn','#tbSettingsPanel','.tb-settings-btn','.tb-settings-panel','.btn-close'];
 const FLOAT_BALL_EXEMPT_CSS=FLOAT_BALL_EXEMPT.map(s=>`:where(:not(${s})):where(:not(${s} *))`).join('');
-
 /* === 玻璃共享常量 === */
 const _GI='inset 1.5px -1.5px 1px -1px rgba(255,255,255,.92),inset -1.5px 1.5px 1px -1px rgba(255,255,255,.90),inset 0 0 3px rgba(15,23,42,.35)';
 const _GI_SM=_GI+',0 8px 20px rgba(15,23,42,.16)';
@@ -163,7 +167,6 @@ const POPUP_UNFILTER='[data-slot="select-content"],[data-slot="dropdown-menu-con
 const POPUP_LEAF='[data-slot="select-item"],[data-slot="select-item-text"],[data-slot="dropdown-menu-item"],[data-slot="command-item"],[role="option"],[role="menuitem"]';
 const DROP='[id^="typeaheadDropdown"],.search-suggest,.sug-list,.s-sug,[class*="suggest"],[class*="dropdown"],[class*="autocomplete"],[id*="search-result"],[id*="search-results"],[id*="searchResult"],[id*="search_result"],[class*="search-result"],[class*="searchResult"],[class*="search-results"],[role="listbox"],[role="menu"],[id^="base-ui-"][id$="-list"],[id^="base-ui-"][id$="-popup"],'+SLOT_POPUP;
 const DROP_CHILD=kid('[id^="typeaheadDropdown"],.search-suggest,.sug-list,.s-sug,[class*="suggest"],[id*="search-result"],[id*="search-results"],[class*="search-result"],[role="listbox"],[role="menu"],[id^="base-ui-"][id$="-list"],[id^="base-ui-"][id$="-popup"],'+SLOT_POPUP);
-
 /* ===== 搜索框/按钮玻璃共享片段 ===== */
 const _SF_BASE=
  'border-radius:9999px!important;'
@@ -450,9 +453,7 @@ guessExt(u){if(Utils.isDataImageUrl(u)){const m=u.match(/^data:image\/(\w+)/);re
 getExtFromFilename(f){if(!f)return 'jpg';const p=f.split('.');return p.length<2?'jpg':p.pop().toLowerCase().replace('jpeg','jpg');},
 toAbsoluteUrl(u){if(!u)return '';if(/^(data|blob|https?):/.test(u))return u;if(u.startsWith('//'))return location.protocol+u;try{return new URL(u,location.href).href;}catch(e){return u;}}
 };
-
 const Store={get:(k,d)=>GM_getValue(k,d),set:(k,v)=>GM_setValue(k,v),del(k){try{GM_deleteValue(k);}catch(e){console.warn('[浏览器背景] 删除配置失败',e);}}};
-
 const ImageStore={
 _blobUsable:null,_blobCache:{},
 getFilenameMap(){return Utils.safeJSONParse(Store.get(GM_FILENAME_MAP,'{}'),{});},
@@ -530,7 +531,6 @@ async remove(key){
  if(CACHE_AVAILABLE){try{await caches.open(CACHE_NAME).then(c=>c.delete(new Request('/'+key)));}catch(e){console.warn('[浏览器背景] 删除缓存失败',e);}}
  Store.del(GM_BACKUP_PREFIX+key);ImageStore.deleteFilenameRecord(key);}
 };
-
 const Config={
 _cache:null,_cacheTime:0,
 invalidate(){Config._cache=null;Config._cacheTime=0;},
@@ -1431,8 +1431,6 @@ applyStyle(){
 async applyStyleFull(){if(!BackgroundImage.ready)await BackgroundImage.preload();StyleManager.applyStyle();},
 applyAgain(){Config.invalidate();BackgroundImage.ready=false;StyleManager.applyStyleFull();OverlayEnhancer.request();ShadowFixer.run();}
 };
-
-/* ===================== CaptchaGuard ===================== */
 const CaptchaGuard={
 active:false,_lastCheck:0,_enterTimer:null,_recoverTimer:null,
 CF_STRUCTURE_SELECTORS:['input[name="cf-turnstile-response"]','[id^="cf-chl-widget"]','[id^="cf-chl-"]','#challenge-error-text','[class*="challenge-platform"]'],
@@ -1484,8 +1482,6 @@ check(){
     if(!CaptchaGuard.findVisible()&&CaptchaGuard.active){CaptchaGuard.active=false;StyleManager.applyStyle();}},1500);}
  }
 };
-
-/* ===================== ShadowFixer ===================== */
 const ShadowFixer={
 _done:new WeakSet(),_injectedStyles:[],_lastRun:0,
 _SKIP:/eruda|chobitsu|chii|devtools|inspector|translate-ui|tu-panel|tu-btn|vie-browser-bg/i,
@@ -1537,8 +1533,6 @@ run(){
  }catch(e){console.warn('[浏览器背景] Shadow DOM 修复失败',e);}
 }
 };
-
-/* ===================== OverlayEnhancer ===================== */
 const OverlayEnhancer={
 _marked:new WeakSet(),_lastApplied:new WeakMap(),_keywordCache:new WeakMap(),_rafPending:false,_scanTimer:null,
 _lastScan:0,_scanMinInterval:1500,
@@ -1679,8 +1673,6 @@ startScanTimer(){
   const cfg=Config.merge(Utils.getHost()),ov=Config.getEffectiveOverlayValues();
   if(cfg.enabled&&!CaptchaGuard.active&&(ov.blur>0||ov.alpha>0))OverlayEnhancer.apply();},3000);}
 };
-
-/* ===================== HamburgerFixer（复用 GLASS_BTN_STR） ===================== */
 const HamburgerFixer={
 _last:0,
 fix(force){
@@ -1756,8 +1748,6 @@ fix(force){
  }
 }
 };
-
-/* ===================== AdmSearchFixer ===================== */
 const AdmSearchFixer={
 _bound:false,_last:0,
 clearEl(el){
@@ -1817,14 +1807,11 @@ bind(){
 },
 init(){AdmSearchFixer.bind();AdmSearchFixer.fix();}
 };
-
-/* ===================== ImageTools ===================== */
 const ImageTools={
 compress(dataUrl,target,cb){
  const img=new Image();
  img.onload=function(){
-  let w=img.width,h=img.height;
-  if(w>MAX_IMAGE_WIDTH||h>MAX_IMAGE_HEIGHT){const r=Math.min(MAX_IMAGE_WIDTH/w,MAX_IMAGE_HEIGHT/h);w=Math.round(w*r);h=Math.round(h*r);}
+  let w=img.width,h=img.height;  if(w>MAX_IMAGE_WIDTH||h>MAX_IMAGE_HEIGHT){const r=Math.min(MAX_IMAGE_WIDTH/w,MAX_IMAGE_HEIGHT/h);w=Math.round(w*r);h=Math.round(h*r);}
   const c=document.createElement('canvas');c.width=w;c.height=h;
   const ctx=c.getContext('2d');
   ctx.drawImage(img,0,0,w,h);
@@ -1903,8 +1890,6 @@ fetchAsUint8(url){
     onerror:fb,ontimeout:fb});
   }catch(e){fb();}});}
 };
-
-/* ===================== Zip ===================== */
 const Zip=(function(){
 const TBL=new Uint32Array(256);
 for(let i=0;i<256;i++){let c=i;for(let j=0;j<8;j++)c=(c&1)?(0xEDB88320^(c>>>1)):(c>>>1);TBL[i]=c>>>0;}
@@ -1976,8 +1961,6 @@ async function parse(zip){
  return out;}
 return{build,parse};
 })();
-
-/* ===================== ImportExport ===================== */
 const ImportExport={
 async exportZip(){
  try{
@@ -2068,8 +2051,6 @@ applyImported(data){
  if(data.siteConfigMap&&typeof data.siteConfigMap==='object')Config.setSiteMap(data.siteConfigMap);
  LivePreview.clear();Config.invalidate();StyleManager.applyAgain();}
 };
-
-/* ===================== Float Panel ===================== */
 const SHADOW_CSS=`*{box-sizing:border-box;margin:0;padding:0;}
 #toggle{width:46px;height:46px;line-height:46px;text-align:center;border-radius:50%;background-color:rgba(30,42,34,.34);background-image:linear-gradient(180deg,rgba(152,221,152,.22),rgba(152,221,152,.08) 55%,rgba(255,255,255,0) 70%);backdrop-filter:blur(9px) saturate(150%);-webkit-backdrop-filter:blur(9px) saturate(150%);border:1px double rgba(152,221,152,.38);color:#fff;font-size:14px;cursor:pointer;box-shadow:inset 1.5px -1.5px 1px -1px rgba(255,255,255,.85),inset -1.5px 1.5px 1px -1px rgba(255,255,255,.8),inset 0 0 3px rgba(15,23,42,.35),inset 0 0 12px rgba(152,221,152,.22),0 16px 32px rgba(15,23,42,.28);font-family:sans-serif;user-select:none;transform:translateZ(0);isolation:isolate;}
 #toggle:hover{background-color:rgba(40,58,46,.5);}
@@ -2122,7 +2103,7 @@ create(){
  const siteCfg=Config.getSite(host);
  const siteTheme=siteCfg&&isValidTheme(siteCfg.theme)?siteCfg.theme:null;
  const themeLabel=siteTheme!==null?THEME_LABEL[siteTheme]:'跟随全局('+THEME_LABEL_SHORT[cfg.theme]+')';
- panel.innerHTML=`<div class="btns" style="margin-bottom:8px"><button id="advBtn">⚙️ 高级设置 ▼</button></div>
+ _setHTML(panel,`<div class="btns" style="margin-bottom:8px"><button id="advBtn">⚙️ 高级设置 ▼</button></div>
 <div id="advPanel" style="display:none">
 <hr class="divider"><div class="stitle">保存配置</div>
 <div class="btns btn-primary"><button id="saveG">💾 存全局</button><button id="saveS">💾 存本站</button></div>
@@ -2147,7 +2128,7 @@ create(){
 <div class="row"><div class="lab">弹层模糊 <span id="nbTxt">${cfg.nativeElementBlur}px</span></div><input id="nbR" type="range" min="0" max="20" step="1" value="${cfg.nativeElementBlur}"></div>
 <hr class="divider"><div class="stitle">自动弹层增强</div>
 <div class="row"><div class="lab">自动弹层模糊 <span id="obTxt">${cfg.overlayBlur}px</span></div><input id="obR" type="range" min="0" max="40" step="1" value="${cfg.overlayBlur}"></div>
-<div class="row"><div class="lab">自动弹层透明 <span id="oaTxt">${cfg.overlayAlpha.toFixed(2)}</span></div><input id="oaR" type="range" min="0" max="80" step="1" value="${Math.round(cfg.overlayAlpha*100)}"></div>`;
+<div class="row"><div class="lab">自动弹层透明 <span id="oaTxt">${cfg.overlayAlpha.toFixed(2)}</span></div><input id="oaR" type="range" min="0" max="80" step="1" value="${Math.round(cfg.overlayAlpha*100)}"></div>`);
  shadow.appendChild(panel);
  (document.body||document.documentElement).appendChild(box);
  FloatPanel.node=box;FloatPanel.shouldExist=true;
