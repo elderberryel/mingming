@@ -5,6 +5,7 @@
 // @match        *://*/*
 // @grant        GM_xmlhttpRequest
 // @grant        GM_addStyle
+// @exclude      *://*.chatgpt.com/*
 // @grant        GM_setValue
 // @grant        GM_getValue
 // @grant        GM_registerMenuCommand
@@ -146,7 +147,6 @@ let mutationRafId=null;
 const pendingMutationRoots=new Set();
 let mutationObserver=null;
 function initMutationObserver(){if(mutationObserver)mutationObserver.disconnect();mutationObserver=new MutationObserver((mutations)=>{if(!autoMode||suppressMutations)return;for(const m of mutations){if(m.type==='characterData'){const p=m.target.parentElement;if(p&&isTranslatablePre(p))pendingMutationRoots.add(p);continue}for(const node of m.addedNodes){if(node.nodeType===Node.ELEMENT_NODE){if(isTranslatablePre(node)||!shouldSkip(node))pendingMutationRoots.add(node)}else if(node.nodeType===Node.TEXT_NODE){const p=node.parentElement;if(p&&isTranslatablePre(p))pendingMutationRoots.add(p)}}}if(pendingMutationRoots.size>0&&!mutationRafId){mutationRafId=setTimeout(()=>{mutationRafId=null;const roots=[...pendingMutationRoots];pendingMutationRoots.clear();const pres=roots.filter(isTranslatablePre);const others=roots.filter(r=>!isTranslatablePre(r));pres.forEach(p=>{processExifPre(p).catch(e=>console.warn('[EXIF]',e))});if(others.length>5)scanAndObserve(document.body);else others.forEach(r=>scanAndObserve(r))},200)}});mutationObserver.observe(document.body,{childList:true,subtree:true,characterData:true})}
-function buildLangOptions(){let html='';for(const[group,codes]of Object.entries(LANG_GROUPS)){html+='<optgroup label="'+group+'">';for(const code of codes){const name=ALL_LANGUAGES[code]||code;html+='<option value="'+code+'"'+(code===targetLang?' selected':'')+'>'+name+'</option>'}html+='</optgroup>'}return html}
 function isPageInTargetLang(){const lang=(document.documentElement.lang||'').split('-')[0].toLowerCase();const target=targetLang.split('-')[0].toLowerCase();return lang===target}
 function initWhenBodyReady(){if(document.body)init();else requestAnimationFrame(initWhenBodyReady)}
 let _initialized=false;
@@ -158,7 +158,9 @@ function cleanup(){if(abortController){abortController.abort();abortController=n
 function clampUiPos(ui){const badgeSize=getBadgeSize();const maxRight=Math.max(0,window.innerWidth-badgeSize);const maxBottom=Math.max(0,window.innerHeight-badgeSize);let changed=false;if(uiPos.right<0){uiPos.right=0;changed=true}if(uiPos.right>maxRight){uiPos.right=maxRight;changed=true}if(uiPos.bottom<0){uiPos.bottom=0;changed=true}if(uiPos.bottom>maxBottom){uiPos.bottom=maxBottom;changed=true}if(changed){ui.style.right=uiPos.right+'px';ui.style.bottom=uiPos.bottom+'px'}return changed}
 function updateUIPos(ui){const badgeSize=getBadgeSize();ui.style.width=badgeSize+'px';ui.style.height=badgeSize+'px';const btn=document.getElementById('tuBtn');if(btn){btn.style.width=badgeSize+'px';btn.style.height=badgeSize+'px'}clampUiPos(ui)}
 function startMicrosoftMonitor(){if(msMonitorTimer)clearInterval(msMonitorTimer);msMonitorTimer=setInterval(async()=>{if(currentEngine!=='microsoft')return;try{await Engine.microsoft.translate('test','zh-CN')}catch(e){try{await Engine.tencent.translate('test','zh-CN');currentEngine='tencent';GM_setValue('engine','tencent');const engineSel=document.getElementById('tuEngine');if(engineSel)engineSel.value='tencent';updateStatus('⚠️ 微软引擎失联，已自动切换腾讯')}catch(e2){}}},5*60*1000)}
-async function init(){if(_initialized)return;cleanup();_initialized=true;document.querySelectorAll('[data-translated]').forEach(el=>{if(el.dataset.originalText){for(const child of el.childNodes){if(child.nodeType===Node.TEXT_NODE&&child._tuOriginalText===undefined){child.textContent=el.dataset.originalText;break}}delete el.dataset.originalText}if(el.dataset.originalPlaceholder){el.placeholder=el.dataset.originalPlaceholder;delete el.dataset.originalPlaceholder}delete el.dataset.translated});if(_engine==='microsoft'||_engine==='google'){currentEngine=await detectEngineAuto()}else{currentEngine=_engine}if(!document.getElementById('tu-custom-styles')){const styleEl=document.createElement('style');styleEl.id='tu-custom-styles';styleEl.textContent=`
+
+async function init(){if(_initialized)return;cleanup();_initialized=true;document.querySelectorAll('[data-translated]').forEach(el=>{if(el.dataset.originalText){for(const child of el.childNodes){if(child.nodeType===Node.TEXT_NODE&&child._tuOriginalText===undefined){child.textContent=el.dataset.originalText;break}}delete el.dataset.originalText}if(el.dataset.originalPlaceholder){el.placeholder=el.dataset.originalPlaceholder;delete el.dataset.originalPlaceholder}delete el.dataset.translated});if(_engine==='microsoft'||_engine==='google'){currentEngine=await detectEngineAuto()}else{currentEngine=_engine}
+if(!document.getElementById('tu-custom-styles')){const styleEl=document.createElement('style');styleEl.id='tu-custom-styles';styleEl.textContent=`
 .translate-ui{position:fixed;z-index:999999;font-family:system-ui,-apple-system,sans-serif;touch-action:none;overflow:visible}
 .translate-ui *{box-sizing:border-box;margin:0;padding:0}
 .tu-btn{
@@ -304,6 +306,197 @@ pre .tu-bi::before,pre .tu-bi::after{content:none}
 .tu-panel::-webkit-scrollbar-track{background:rgba(255,255,255,0.03);border-radius:10px}
 .tu-panel::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.15);border-radius:10px}
 .tu-panel::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,0.25)}
-`;document.head.appendChild(styleEl)}const ui=document.createElement('div');ui.className='translate-ui';ui.style.right=uiPos.right+'px';ui.style.bottom=uiPos.bottom+'px';ui.innerHTML='<div class="tu-panel" id="tuPanel"><label>翻译引擎</label><select id="tuEngine"><option value="microsoft">Microsoft Edge (默认)</option><option value="google">Google (Auto)</option><option value="tencent">Tencent</option><option value="deepseek">DeepSeek (AI)</option><option value="glm">GLM-4 (AI)</option><option value="google_v2">Google (v2)</option><option value="google_legacy">Google (Legacy)</option></select><div id="tuAiConfig" class="tu-ai-config"><label style="margin-top:0">API Key</label><input type="text" id="tuApiKey" placeholder="sk-..."><label>模型名称</label><input type="text" id="tuModel" placeholder="例如: deepseek-chat"></div><label>目标语言</label><select id="tuLang">'+buildLangOptions()+'</select><label>显示模式</label><div class="tu-modes" id="tuModes"><button data-m="translated"'+(displayMode==='translated'?' class="on"':'')+'>仅译文</button><button data-m="bilingual"'+(displayMode==='bilingual'?' class="on"':'')+'>双语</button><button data-m="original"'+(displayMode==='original'?' class="on"':'')+'>原文</button></div><div class="tu-status" id="tuStatus">Ready · 缓存: '+cache.size+'</div><div class="tu-row"><button class="tu-restore" id="tuRestore">还原</button><button class="tu-go" id="tuGo">翻译</button></div><div class="tu-row"><button class="tu-exclude" id="tuExclude">排除此站</button><button class="tu-io" id="tuClearCache">清缓存</button></div><div class="tu-row"><button class="tu-io" id="tuExport">导出配置</button><button class="tu-io" id="tuImport">导入配置</button></div><input type="file" id="tuFileInput" accept=".json" style="display:none;"></div><button class="tu-btn'+(autoMode?' active':'')+'" id="tuBtn" draggable="false"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129"/></svg></button>';document.body.appendChild(ui);updateUIPos(ui);const panel=document.getElementById('tuPanel');panel.style.width=getPanelWidth()+'px';const btn=document.getElementById('tuBtn');const engineSelect=document.getElementById('tuEngine');const langSelect=document.getElementById('tuLang');statusEl=document.getElementById('tuStatus');const modesEl=document.getElementById('tuModes');const aiConfigDiv=document.getElementById('tuAiConfig');const apiKeyInput=document.getElementById('tuApiKey');const modelInput=document.getElementById('tuModel');engineSelect.value=currentEngine;langSelect.value=targetLang;function updateAiConfigUI(){const selectedEngine=engineSelect.value;const isAI=Engine[selectedEngine]?.isAI;if(isAI){aiConfigDiv.classList.add('show');if(selectedEngine==='deepseek'){apiKeyInput.value=aiConfig.deepseek.key;modelInput.value=aiConfig.deepseek.model;modelInput.placeholder="deepseek-chat"}else if(selectedEngine==='glm'){apiKeyInput.value=aiConfig.glm.key;modelInput.value=aiConfig.glm.model;modelInput.placeholder="glm-4-flash"}}else{aiConfigDiv.classList.remove('show')}}updateAiConfigUI();let isDragging=false,startX,startY,startRight,startBottom,hasMoved=false;addEvent(btn,'pointerdown',(e)=>{isDragging=true;startX=e.clientX;startY=e.clientY;startRight=uiPos.right;startBottom=uiPos.bottom;hasMoved=false;btn.setPointerCapture(e.pointerId)});addEvent(btn,'pointermove',(e)=>{if(!isDragging)return;const dx=startX-e.clientX,dy=startY-e.clientY;if(Math.abs(dx)>3||Math.abs(dy)>3)hasMoved=true;let newRight=startRight+dx,newBottom=startBottom+dy;const badgeSize=getBadgeSize();newRight=Math.max(0,Math.min(newRight,Math.max(0,window.innerWidth-badgeSize)));newBottom=Math.max(0,Math.min(newBottom,Math.max(0,window.innerHeight-badgeSize)));ui.style.right=newRight+'px';ui.style.bottom=newBottom+'px'});addEvent(btn,'pointerup',()=>{if(!isDragging)return;isDragging=false;uiPos.right=parseInt(ui.style.right);uiPos.bottom=parseInt(ui.style.bottom);GM_setValue('uiPos',JSON.stringify(uiPos))});addEvent(btn,'click',(e)=>{if(hasMoved)return;e.stopPropagation();panel.classList.toggle('show')});addEvent(document,'click',(e)=>{if(!ui.contains(e.target))panel.classList.remove('show')});addEvent(engineSelect,'change',async()=>{currentEngine=engineSelect.value;GM_setValue('engine',currentEngine);updateAiConfigUI();updateStatus('切换至: '+(Engine[currentEngine]?Engine[currentEngine].name:currentEngine));if(displayMode!=='original'&&autoMode){restorePage();updateStatus('正在重新翻译...');scanAndObserve(document.body)}});addEvent(apiKeyInput,'blur',()=>{const val=apiKeyInput.value.trim();if(engineSelect.value==='deepseek'){aiConfig.deepseek.key=val;GM_setValue('deepseekKey',val)}else if(engineSelect.value==='glm'){aiConfig.glm.key=val;GM_setValue('glmKey',val)}});addEvent(modelInput,'blur',()=>{const val=modelInput.value.trim();if(engineSelect.value==='deepseek'){aiConfig.deepseek.model=val;GM_setValue('deepseekModel',val)}else if(engineSelect.value==='glm'){aiConfig.glm.model=val;GM_setValue('glmModel',val)}});addEvent(langSelect,'change',async()=>{targetLang=langSelect.value;GM_setValue('targetLang',targetLang);updateStatus('语种切为: '+(ALL_LANGUAGES[targetLang]||targetLang));if(displayMode!=='original'&&autoMode){restorePage();updateStatus('正在更新翻译...');scanAndObserve(document.body)}});addEvent(modesEl,'click',async(e)=>{var b=e.target.closest('button[data-m]');if(!b)return;var m=b.dataset.m;if(m===displayMode)return;modesEl.querySelectorAll('button').forEach(x=>x.classList.remove('on'));b.classList.add('on');displayMode=m;GM_setValue('displayMode',m);if(m==='original'){restorePage();btn.classList.remove('active');updateStatus('显示原文')}else{restorePage();btn.classList.add('active');updateStatus(m==='bilingual'?'双语翻译中...':'翻译中...');scanAndObserve(document.body)}});addEvent(document.getElementById('tuGo'),'click',async()=>{if(apiKeyInput.value)apiKeyInput.dispatchEvent(new Event('blur'));if(modelInput.value)modelInput.dispatchEvent(new Event('blur'));panel.classList.remove('show');btn.classList.add('active');autoMode=true;GM_setValue('autoMode',true);restorePage();updateStatus('翻译中...');scanAndObserve(document.body);setTimeout(()=>updateStatus('已开始处理可见区域...'),100)});addEvent(document.getElementById('tuRestore'),'click',()=>{panel.classList.remove('show');btn.classList.remove('active');autoMode=false;GM_setValue('autoMode',false);restorePage();updateStatus('已还原')});addEvent(document.getElementById('tuExclude'),'click',()=>{if(!excludedHosts.includes(location.host)){excludedHosts.push(location.host);GM_setValue('excludedHosts',JSON.stringify(excludedHosts))}location.reload()});addEvent(document.getElementById('tuClearCache'),'click',()=>{if(confirm('确定要清除所有翻译缓存吗？')){clearCache();updateStatus('缓存已清空')}});addEvent(document.getElementById('tuExport'),'click',()=>{saveCache(true);const data={engine:currentEngine,targetLang:targetLang,autoMode:autoMode,excludedHosts:excludedHosts,displayMode:displayMode,uiPos:uiPos,deepseek:aiConfig.deepseek,glm:aiConfig.glm,translationCache:Object.fromEntries(cache)};const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download="翻译配置.json";a.click();URL.revokeObjectURL(url);updateStatus("✅ 配置已导出（含 API Key，请妥善保管）")});const fileInput=document.getElementById('tuFileInput');addEvent(document.getElementById('tuImport'),'click',()=>fileInput.click());addEvent(fileInput,'change',(e)=>{const file=e.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=(evt)=>{try{const imported=JSON.parse(evt.target.result);if(imported.engine)GM_setValue('engine',imported.engine);if(imported.targetLang)GM_setValue('targetLang',imported.targetLang);if(typeof imported.autoMode==='boolean')GM_setValue('autoMode',imported.autoMode);if(imported.displayMode)GM_setValue('displayMode',imported.displayMode);if(imported.excludedHosts)GM_setValue('excludedHosts',JSON.stringify(imported.excludedHosts));if(imported.uiPos)GM_setValue('uiPos',JSON.stringify(imported.uiPos));if(imported.deepseek){if(imported.deepseek.key)GM_setValue('deepseekKey',imported.deepseek.key);if(imported.deepseek.model)GM_setValue('deepseekModel',imported.deepseek.model)}if(imported.glm){if(imported.glm.key)GM_setValue('glmKey',imported.glm.key);if(imported.glm.model)GM_setValue('glmModel',imported.glm.model)}if(imported.translationCache)GM_setValue('translationCache',JSON.stringify(imported.translationCache));alert("✅ 导入成功，即将刷新页面");location.reload()}catch(err){alert("❌ 解析文件失败，请检查 JSON 格式")}};reader.readAsText(file);fileInput.value=''});addEvent(window,'resize',()=>{panel.style.width=getPanelWidth()+'px';updateUIPos(ui);GM_setValue('uiPos',JSON.stringify(uiPos))});GM_registerMenuCommand('🚀 立即翻译当前页面',()=>{scanAndObserve(document.body)});GM_registerMenuCommand('⏪ 还原当前页面',()=>{restorePage()});GM_registerMenuCommand('🗑️ 清除翻译缓存',()=>{clearCache();updateStatus('缓存已清空')});cacheSaveTimer=setInterval(saveCache,CACHE_SAVE_INTERVAL);addEvent(window,'beforeunload',()=>saveCache(true));initMutationObserver();startMicrosoftMonitor();if(autoMode&&!isPageInTargetLang()&&displayMode!=='original'){queueMicrotask(async()=>{updateStatus(displayMode==='bilingual'?'双语翻译中...':'自动翻译中...');scanAndObserve(document.body)})}}
+`;document.head.appendChild(styleEl)}
+
+// ═══ 创建 UI 容器 ═══
+const ui=document.createElement('div');
+ui.className='translate-ui';
+ui.style.right=uiPos.right+'px';
+ui.style.bottom=uiPos.bottom+'px';
+
+// ═══ 构建面板（全部用 DOM API） ═══
+const panel=document.createElement('div');
+panel.className='tu-panel';
+panel.id='tuPanel';
+
+// 翻译引擎
+const engineLabel=document.createElement('label');
+engineLabel.textContent='翻译引擎';
+panel.appendChild(engineLabel);
+
+const engineSelect=document.createElement('select');
+engineSelect.id='tuEngine';
+[
+  ['microsoft','Microsoft Edge (默认)'],
+  ['google','Google (Auto)'],
+  ['tencent','Tencent'],
+  ['deepseek','DeepSeek (AI)'],
+  ['glm','GLM-4 (AI)'],
+  ['google_v2','Google (v2)'],
+  ['google_legacy','Google (Legacy)']
+].forEach(([v,t])=>{
+  const opt=document.createElement('option');
+  opt.value=v;
+  opt.textContent=t;
+  engineSelect.appendChild(opt);
+});
+panel.appendChild(engineSelect);
+
+// AI 配置
+const aiConfigDiv=document.createElement('div');
+aiConfigDiv.id='tuAiConfig';
+aiConfigDiv.className='tu-ai-config';
+
+const apiKeyLabel=document.createElement('label');
+apiKeyLabel.style.marginTop='0';
+apiKeyLabel.textContent='API Key';
+aiConfigDiv.appendChild(apiKeyLabel);
+
+const apiKeyInput=document.createElement('input');
+apiKeyInput.type='text';
+apiKeyInput.id='tuApiKey';
+apiKeyInput.placeholder='sk-...';
+aiConfigDiv.appendChild(apiKeyInput);
+
+const modelLabel=document.createElement('label');
+modelLabel.textContent='模型名称';
+aiConfigDiv.appendChild(modelLabel);
+
+const modelInput=document.createElement('input');
+modelInput.type='text';
+modelInput.id='tuModel';
+modelInput.placeholder='例如: deepseek-chat';
+aiConfigDiv.appendChild(modelInput);
+panel.appendChild(aiConfigDiv);
+
+// 目标语言
+const langLabel=document.createElement('label');
+langLabel.textContent='目标语言';
+panel.appendChild(langLabel);
+
+const langSelect=document.createElement('select');
+langSelect.id='tuLang';
+for(const[group,codes]of Object.entries(LANG_GROUPS)){
+  const optgroup=document.createElement('optgroup');
+  optgroup.label=group;
+  for(const code of codes){
+    const opt=document.createElement('option');
+    opt.value=code;
+    opt.textContent=ALL_LANGUAGES[code]||code;
+    if(code===targetLang)opt.selected=true;
+    optgroup.appendChild(opt);
+  }
+  langSelect.appendChild(optgroup);
+}
+panel.appendChild(langSelect);
+
+// 显示模式
+const modeLabel=document.createElement('label');
+modeLabel.textContent='显示模式';
+panel.appendChild(modeLabel);
+
+const modesEl=document.createElement('div');
+modesEl.className='tu-modes';
+modesEl.id='tuModes';
+[
+  ['translated','仅译文'],
+  ['bilingual','双语'],
+  ['original','原文']
+].forEach(([m,t])=>{
+  const b=document.createElement('button');
+  b.dataset.m=m;
+  b.textContent=t;
+  if(displayMode===m)b.className='on';
+  modesEl.appendChild(b);
+});
+panel.appendChild(modesEl);
+
+// 状态
+const statusElNew=document.createElement('div');
+statusElNew.className='tu-status';
+statusElNew.id='tuStatus';
+statusElNew.textContent='Ready · 缓存: '+cache.size;
+panel.appendChild(statusElNew);
+
+// 按钮行辅助
+function buildRow(items){const row=document.createElement('div');row.className='tu-row';items.forEach(b=>row.appendChild(b));return row}
+function mkBtn(cls,id,text){const b=document.createElement('button');b.className=cls;b.id=id;b.textContent=text;return b}
+
+panel.appendChild(buildRow([
+  mkBtn('tu-restore','tuRestore','还原'),
+  mkBtn('tu-go','tuGo','翻译')
+]));
+panel.appendChild(buildRow([
+  mkBtn('tu-exclude','tuExclude','排除此站'),
+  mkBtn('tu-io','tuClearCache','清缓存')
+]));
+panel.appendChild(buildRow([
+  mkBtn('tu-io','tuExport','导出配置'),
+  mkBtn('tu-io','tuImport','导入配置')
+]));
+
+const fileInput=document.createElement('input');
+fileInput.type='file';
+fileInput.id='tuFileInput';
+fileInput.accept='.json';
+fileInput.style.display='none';
+panel.appendChild(fileInput);
+
+ui.appendChild(panel);
+
+// 悬浮按钮
+const btn=document.createElement('button');
+btn.className='tu-btn'+(autoMode?' active':'');
+btn.id='tuBtn';
+btn.draggable=false;
+
+const SVG_NS='http://www.w3.org/2000/svg';
+const svgEl=document.createElementNS(SVG_NS,'svg');
+svgEl.setAttribute('width','20');
+svgEl.setAttribute('height','20');
+svgEl.setAttribute('viewBox','0 0 24 24');
+svgEl.setAttribute('fill','none');
+svgEl.setAttribute('stroke','currentColor');
+svgEl.setAttribute('stroke-width','2');
+const pathEl=document.createElementNS(SVG_NS,'path');
+pathEl.setAttribute('d','M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129');
+svgEl.appendChild(pathEl);
+btn.appendChild(svgEl);
+ui.appendChild(btn);
+
+document.body.appendChild(ui);
+
+updateUIPos(ui);
+panel.style.width=getPanelWidth()+'px';
+statusEl=document.getElementById('tuStatus');
+function updateAiConfigUI(){const selectedEngine=engineSelect.value;const isAI=Engine[selectedEngine]?.isAI;if(isAI){aiConfigDiv.classList.add('show');if(selectedEngine==='deepseek'){apiKeyInput.value=aiConfig.deepseek.key;modelInput.value=aiConfig.deepseek.model;modelInput.placeholder="deepseek-chat"}else if(selectedEngine==='glm'){apiKeyInput.value=aiConfig.glm.key;modelInput.value=aiConfig.glm.model;modelInput.placeholder="glm-4-flash"}}else{aiConfigDiv.classList.remove('show')}}
+engineSelect.value=currentEngine;langSelect.value=targetLang;updateAiConfigUI();
+let isDragging=false,startX,startY,startRight,startBottom,hasMoved=false;
+addEvent(btn,'pointerdown',(e)=>{isDragging=true;startX=e.clientX;startY=e.clientY;startRight=uiPos.right;startBottom=uiPos.bottom;hasMoved=false;btn.setPointerCapture(e.pointerId)});
+addEvent(btn,'pointermove',(e)=>{if(!isDragging)return;const dx=startX-e.clientX,dy=startY-e.clientY;if(Math.abs(dx)>3||Math.abs(dy)>3)hasMoved=true;let newRight=startRight+dx,newBottom=startBottom+dy;const badgeSize=getBadgeSize();newRight=Math.max(0,Math.min(newRight,Math.max(0,window.innerWidth-badgeSize)));newBottom=Math.max(0,Math.min(newBottom,Math.max(0,window.innerHeight-badgeSize)));ui.style.right=newRight+'px';ui.style.bottom=newBottom+'px'});
+addEvent(btn,'pointerup',()=>{if(!isDragging)return;isDragging=false;uiPos.right=parseInt(ui.style.right);uiPos.bottom=parseInt(ui.style.bottom);GM_setValue('uiPos',JSON.stringify(uiPos))});
+addEvent(btn,'click',(e)=>{if(hasMoved)return;e.stopPropagation();panel.classList.toggle('show')});
+addEvent(document,'click',(e)=>{if(!ui.contains(e.target))panel.classList.remove('show')});
+addEvent(engineSelect,'change',async()=>{currentEngine=engineSelect.value;GM_setValue('engine',currentEngine);updateAiConfigUI();updateStatus('切换至: '+(Engine[currentEngine]?Engine[currentEngine].name:currentEngine));if(displayMode!=='original'&&autoMode){restorePage();updateStatus('正在重新翻译...');scanAndObserve(document.body)}});
+addEvent(apiKeyInput,'blur',()=>{const val=apiKeyInput.value.trim();if(engineSelect.value==='deepseek'){aiConfig.deepseek.key=val;GM_setValue('deepseekKey',val)}else if(engineSelect.value==='glm'){aiConfig.glm.key=val;GM_setValue('glmKey',val)}});
+addEvent(modelInput,'blur',()=>{const val=modelInput.value.trim();if(engineSelect.value==='deepseek'){aiConfig.deepseek.model=val;GM_setValue('deepseekModel',val)}else if(engineSelect.value==='glm'){aiConfig.glm.model=val;GM_setValue('glmModel',val)}});
+addEvent(langSelect,'change',async()=>{targetLang=langSelect.value;GM_setValue('targetLang',targetLang);updateStatus('语种切为: '+(ALL_LANGUAGES[targetLang]||targetLang));if(displayMode!=='original'&&autoMode){restorePage();updateStatus('正在更新翻译...');scanAndObserve(document.body)}});
+addEvent(modesEl,'click',async(e)=>{var b=e.target.closest('button[data-m]');if(!b)return;var m=b.dataset.m;if(m===displayMode)return;modesEl.querySelectorAll('button').forEach(x=>x.classList.remove('on'));b.classList.add('on');displayMode=m;GM_setValue('displayMode',m);if(m==='original'){restorePage();btn.classList.remove('active');updateStatus('显示原文')}else{restorePage();btn.classList.add('active');updateStatus(m==='bilingual'?'双语翻译中...':'翻译中...');scanAndObserve(document.body)}});
+addEvent(document.getElementById('tuGo'),'click',async()=>{if(apiKeyInput.value)apiKeyInput.dispatchEvent(new Event('blur'));if(modelInput.value)modelInput.dispatchEvent(new Event('blur'));panel.classList.remove('show');btn.classList.add('active');autoMode=true;GM_setValue('autoMode',true);restorePage();updateStatus('翻译中...');scanAndObserve(document.body);setTimeout(()=>updateStatus('已开始处理可见区域...'),100)});
+addEvent(document.getElementById('tuRestore'),'click',()=>{panel.classList.remove('show');btn.classList.remove('active');autoMode=false;GM_setValue('autoMode',false);restorePage();updateStatus('已还原')});
+addEvent(document.getElementById('tuExclude'),'click',()=>{if(!excludedHosts.includes(location.host)){excludedHosts.push(location.host);GM_setValue('excludedHosts',JSON.stringify(excludedHosts))}location.reload()});
+addEvent(document.getElementById('tuClearCache'),'click',()=>{if(confirm('确定要清除所有翻译缓存吗？')){clearCache();updateStatus('缓存已清空')}});
+addEvent(document.getElementById('tuExport'),'click',()=>{saveCache(true);const data={engine:currentEngine,targetLang:targetLang,autoMode:autoMode,excludedHosts:excludedHosts,displayMode:displayMode,uiPos:uiPos,deepseek:aiConfig.deepseek,glm:aiConfig.glm,translationCache:Object.fromEntries(cache)};const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download="翻译配置.json";a.click();URL.revokeObjectURL(url);updateStatus("✅ 配置已导出（含 API Key，请妥善保管）")});
+addEvent(document.getElementById('tuImport'),'click',()=>fileInput.click());
+addEvent(fileInput,'change',(e)=>{const file=e.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=(evt)=>{try{const imported=JSON.parse(evt.target.result);if(imported.engine)GM_setValue('engine',imported.engine);if(imported.targetLang)GM_setValue('targetLang',imported.targetLang);if(typeof imported.autoMode==='boolean')GM_setValue('autoMode',imported.autoMode);if(imported.displayMode)GM_setValue('displayMode',imported.displayMode);if(imported.excludedHosts)GM_setValue('excludedHosts',JSON.stringify(imported.excludedHosts));if(imported.uiPos)GM_setValue('uiPos',JSON.stringify(imported.uiPos));if(imported.deepseek){if(imported.deepseek.key)GM_setValue('deepseekKey',imported.deepseek.key);if(imported.deepseek.model)GM_setValue('deepseekModel',imported.deepseek.model)}if(imported.glm){if(imported.glm.key)GM_setValue('glmKey',imported.glm.key);if(imported.glm.model)GM_setValue('glmModel',imported.glm.model)}if(imported.translationCache)GM_setValue('translationCache',JSON.stringify(imported。translationCache));alert("✅ 导入成功，即将刷新页面");location.reload()}catch(err){alert("❌ 解析文件失败，请检查 JSON 格式")}};reader.readAsText(file);fileInput.value=''});
+addEvent(window,'resize',()=>{panel.style.width=getPanelWidth()+'px';updateUIPos(ui);GM_setValue('uiPos',JSON.stringify(uiPos))});
+GM_registerMenuCommand('🚀 立即翻译当前页面',()=>{scanAndObserve(document.body)});
+GM_registerMenuCommand('⏪ 还原当前页面',()=>{restorePage()});
+GM_registerMenuCommand('🗑️ 清除翻译缓存',()=>{clearCache();updateStatus('缓存已清空')});
+cacheSaveTimer=setInterval(saveCache,CACHE_SAVE_INTERVAL);
+addEvent(window,'beforeunload',()=>saveCache(true));
+initMutationObserver();
+startMicrosoftMonitor();
+if(autoMode&&!isPageInTargetLang()&&displayMode!=='original'){queueMicrotask(async()=>{updateStatus(displayMode==='bilingual'?'双语翻译中...':'自动翻译中...');scanAndObserve(document.body)})}}
 initWhenBodyReady();
 })();
