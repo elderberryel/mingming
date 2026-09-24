@@ -3,7 +3,6 @@
 // @namespace    https://github.com/elderberryel/mingming
 // @version      2.0
 // @description  去除链接重定向
-// @exclude      *://chatgpt.com/*
 // @exclude      *://*.chatgpt.com/*
 // @match        *://*/*
 // @grant        GM.xmlHttpRequest
