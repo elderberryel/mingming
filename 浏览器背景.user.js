@@ -413,7 +413,7 @@ const TIEBA_CSS=`.forum_content,.forum_content .main,#content_wrap,.content_left
 const CASHIER_CSS=`[class*="e3-strong-cashier"],[class*="e3-strong-cashier"] *,[class*="mfy_h-popup-module"],[class*="mfy_h-popup-module"] *,[class*="mfy_h-checkbox-module"],[class*="mfy_h-checkbox-module"] *,[class*="mfy_h-button-module"],[class*="mfy_h-button-module"] *{background:transparent!important;background-color:transparent!important;background-image:none!important;box-shadow:none!important;border-color:transparent!important;}[class*="e3-strong-cashier__card--active"],[class*="e3-strong-cashier__card-item--active"]{outline:1px solid rgba(255,255,255,.35)!important;border-radius:10px!important;}[class*="e3-strong-cashier__h5-method-indicator"]{background:rgba(255,255,255,.15)!important;}[class*="e3-strong-cashier__badge"]{background:linear-gradient(90deg,#ff7a45,#ff4d4f)!important;background-color:transparent!important;}`;
 
 const Utils={
-clamp(n,a,b){return Math.min(b,Math.max(a,n));},
+clamp(n,a,b){n=Number(n);return Number.isFinite(n)?Math.min(b,Math.max(a,n)):a;},
 getHost(){return location.hostname||'';},
 safeJSONParse(s,d){try{return JSON.parse(s);}catch(e){return d;}},
 safePos(p){
@@ -2055,7 +2055,7 @@ const SHADOW_CSS=`*{box-sizing:border-box;margin:0;padding:0;}
 #toggle{width:46px;height:46px;line-height:46px;text-align:center;border-radius:50%;background-color:rgba(30,42,34,.34);background-image:linear-gradient(180deg,rgba(152,221,152,.22),rgba(152,221,152,.08) 55%,rgba(255,255,255,0) 70%);backdrop-filter:blur(9px) saturate(150%);-webkit-backdrop-filter:blur(9px) saturate(150%);border:1px double rgba(152,221,152,.38);color:#fff;font-size:14px;cursor:pointer;box-shadow:inset 1.5px -1.5px 1px -1px rgba(255,255,255,.85),inset -1.5px 1.5px 1px -1px rgba(255,255,255,.8),inset 0 0 3px rgba(15,23,42,.35),inset 0 0 12px rgba(152,221,152,.22),0 16px 32px rgba(15,23,42,.28);font-family:sans-serif;user-select:none;transform:translateZ(0);isolation:isolate;}
 #toggle:hover{background-color:rgba(40,58,46,.5);}
 #panel{position:absolute;bottom:54px;right:0;width:280px;padding:12px;border-radius:12px;background-color:rgba(0,0,0,.88);color:#f0f0f0;font-size:12px;font-family:sans-serif;box-shadow:0 4px 20px rgba(0,0,0,.5);display:none;max-height:70vh;overflow-y:auto;overflow-x:hidden;}
-#panel .row{margin-bottom:8px;}
+#panel .row{display:block!important;height:auto!important;visibility:visible!important;opacity:1!important;margin-bottom:8px;}
 #panel .lab{font-size:11px;margin-bottom:3px;color:#ccc;}
 #panel input[type="range"]{width:100%;-webkit-appearance:none;appearance:none;height:6px;background:linear-gradient(to right,#98DD98 var(--rp,0%),rgba(255,255,255,.18) var(--rp,0%));outline:none;opacity:.9;border-radius:3px;}
 #panel input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;background:#7DD87D;cursor:pointer;border-radius:50%;border:2px solid rgba(255,255,255,.55);box-shadow:inset 1px -1px 1px -1px rgba(255,255,255,.9),inset -1px 1px 1px -1px rgba(255,255,255,.7),0 2px 6px rgba(0,0,0,.45);}
@@ -2127,8 +2127,10 @@ create(){
 <div class="row"><div class="lab">背景模糊 <span id="blTxt">${cfg.blur}px</span></div><input id="blR" type="range" min="0" max="50" step="1" value="${cfg.blur}"></div>
 <div class="row"><div class="lab">弹层模糊 <span id="nbTxt">${cfg.nativeElementBlur}px</span></div><input id="nbR" type="range" min="0" max="20" step="1" value="${cfg.nativeElementBlur}"></div>
 <hr class="divider"><div class="stitle">自动弹层增强</div>
-<div class="row"><div class="lab">自动弹层模糊 <span id="obTxt">${cfg.overlayBlur}px</span></div><input id="obR" type="range" min="0" max="40" step="1" value="${cfg.overlayBlur}"></div>
-<div class="row"><div class="lab">自动弹层透明 <span id="oaTxt">${cfg.overlayAlpha.toFixed(2)}</span></div><input id="oaR" type="range" min="0" max="80" step="1" value="${Math.round(cfg.overlayAlpha*100)}"></div>`);
+<div class="lab" style="display:block!important;visibility:visible!important;opacity:1!important;color:#ccc!important;font-size:11px!important;margin-bottom:3px!important">自动弹层模糊 <span id="obTxt" style="color:#ccc!important;display:inline!important">${cfg.overlayBlur}px</span></div>
+<input id="obR" type="range" min="0" max="40" step="1" value="${cfg.overlayBlur}" style="display:block!important;visibility:visible!important;opacity:1!important;width:100%!important;margin-bottom:10px!important">
+<div class="lab" style="display:block!important;visibility:visible!important;opacity:1!important;color:#ccc!important;font-size:11px!important;margin-bottom:3px!important">自动弹层透明 <span id="oaTxt" style="color:#ccc!important;display:inline!important">${cfg.overlayAlpha.toFixed(2)}</span></div>
+<input id="oaR" type="range" min="0" max="80" step="1" value="${Math.round(cfg.overlayAlpha*100)}" style="display:block!important;visibility:visible!important;opacity:1!important;width:100%!important;margin-bottom:10px!important">`);
  shadow.appendChild(panel);
  (document.body||document.documentElement).appendChild(box);
  FloatPanel.node=box;FloatPanel.shouldExist=true;
