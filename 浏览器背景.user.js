@@ -18,21 +18,17 @@
 // ==/UserScript==
 (function(){
 'use strict';
-
 if(/\/cdn-cgi\//.test(location.pathname))return;
-
 const CF_TITLE_RE=/just a moment|attention required|cloudflare|please wait|checking your browser|verify you are human|one more step|请稍候|请等待|正在验证|验证中|正在进行安全验证|安全检查|人机验证|安全验证/;
 const _t0=(document.title||'').toLowerCase();
 if(_t0&&CF_TITLE_RE.test(_t0))return;
 try{if(typeof window._cf_chl_opt!=='undefined')return;}catch(e){}
-
 const SCRIPT_VERSION=(typeof GM_info!=='undefined'&&GM_info&&GM_info.script&&GM_info.script.version)||'6.9.4';
 const CONFIG_VERSION=SCRIPT_VERSION,NODE_ID_VERSION='v89';
 const CACHE_AVAILABLE=typeof caches!=='undefined'&&typeof caches.open==='function';
 if(!CACHE_AVAILABLE)console.warn('[浏览器背景] 当前环境不支持 CacheStorage，大图片将仅存于 GM 存储，可能影响性能');
-const THEME={LIGHT_TEXT:1,DARK_TEXT:2},THEME_LABEL={1:'浅字（暗底）',2:'深字（亮底）'},THEME_LABEL_SHORT={1:'浅字',2:'深字'};
+const THEME_LABEL={1:'浅字（暗底）',2:'深字（亮底）'},THEME_LABEL_SHORT={1:'浅字',2:'深字'};
 const isValidTheme=t=>t===1||t===2;
-
 const KEYS={url:'Vie背景图片',theme:'Vie背景',opacity:'Vie背景透明度',blur:'Vie背景模糊',enabled:'Vie背景启用',floatVisible:'Vie背景悬浮按钮显示',listMode:'Vie背景列表模式',floatPos:'Vie背景悬浮位置',nativeElementBlur:'Vie背景原生弹层模糊',overlayBlur:'Vie背景动态弹层模糊',overlayAlpha:'Vie背景动态弹层透明度',siteList:'Vie背景站点列表',siteConfigMap:'Vie背景站点配置'};
 const DEFAULTS={url:'https://im.gurl.eu.org/file/AgACAgEAAxkDAAEBp_1qmih0cKuixFJVVL37VIdQdW95pAACFgxrG95F0EQR6lJDI44cmAEAAwIAA3cAAz0E.jpeg',theme:1,opacity:.5,blur:0,enabled:true,floatVisible:true,listMode:'blacklist',floatPos:{right:10,bottom:90},nativeElementBlur:10,overlayBlur:10,overlayAlpha:.1};
 const STYLE_ID='vie-browser-bg-style-'+NODE_ID_VERSION,FLOAT_ID='vie-browser-bg-float-'+NODE_ID_VERSION,NATIVE_BLUR_STYLE_ID='vie-browser-bg-native-blur-style-'+NODE_ID_VERSION;
@@ -44,67 +40,39 @@ const CAPTCHA_CSS_SELECTOR=CAPTCHA_SELECTORS.join(',');
 const CAPTCHA_IGNORE_SRC=/recaptcha\/api2\/(aframe|webworker)|recaptcha\/releases\/|recaptcha\/api\.js/;
 const SPA_WHITELIST=['pixiv.net','twitter.com','x.com','fanbox.cc'];
 const X_DROPDOWN_GUARD='[id^="typeaheadDropdown"],[role="listbox"],[role="menu"],[role="combobox"],[role="dialog"],.search-suggest,.sug-list,.s-sug,[class*="suggest"],[class*="dropdown"],[class*="autocomplete"],[class*="typeahead"],[id*="search-result"],[class*="search-result"]';
-
 const _T='transparent!important';
-
 const FLOAT_BALL_EXEMPT=['#goTopBottom','#tbSettingsBtn','#tbSettingsPanel','.tb-settings-btn','.tb-settings-panel','.btn-close'];
-const FLOAT_BALL_EXEMPT_CSS=FLOAT_BALL_EXEMPT
-  .map(s=>`:where(:not(${s})):where(:not(${s} *))`)
-  .join('');
-
-const LGGC={
-  bgLight:'255,255,255',
-  bgDark:'28,30,38',
-  border:'rgba(51,51,53,.08)',
-  radius:'12px',
-  overlayRadius:'20px',
-  shadow:'inset 1.5px -1.5px 1px -1px rgba(255,255,255,.92),inset -1.5px 1.5px 1px -1px rgba(255,255,255,.9),inset 0 0 3px rgba(15,23,42,.35),0 16px 32px rgba(15,23,42,.14)',
-  blurPx:b=>Math.max(0,Number(b)||0)*0.35,
-  filter:b=>`blur(${(Math.max(0,Number(b)||0)*0.35).toFixed(2)}px) saturate(100%)`
-};
+const FLOAT_BALL_EXEMPT_CSS=FLOAT_BALL_EXEMPT.map(s=>`:where(:not(${s})):where(:not(${s} *))`).join('');
+const LGGC={bgLight:'255,255,255',bgDark:'28,30,38',border:'rgba(51,51,53,.08)',radius:'12px',overlayRadius:'20px',shadow:'inset 1.5px -1.5px 1px -1px rgba(255,255,255,.92),inset -1.5px 1.5px 1px -1px rgba(255,255,255,.9),inset 0 0 3px rgba(15,23,42,.35),0 16px 32px rgba(15,23,42,.14)',blurPx:b=>Math.max(0,Number(b)||0)*0.35,filter:b=>`blur(${(Math.max(0,Number(b)||0)*0.35).toFixed(2)}px) saturate(100%)`};
 
 const InlineStyleRestorer={
-  _records:new WeakMap(),
-  _targets:new Set(),
-  set(el,prop,value){
-    if(!el||!el.style)return;
-    const cur=el.style.getPropertyValue(prop);
-    const prio=el.style.getPropertyPriority(prop);
-    if(cur===value&&prio==='important')return;
-    let rec=InlineStyleRestorer._records.get(el);
-    if(!rec){
-      rec=Object.create(null);
-      InlineStyleRestorer._records.set(el,rec);
-      InlineStyleRestorer._targets.add(el);
-    }
-    if(!(prop in rec)){
-      rec[prop]={
-        value:el.style.getPropertyValue(prop),
-        priority:el.style.getPropertyPriority(prop),
-        lastSet:null
-      };
-    }
-    rec[prop].lastSet=value;
-    el.style.setProperty(prop,value,'important');
-  },
-  restoreAll(){
-    for(const el of InlineStyleRestorer._targets){
-      const rec=InlineStyleRestorer._records.get(el);
-      if(!rec)continue;
-      for(const prop in rec){
-        try{
-          const cur=el.style.getPropertyValue(prop);
-          const curPrio=el.style.getPropertyPriority(prop);
-          const info=rec[prop];
-          if(cur!==info.lastSet||curPrio!=='important')continue;
-          if(info.value)el.style.setProperty(prop,info.value,info.priority||'');
-          else el.style.removeProperty(prop);
-        }catch(e){}
-      }
-      InlineStyleRestorer._records.delete(el);
-    }
-    InlineStyleRestorer._targets.clear();
+_records:new WeakMap(),_targets:new Set(),
+set(el,prop,value){
+ if(!el||!el.style)return;
+ const cur=el.style.getPropertyValue(prop),prio=el.style.getPropertyPriority(prop);
+ if(cur===value&&prio==='important')return;
+ let rec=InlineStyleRestorer._records.get(el);
+ if(!rec){rec=Object.create(null);InlineStyleRestorer._records.set(el,rec);InlineStyleRestorer._targets.add(el);}
+ if(!(prop in rec))rec[prop]={value:el.style.getPropertyValue(prop),priority:el.style.getPropertyPriority(prop),lastSet:null};
+ rec[prop].lastSet=value;
+ el.style.setProperty(prop,value,'important');
+},
+restoreAll(){
+ for(const el of InlineStyleRestorer._targets){
+  const rec=InlineStyleRestorer._records.get(el);
+  if(!rec)continue;
+  for(const prop in rec){
+   try{
+    const cur=el.style.getPropertyValue(prop),curPrio=el.style.getPropertyPriority(prop),info=rec[prop];
+    if(cur!==info.lastSet||curPrio!=='important')continue;
+    if(info.value)el.style.setProperty(prop,info.value,info.priority||'');
+    else el.style.removeProperty(prop);
+   }catch(e){}
   }
+  InlineStyleRestorer._records.delete(el);
+ }
+ InlineStyleRestorer._targets.clear();
+}
 };
 const setImp=(el,prop,value)=>InlineStyleRestorer.set(el,prop,value);
 
@@ -158,7 +126,7 @@ const POPUP_LEAF='[data-slot="select-item"],[data-slot="select-item-text"],[data
 const DROP='[id^="typeaheadDropdown"],.search-suggest,.sug-list,.s-sug,[class*="suggest"],[class*="dropdown"],[class*="autocomplete"],[id*="search-result"],[id*="search-results"],[id*="searchResult"],[id*="search_result"],[class*="search-result"],[class*="searchResult"],[class*="search-results"],[role="listbox"],[role="menu"],[id^="base-ui-"][id$="-list"],[id^="base-ui-"][id$="-popup"],'+SLOT_POPUP;
 const DROP_CHILD=kid('[id^="typeaheadDropdown"],.search-suggest,.sug-list,.s-sug,[class*="suggest"],[id*="search-result"],[id*="search-results"],[class*="search-result"],[role="listbox"],[role="menu"],[id^="base-ui-"][id$="-list"],[id^="base-ui-"][id$="-popup"],'+SLOT_POPUP);
 
-// ===== LGGC 搜索框/按钮玻璃共享片段 =====
+// ===== LGGC 玻璃片段 =====
 const _SF_BASE=
  'border-radius:9999px!important;'
 +'-webkit-appearance:none!important;appearance:none!important;'
@@ -176,6 +144,7 @@ const _SF_SHADOW=
 const _SF_GRAY=
  'background-color:rgba(255,255,255,.10)!important;'
 +'border:1px solid rgba(255,255,255,.30)!important;';
+const _SF_GLASS=_SF_BASE+_SF_GRAY+_SF_SHADOW;
 const _SF_HOVER=
  'background-color:rgba(255,255,255,.16)!important;'
 +'border-color:rgba(255,255,255,.42)!important;';
@@ -199,7 +168,7 @@ const SEARCH_PILL_CSS=
 +`input[class*="search-input"],input[class*="searchInput"],input[class*="search-box"],input[class*="searchBox"],input[class*="SearchInput"],input[class*="SearchBox"],`
 +`[class*="search-bar"] input,[class*="searchbar"] input,[class*="search-field"] input,`
 +`[class*="sb-input"] input,[class*="input-wrap"] input{`
-+_SF_BASE+_SF_GRAY+_SF_SHADOW+`}`
++_SF_GLASS+`}`
 +`[class*="sb-input-wrap"],[class*="input-wrap"]{${_SF_CLEAR}}`;
 
 const _SF_WRAP_IN='html body .sb-input-wrap>input,html body [class*="sb-input-wrap"]>input';
@@ -214,12 +183,12 @@ const SEARCH_GLASS_CSS=
 +`html body #searchForm #fileRowContainer,html body #searchForm #searchRowContainer,html body #searchForm .multi-select-container{`
 +`background:transparent!important;background-color:transparent!important;`
 +`background-image:none!important;box-shadow:none!important;border-color:transparent!important;}`
-+`${_SF_INPUTS}{${_SF_BASE}${_SF_GRAY}${_SF_SHADOW}padding:0 16px!important;outline:none!important;}`
++`${_SF_INPUTS}{${_SF_GLASS}padding:0 16px!important;outline:none!important;}`
 +`${_SF_URLI}{padding:8px 18px!important;}`
 +_sfHov(_SF_INPUTS)+`{${_SF_HOVER}}`
 +`${_SF_PORTAL}:hover,${_SF_PORTAL}:focus,${_SF_PORTAL}:focus-within{${_SF_SHADOW}}`
 +_sfPlc(_SF_INPUTS)+`{${_SF_PH}}`
-+`${_SF_CAPS}{${_SF_BASE}${_SF_GRAY}${_SF_SHADOW}}`
++`${_SF_CAPS}{${_SF_GLASS}}`
 +_sfG(_SF_CAPS)+`{${_SF_HOVER}}`
 +`html body #searchForm .searchCB{padding:5px 12px!important;cursor:pointer!important;}`
 +`html body #searchForm #fileInputButton{cursor:pointer!important;}`
@@ -268,18 +237,16 @@ const SEARCH_GLASS_CSS=
 +_sfG(_SF_BTNS)+`{background-color:rgba(152,221,152,.34)!important;border-color:rgba(152,221,152,.60)!important;}`
 +`html body .sb-btn[data-lucky-checked="1"]{background-color:rgba(152,221,152,.30)!important;border-color:rgba(152,221,152,.55)!important;}`;
 
-// ===== TD 搜索框玻璃胶囊 =====
 const TD_SEARCH_GLASS_CSS=
  `html body .td-search-input{${_SF_CLEAR}padding:0!important;}`
 +`html body .td-search-input input,`
 +`html body input#td-header-search-mob,`
 +`html body input#td-header-search,`
 +`html body input[name="s"]{`
-+_SF_BASE+_SF_GRAY+_SF_SHADOW+`padding:0 16px!important;outline:none!important;}`
++_SF_GLASS+`padding:0 16px!important;outline:none!important;}`
 +`html body .td-search-input input:hover,html body .td-search-input input:focus,html body .td-search-input input:focus-within{${_SF_HOVER}}`
 +`html body .td-search-input input::placeholder{${_SF_PH}}`;
 
-// ===== 百度 AI 新版搜索框玻璃 =====
 const CHAT_INPUT_GLASS_CSS =
 `html body .chat-input-wrapper-border,`
 +`html body .chat-input-wrapper-box-shadow,`
@@ -359,7 +326,6 @@ const CHAT_INPUT_GLASS_CSS =
 +`0 6px 14px rgba(15,23,42,.16)!important;`
 +`}`;
 
-// ===== Google 搜索框玻璃胶囊 =====
 const GOOGLE_SEARCH_GLASS_CSS=
 `html body .RNNXgb{`
 +`background:rgba(255,255,255,.10)!important;`
@@ -424,7 +390,6 @@ const GOOGLE_SEARCH_GLASS_CSS=
 +`}`
 +`html body .UUbT9{color:inherit!important;}`;
 
-// ===== X 搜索框玻璃胶囊 =====
 const X_SEARCH_GLASS_CSS=
 `html body div:has(> div > div > div[data-testid="SearchBox_Search_Input_label"]){`
 +`background:rgba(255,255,255,.10)!important;`
@@ -502,63 +467,63 @@ const X_SEARCH_GLASS_CSS=
 +`box-shadow:none!important;`
 +`outline:none!important;`
 +`}`;
-// ===== 通用标签栏按钮：选中态 LGGC 毛玻璃，未选中完全透明 =====
+
 const TAB_GLASS_CSS=
-`html body .tab-wrap,html body .tab-bar{`+
-`background:transparent!important;`+
-`background-color:transparent!important;`+
-`background-image:none!important;`+
-`border:0!important;`+
-`box-shadow:none!important;`+
-`backdrop-filter:none!important;`+
-`-webkit-backdrop-filter:none!important;`+
-`}`+
-`html body .tab-item{`+
-`background:transparent!important;`+
-`background-color:transparent!important;`+
-`background-image:none!important;`+
-`border:1px solid transparent!important;`+
-`box-shadow:none!important;`+
-`backdrop-filter:none!important;`+
-`-webkit-backdrop-filter:none!important;`+
-`border-radius:9999px!important;`+
-`transform:translateZ(0)!important;`+
-`transition:background-color .2s,border-color .2s,box-shadow .2s!important;`+
-`}`+
-`html body .tab-item:hover{`+
-`background-color:rgba(255,255,255,.08)!important;`+
-`border-color:rgba(255,255,255,.18)!important;`+
-`}`+
-`html body .tab-item.active,`+
-`html body .tab-item.selected,`+
-`html body .tab-item[aria-current="page"],`+
-`html body .tab-item[aria-selected="true"]{`+
-`background:rgba(255,255,255,.10)!important;`+
-`background-color:rgba(255,255,255,.10)!important;`+
-`background-image:none!important;`+
-`backdrop-filter:blur(12px) saturate(130%)!important;`+
-`-webkit-backdrop-filter:blur(12px) saturate(130%)!important;`+
-`border:1px solid rgba(255,255,255,.30)!important;`+
-`border-radius:9999px!important;`+
-`box-shadow:${LGGC.shadow}!important;`+
-`transform:translateZ(0)!important;`+
-`isolation:isolate!important;`+
-`}`+
-`html body .tab-item.active:hover,`+
-`html body .tab-item.selected:hover{`+
-`background-color:rgba(255,255,255,.16)!important;`+
-`border-color:rgba(255,255,255,.42)!important;`+
-`}`+
-`html body .tab-item img,`+
-`html body .tab-item svg{`+
-`background:transparent!important;`+
-`background-color:transparent!important;`+
-`background-image:none!important;`+
-`border:0!important;`+
-`box-shadow:none!important;`+
-`filter:none!important;`+
-`opacity:1!important;`+
-`}`;
+`html body .tab-wrap,html body .tab-bar{`
++`background:transparent!important;`
++`background-color:transparent!important;`
++`background-image:none!important;`
++`border:0!important;`
++`box-shadow:none!important;`
++`backdrop-filter:none!important;`
++`-webkit-backdrop-filter:none!important;`
++`}`
++`html body .tab-item{`
++`background:transparent!important;`
++`background-color:transparent!important;`
++`background-image:none!important;`
++`border:1px solid transparent!important;`
++`box-shadow:none!important;`
++`backdrop-filter:none!important;`
++`-webkit-backdrop-filter:none!important;`
++`border-radius:9999px!important;`
++`transform:translateZ(0)!important;`
++`transition:background-color .2s,border-color .2s,box-shadow .2s!important;`
++`}`
++`html body .tab-item:hover{`
++`background-color:rgba(255,255,255,.08)!important;`
++`border-color:rgba(255,255,255,.18)!important;`
++`}`
++`html body .tab-item.active,`
++`html body .tab-item.selected,`
++`html body .tab-item[aria-current="page"],`
++`html body .tab-item[aria-selected="true"]{`
++`background:rgba(255,255,255,.10)!important;`
++`background-color:rgba(255,255,255,.10)!important;`
++`background-image:none!important;`
++`backdrop-filter:blur(12px) saturate(130%)!important;`
++`-webkit-backdrop-filter:blur(12px) saturate(130%)!important;`
++`border:1px solid rgba(255,255,255,.30)!important;`
++`border-radius:9999px!important;`
++`box-shadow:${LGGC.shadow}!important;`
++`transform:translateZ(0)!important;`
++`isolation:isolate!important;`
++`}`
++`html body .tab-item.active:hover,`
++`html body .tab-item.selected:hover{`
++`background-color:rgba(255,255,255,.16)!important;`
++`border-color:rgba(255,255,255,.42)!important;`
++`}`
++`html body .tab-item img,`
++`html body .tab-item svg{`
++`background:transparent!important;`
++`background-color:transparent!important;`
++`background-image:none!important;`
++`border:0!important;`
++`box-shadow:none!important;`
++`filter:none!important;`
++`opacity:1!important;`
++`}`;
 
 const ADM_SEARCH_GLASS_CSS=
 `html body .adm-search-bar-input-box.adm-search-bar-input-box,`+
@@ -694,10 +659,7 @@ getTopDomain(host){
  if(!host)return '';
  if(/^\d+\.\d+\.\d+\.\d+$/.test(host))return host;
  const HOSTED=['github.io','gitlab.io','bitbucket.io','gitee.io','netlify.app','vercel.app','pages.dev','glitch.me','repl.co','replit.dev','blogspot.com','wordpress.com','tumblr.com','wixsite.com','squarespace.com','webflow.io','herokuapp.com','firebaseapp.com','web.app','surge.sh','now.sh','onrender.com','railway.app','fly.dev','deno.dev','workers.dev','koyeb.app','fly.io','ngrok.io','ngrok-free.app','trycloudflare.com','pages.github.io'];
- for(const suf of HOSTED){
-  if(host===suf)return host;
-  if(host.endsWith('.'+suf))return host;
- }
+ for(const suf of HOSTED){if(host===suf)return host;if(host.endsWith('.'+suf))return host;}
  const p=host.split('.');
  if(p.length<=2)return host;
  const sld=['com','net','org','gov','edu','co','ac','ne','or','go','info','biz','mobi','name','pro','aero','asia','cat','coop','jobs','museum','tel','travel','xxx'];
@@ -857,8 +819,7 @@ toggleCurrentSiteInList(){
 
 const LivePreview={
 overlayBlur:null,overlayAlpha:null,config:null,
-clear(){LivePreview.overlayBlur=null;LivePreview.overlayAlpha=null;LivePreview.config=null;},
-reset(){if(LivePreview.overlayBlur!==null||LivePreview.overlayAlpha!==null||LivePreview.config!==null)LivePreview.clear();StyleManager.applyStyle();OverlayEnhancer.request();}
+clear(){LivePreview.overlayBlur=null;LivePreview.overlayAlpha=null;LivePreview.config=null;}
 };
 
 const BackgroundImage={
@@ -1109,14 +1070,12 @@ if(/(^|\.)apkmirror\.com$/.test(Utils.getHost())){
   }
   `;
 }
-/* === apkcombo：汉堡按钮 + 展开面板玻璃（模糊受"弹层模糊"滑块控制） === */
 if(/(^|\.)apkcombo\.(com|org)$/.test(Utils.getHost())){
   const nb=Number(cfg.nativeElementBlur)||0;
   const BF=nb>0
     ?`backdrop-filter:blur(${nb}px) saturate(140%)!important;-webkit-backdrop-filter:blur(${nb}px) saturate(140%)!important;`
     :`backdrop-filter:none!important;-webkit-backdrop-filter:none!important;`;
   css += `
-  /* 汉堡按钮：LGGC 玻璃胶囊 */
   html body .navbar-burger,
   html body .navbar-burger.burger,
   html body .navbar-burger.is-active{
@@ -1162,8 +1121,6 @@ if(/(^|\.)apkcombo\.(com|org)$/.test(Utils.getHost())){
     opacity:1!important;
     transform:none!important;
   }
-
-  /* 展开面板：LGGC 浅色玻璃面板，模糊跟滑块走 */
   html body .navbar-menu,
   html body .navbar-menu.is-active{
     background-color:rgba(255,255,255,.10)!important;
@@ -1196,8 +1153,6 @@ if(/(^|\.)apkcombo\.(com|org)$/.test(Utils.getHost())){
   html body .navbar-menu .navbar-link:hover{
     background-color:rgba(255,255,255,.10)!important;
   }
-
-  /* 语言下拉：浅色玻璃面板，模糊跟滑块走 */
   html body .navbar-menu .navbar-dropdown,
   html body .navbar-dropdown{
     background-color:rgba(255,255,255,.12)!important;
@@ -1233,7 +1188,6 @@ if(/(^|\.)apkcombo\.(com|org)$/.test(Utils.getHost())){
   }
   `;
 }
-/* === apkpure.com：自带菜单改为 LGGC 毛玻璃，模糊跟随「弹层模糊」滑块 === */
 if(/(^|\.)apkpure\.com$/.test(Utils.getHost())){
   const nb=Number(cfg.nativeElementBlur)||0;
   const BF=nb>0
@@ -1244,14 +1198,12 @@ if(/(^|\.)apkpure\.com$/.test(Utils.getHost())){
   const glassBg=dark?`rgba(${LGGC.bgDark},.45)`:`rgba(${LGGC.bgLight},.12)`;
   const glassBorder=dark?'rgba(255,255,255,.18)':'rgba(255,255,255,.45)';
   css += `
-  /* 全局主题色会把菜单文字刷成浅灰，这里改回可读深色（或跟随主题） */
   html body #nav_new,
   html body #nav_new *:not(i):not(svg):not(svg *),
   html body .nav_new,
   html body .nav_new *:not(i):not(svg):not(svg *){
     color:${txtColor}!important;
   }
-  /* 菜单面板：LGGC 毛玻璃，模糊由"弹层模糊"滑块控制 */
   html body #nav_new,
   html body .nav_new{
     background-color:${glassBg}!important;
@@ -1262,7 +1214,6 @@ if(/(^|\.)apkpure\.com$/.test(Utils.getHost())){
     isolation:isolate!important;
     transform:translateZ(0)!important;
   }
-  /* 菜单内部项保留透明底，交给面板做玻璃 */
   html body #nav_new .item,
   html body #nav_new .item>a,
   html body #nav_new .item>span,
@@ -1279,13 +1230,11 @@ if(/(^|\.)apkpure\.com$/.test(Utils.getHost())){
     background-image:none!important;
     box-shadow:none!important;
   }
-  /* 头像保留圆形 */
   html body #nav_new .nav_user_img{
     border-radius:50%!important;
     visibility:visible!important;
     opacity:1!important;
   }
-  /* 图标继承色 */
   html body #nav_new svg,
   html body #nav_new svg *,
   html body #nav_new i,
@@ -1297,7 +1246,6 @@ if(/(^|\.)apkpure\.com$/.test(Utils.getHost())){
     visibility:visible!important;
     opacity:1!important;
   }
-  /* 遮罩保持原生半透明黑 */
   html body #shadow{
     background:rgba(0,0,0,.5)!important;
     backdrop-filter:none!important;
@@ -1309,7 +1257,6 @@ if(/(^|\.)apkpure\.com$/.test(Utils.getHost())){
   `;
 }
 css += `
-/* === 上传区/GIF 压缩卡片：彻底透明 === */
 html body label.upload-zone,
 html body .upload-zone,
 html body .upload-zone *,
@@ -2029,7 +1976,6 @@ isTiebaSite(){return /(^|\.)tieba\.baidu\.com$/.test(Utils.getHost());},
 is123PanSite(){return /(^|\.)123pan\.(com|cn)$/.test(Utils.getHost());},
 isGoogleSite(){return /(^|\.)google\.[a-z.]+$/.test(Utils.getHost());},
 isSymblSite(){return /(^|\.)symbl\.cc$/.test(Utils.getHost());},
-isNmcSite(){return /(^|\.)nmc\.cn$/.test(Utils.getHost());},
 
 symblCSS(){
  return `/* === symbl.cc 清场 === */
@@ -2383,6 +2329,7 @@ stripXHeaderBlur(){
   }
  });}
 };
+
 const StyleManager={
 styleNode:null,nativeBlurNode:null,
 styleFollowedBySiteSheet(node){
@@ -2444,14 +2391,7 @@ applyAgain(){Config.invalidate();BackgroundImage.ready=false;StyleManager.applyS
 
 const CaptchaGuard={
 active:false,_lastCheck:0,_enterTimer:null,_recoverTimer:null,
-
-CF_STRUCTURE_SELECTORS:[
- 'input[name="cf-turnstile-response"]',
- '[id^="cf-chl-widget"]',
- '[id^="cf-chl-"]',
- '#challenge-error-text',
- '[class*="challenge-platform"]'
-],
+CF_STRUCTURE_SELECTORS:['input[name="cf-turnstile-response"]','[id^="cf-chl-widget"]','[id^="cf-chl-"]','#challenge-error-text','[class*="challenge-platform"]'],
 isCfStructure(){
  try{
   if(typeof window._cf_chl_opt!=='undefined')return true;
@@ -2459,9 +2399,7 @@ isCfStructure(){
    if(document.querySelector(CaptchaGuard.CF_STRUCTURE_SELECTORS[i]))return true;
   }
  }catch(e){}
- return false;
-},
-
+ return false;},
 throttledCheck(){const n=Date.now();if(n-CaptchaGuard._lastCheck<300)return;CaptchaGuard._lastCheck=n;CaptchaGuard.check();},
 isRealCaptcha(el){
  if(!el)return false;
@@ -2565,7 +2503,6 @@ _marked:new WeakSet(),_lastApplied:new WeakMap(),_keywordCache:new WeakMap(),_ra
 _lastScan:0,_scanMinInterval:1500,
 isExcludedElement(el){
  if(!el||!el.nodeType)return false;
- // apkpure：整个 header 内的元素（菜单、汉堡、搜索等）一律不处理
  if(el.closest&&el.closest('#header'))return true;
  if(el.id==='nav_new'||el.id==='shadow')return true;
  if(el.closest&&el.closest('#nav_new'))return true;
@@ -2625,7 +2562,6 @@ htmlBodyLocked(){
  const hc=(document.documentElement.className||'').toLowerCase(),bc=(document.body.className||'').toLowerCase();
  return ['modal-open','drawer-open','overflow-hidden','no-scroll','popup-open','dialog-open'].some(k=>hc.includes(k)||bc.includes(k))||hs.overflow==='hidden'||hs.overflowY==='hidden'||bs.overflow==='hidden'||bs.overflowY==='hidden';},
 isLightBg(bg){if(!bg||!bg.includes('rgb'))return false;const n=bg.match(/\d+(\.\d+)?/g);return n&&n.length>=3&&(parseFloat(n[0])+parseFloat(n[1])+parseFloat(n[2]))/3>180;},
-
 findLikelyOverlays(){
  if(!document.body)return [];
  const floatEl=document.getElementById(FLOAT_ID),out=[],vw=innerWidth,vh=innerHeight;
@@ -2713,7 +2649,7 @@ startScanTimer(){
   const cfg=Config.merge(Utils.getHost()),ov=Config.getEffectiveOverlayValues();
   if(cfg.enabled&&!CaptchaGuard.active&&(ov.blur>0||ov.alpha>0))OverlayEnhancer.apply();},3000);}
 };
-// ===== 汉堡菜单按钮 LGGC 玻璃胶囊 =====
+
 const HamburgerFixer={
 _last:0,
 fix(force){
@@ -2724,7 +2660,6 @@ fix(force){
   if(typeof CaptchaGuard!=='undefined'&&CaptchaGuard.active)return;
   if(!Config.merge(Utils.getHost()).enabled)return;
  }catch(e){return;}
- // apkpure 自带菜单：完全跳过，避免干扰它自己的开关逻辑
  if(/(^|\.)apkpure\.com$/.test(Utils.getHost()))return;
  let btns;
  try{
@@ -2740,11 +2675,10 @@ fix(force){
  for(const btn of btns){
   if(!btn||!btn.style)continue;
   if(btn.id&&/^vie-browser-bg/.test(btn.id))continue;
-  // 排除 apkpure 自带菜单相关
   if(btn.id==='nav_new'||btn.id==='menu_btn')continue;
   if(btn.closest&&btn.closest('#nav_new'))continue;
   if(btn.closest&&btn.closest('#header'))continue;
-  
+
   try{
    if(btn.getAttribute('role')==='combobox')continue;
    if(btn.getAttribute('data-slot')==='select-trigger')continue;
@@ -2780,7 +2714,7 @@ fix(force){
    setImp(btn,'isolation','isolate');
    setImp(btn,'transform','translateZ(0)');
    setImp(btn,'cursor','pointer');
-   
+
    const isMobileMenu = btn.tagName==='A'&&btn.classList&&btn.classList.contains('only-mobile');
    const lineColor = isMobileMenu ? '#333' : 'currentColor';
    const spans=btn.querySelectorAll('span');
@@ -2798,7 +2732,6 @@ fix(force){
  }
 }
 };
-// ===== 新增结束 =====
 
 const AdmSearchFixer={
 _bound:false,_last:0,
@@ -3384,7 +3317,6 @@ observe(){
  new MutationObserver((muts)=>{
   CaptchaGuard.throttledCheck();
 
-  // apkpure 自带菜单变化不触发脚本重扫
   let skipAll=true;
   let urgent=false;
   for(const m of muts){
