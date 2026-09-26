@@ -6,6 +6,7 @@
 // @author       明明
 // @match        *://*/*
 // @exclude      *://*.chatgpt.com/*
+// @exclude      *://*.x.com/*
 // @exclude      *://*.zh.flightaware.com/*
 // @exclude      *://*.apkpure.com/*
 // @exclude      *://*.pqjc.site/*
