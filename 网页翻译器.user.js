@@ -35,6 +35,41 @@ let targetLang=_targetLang;let autoMode=_autoMode;let excludedHosts=JSON.parse(_
 if(!uiPos||typeof uiPos.right!=='number'||typeof uiPos.bottom!=='number'){uiPos={right:getDefaultRight(),bottom:BADGE_MARGIN_BOTTOM}}
 let aiConfig={deepseek:{key:_deepseekKey,model:_deepseekModel},glm:{key:_glmKey,model:_glmModel}};
 const CONCURRENCY_LIMIT=6;const AI_CONCURRENCY_LIMIT=1;const AI_REQUEST_DELAY=300;const AI_BATCH_SIZE=25;const MS_BATCH_SIZE=25;const DEFAULT_BATCH_SIZE=50;
+
+const NO_TRANSLATE_FORMATS = [
+  'LIVEPHOTO','DATAURI','ASEPRITE','SPRITE','BITMAP',
+  'WEBP','APNG','AVIF','HEIC','HEIF','TIFF','JPEG','JPG','PNG','GIF','JXL',
+  'MP4','WEBM','MOV','MKV','MP3','FLAC','WAV','M4A','OGG','PDF','SVG',
+  'BMP','MNG','ICO','PO','MO','KB','RGB','ANI','TGS','LOTTIE','BPG',
+  'FLI','FLIF','CDXL','ANIM','STATIC','MVIMG','CR2','CR3','NEF','ARW',
+  'DNG','RAF','ORF','RW2','WBMP','JP2','XCF','HEX','CSV','3GP','MiB','RESIZE'
+];
+
+const FORMAT_TERMS = [...new Set(NO_TRANSLATE_FORMATS)].sort((a, b) => b.length - a.length);
+const FORMAT_RE = new RegExp(
+  `\\b(${FORMAT_TERMS.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})\\b`,
+  'gi'
+);
+
+function protectNoTranslate(text) {
+  if (!text) return { text, map: [] };
+  const map = [];
+  const protectedText = text.replace(FORMAT_RE, (m) => {
+    const idx = map.length;
+    map.push(m);
+    return `Zk${idx}kZ`;
+  });
+  return { text: protectedText, map };
+}
+
+function restoreNoTranslate(text, map) {
+  if (!text || !map || !map.length) return text;
+  return text.replace(/Zk\s*(\d+)\s*kZ/gi, (_, n) => {
+    const idx = Number(n);
+    return map[idx] !== undefined ? map[idx] : _;
+  });
+}
+
 let statusEl=null;
 function updateStatus(msg){if(statusEl)statusEl.textContent=msg+' · 缓存: '+cache.size}
 if(excludedHosts.includes(location.host)){GM_registerMenuCommand('✅ 在此网站重新启用翻译',()=>{const idx=excludedHosts.indexOf(location.host);if(idx>-1)excludedHosts.splice(idx,1);GM_setValue('excludedHosts',JSON.stringify(excludedHosts));location.reload()});return}
@@ -49,13 +84,14 @@ function gmFetch(opts){return new Promise((resolve,reject)=>{GM_xmlhttpRequest({
 const MAX_CACHE=5000;const CACHE_SAVE_INTERVAL=30000;let cacheModified=false;
 let cacheData={};try{cacheData=JSON.parse(_savedCache)}catch(e){cacheData={}}
 const cache=new Map(Object.entries(cacheData));
-function cacheKey(text){return currentEngine+'\u0000'+targetLang+'\u0000'+text}
+const CACHE_VERSION = 'v7';
+function cacheKey(text){return CACHE_VERSION+'\u0000'+currentEngine+'\u0000'+targetLang+'\u0000'+text}
 function cacheGet(text){return cache.get(cacheKey(text))}
 function cacheSet(text,value){if(cache.size>=MAX_CACHE){const deleteCount=Math.floor(MAX_CACHE*0.2);const keys=cache.keys();for(let i=0;i<deleteCount;i++){cache.delete(keys.next().value)}}cache.set(cacheKey(text),value);cacheModified=true}
 function saveCache(immediate){if(!cacheModified)return;const doSave=()=>{try{GM_setValue('translationCache',JSON.stringify(Object.fromEntries(cache)));cacheModified=false}catch(e){if(e.message&&e.message.includes('quota')){const deleteCount=Math.floor(cache.size/2);const keys=cache.keys();for(let i=0;i<deleteCount;i++){cache.delete(keys.next().value)}try{GM_setValue('translationCache',JSON.stringify(Object.fromEntries(cache)));cacheModified=false}catch(_){}}}};if(!immediate&&typeof requestIdleCallback==='function'){requestIdleCallback(doSave,{timeout:3000})}else{doSave()}}
 function clearCache(){cache.clear();GM_setValue('translationCache','{}');cacheModified=false}
-async function aiSingleTranslate(text,toLang,apiKey,model,apiUrl,engineName){const targetLangName=ALL_LANGUAGES[toLang]||toLang;const systemPrompt="You are a professional translation engine. Translate accurately. Output ONLY the translated text, nothing else.";const userPrompt=`Translate to ${targetLangName} (${toLang}):\n\n${text}`;const r=await gmFetchWithRetry({method:'POST',url:apiUrl,headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey},data:JSON.stringify({model:model,messages:[{role:'system',content:systemPrompt},{role:'user',content:userPrompt}],temperature:0.1})});if(r.status!==200)throw new Error(`${engineName} Error: ${r.status}`);const data=JSON.parse(r.responseText);if(data.error)throw new Error(`${engineName} API: ${data.error.message}`);return data.choices[0].message.content.trim()}
-async function aiBatchTranslate(texts,toLang,apiKey,model,apiUrl,engineName){if(!apiKey)throw new Error(`请配置 ${engineName} API Key`);if(texts.length===0)return[];if(texts.length===1)return[await aiSingleTranslate(texts[0],toLang,apiKey,model,apiUrl,engineName)];const allResults=[];const targetLangName=ALL_LANGUAGES[toLang]||toLang;for(let i=0;i<texts.length;i+=AI_BATCH_SIZE){const batch=texts.slice(i,i+AI_BATCH_SIZE);if(batch.length===1){try{allResults.push(await aiSingleTranslate(batch[0],toLang,apiKey,model,apiUrl,engineName))}catch(e){allResults.push(null)}continue}const numberedTexts=batch.map((t,idx)=>`[${idx}] ${t}`).join('\n\n');const systemPrompt=`You are a professional batch translator. You will receive multiple numbered text segments. Translate each one to the target language. CRITICAL: You MUST maintain the exact [number] format before each translation. Output ONLY the translations with numbering, nothing else. Do not skip any segment.`;const userPrompt=`Target language: ${targetLangName} (${toLang})\n\nTranslate ALL segments below. Keep the [number] format exactly:\n\n${numberedTexts}`;try{const r=await gmFetchWithRetry({method:'POST',url:apiUrl,headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey},data:JSON.stringify({model:model,messages:[{role:'system',content:systemPrompt},{role:'user',content:userPrompt}],temperature:0.1,max_tokens:4096})});if(r.status!==200)throw new Error(`${engineName} Error: ${r.status}`);const data=JSON.parse(r.responseText);if(data.error)throw new Error(`${engineName} API: ${data.error.message}`);const parsed=parseNumberedResponse(data.choices[0].message.content.trim(),batch.length);for(let k=0;k<parsed.length;k++){if(!parsed[k]){try{parsed[k]=await aiSingleTranslate(batch[k],toLang,apiKey,model,apiUrl,engineName)}catch(_){parsed[k]=null}}}allResults.push(...parsed)}catch(e){for(const text of batch){try{allResults.push(await aiSingleTranslate(text,toLang,apiKey,model,apiUrl,engineName))}catch(e2){allResults.push(null)}}}if(i+AI_BATCH_SIZE<texts.length)await delay(500)}return allResults}
+async function aiSingleTranslate(text,toLang,apiKey,model,apiUrl,engineName){const targetLangName=ALL_LANGUAGES[toLang]||toLang;const systemPrompt="You are a professional translation engine. Translate accurately. Output ONLY the translated text, nothing else. Keep identifiers like Zk0kZ Zk1kZ unchanged.";const userPrompt=`Translate to ${targetLangName} (${toLang}):\n\n${text}`;const r=await gmFetchWithRetry({method:'POST',url:apiUrl,headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey},data:JSON.stringify({model:model,messages:[{role:'system',content:systemPrompt},{role:'user',content:userPrompt}],temperature:0.1})});if(r.status!==200)throw new Error(`${engineName} Error: ${r.status}`);const data=JSON.parse(r.responseText);if(data.error)throw new Error(`${engineName} API: ${data.error.message}`);return data.choices[0].message.content.trim()}
+async function aiBatchTranslate(texts,toLang,apiKey,model,apiUrl,engineName){if(!apiKey)throw new Error(`请配置 ${engineName} API Key`);if(texts.length===0)return[];if(texts.length===1)return[await aiSingleTranslate(texts[0],toLang,apiKey,model,apiUrl,engineName)];const allResults=[];const targetLangName=ALL_LANGUAGES[toLang]||toLang;for(let i=0;i<texts.length;i+=AI_BATCH_SIZE){const batch=texts.slice(i,i+AI_BATCH_SIZE);if(batch.length===1){try{allResults.push(await aiSingleTranslate(batch[0],toLang,apiKey,model,apiUrl,engineName))}catch(e){allResults.push(null)}continue}const numberedTexts=batch.map((t,idx)=>`[${idx}] ${t}`).join('\n\n');const systemPrompt=`You are a professional batch translator. You will receive multiple numbered text segments. Translate each one to the target language. CRITICAL: You MUST maintain the exact [number] format before each translation. Keep identifiers like Zk0kZ Zk1kZ unchanged. Output ONLY the translations with numbering, nothing else. Do not skip any segment.`;const userPrompt=`Target language: ${targetLangName} (${toLang})\n\nTranslate ALL segments below. Keep the [number] format exactly:\n\n${numberedTexts}`;try{const r=await gmFetchWithRetry({method:'POST',url:apiUrl,headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey},data:JSON.stringify({model:model,messages:[{role:'system',content:systemPrompt},{role:'user',content:userPrompt}],temperature:0.1,max_tokens:4096})});if(r.status!==200)throw new Error(`${engineName} Error: ${r.status}`);const data=JSON.parse(r.responseText);if(data.error)throw new Error(`${engineName} API: ${data.error.message}`);const parsed=parseNumberedResponse(data.choices[0].message.content.trim(),batch.length);for(let k=0;k<parsed.length;k++){if(!parsed[k]){try{parsed[k]=await aiSingleTranslate(batch[k],toLang,apiKey,model,apiUrl,engineName)}catch(_){parsed[k]=null}}}allResults.push(...parsed)}catch(e){for(const text of batch){try{allResults.push(await aiSingleTranslate(text,toLang,apiKey,model,apiUrl,engineName))}catch(e2){allResults.push(null)}}}if(i+AI_BATCH_SIZE<texts.length)await delay(500)}return allResults}
 function parseNumberedResponse(responseText,expectedCount){const results=new Array(expectedCount).fill(null);const lines=responseText.split('\n');let currentIdx=-1,currentText='';for(const line of lines){const match=line.match(/^\[(\d+)\]\s*(.*)/);if(match){if(currentIdx>=0&&currentIdx<expectedCount)results[currentIdx]=currentText.trim();currentIdx=parseInt(match[1]);currentText=match[2]||''}else if(currentIdx>=0&&line.trim()){currentText+=(currentText?'\n':'')+line}}if(currentIdx>=0&&currentIdx<expectedCount)results[currentIdx]=currentText.trim();if(results.every(r=>r===null)){const parts=responseText.split(/\n\s*\n/).filter(s=>s.trim());for(let i=0;i<Math.min(parts.length,expectedCount);i++)results[i]=parts[i].trim().replace(/^\[\d+\]\s*/,'')}if(results.every(r=>r===null)){const linesArr=responseText.split('\n').filter(s=>s.trim());for(let i=0;i<Math.min(linesArr.length,expectedCount);i++)results[i]=linesArr[i].trim().replace(/^\[\d+\]\s*/,'')}return results}
 const Engine={
 google_v2:{
@@ -99,8 +135,190 @@ async translate(text,toLang){return await aiSingleTranslate(text,toLang,aiConfig
 async translateBatch(texts,toLang){return await aiBatchTranslate(texts,toLang,aiConfig.glm.key,aiConfig.glm.model,'https://open.bigmodel.cn/api/paas/v4/chat/completions','GLM')}
 }
 };
-async function translate(text){if(!text||!text.trim())return null;const trimmed=text.trim();if(/^\d+$/.test(trimmed))return null;const cached=cacheGet(trimmed);if(cached)return cached;try{const result=await Engine[currentEngine].translate(trimmed,targetLang);if(result&&result!==trimmed){cacheSet(trimmed,result);return result}}catch(e){if(Engine[currentEngine].isAI)return null;if(currentEngine==='microsoft'){try{const result=await Engine.tencent.translate(trimmed,targetLang);if(result&&result!==trimmed){currentEngine='tencent';GM_setValue('engine','tencent');const engineSel=document.getElementById('tuEngine');if(engineSel)engineSel.value='tencent';updateStatus('⚠️ 微软不可用，已自动切换腾讯');cacheSet(trimmed,result);return result}}catch(e2){}}const fallbackEngine=currentEngine==='google'?'microsoft':'google_legacy';try{const result=await Engine[fallbackEngine].translate(trimmed,targetLang);if(result&&result!==trimmed){cacheSet(trimmed,result);return result}}catch(_){}}return null}
-async function batchTranslate(texts){const results=new Array(texts.length).fill(null);const uniqueTexts=[],textToIndices=new Map(),seenInBatch=new Set();for(let i=0;i<texts.length;i++){const t=texts[i].trim();if(!t||/^\d+$/.test(t))continue;const cached=cacheGet(t);if(cached){results[i]=cached;continue}if(!seenInBatch.has(t)){uniqueTexts.push(t);seenInBatch.add(t);textToIndices.set(t,[i])}else{textToIndices.get(t).push(i)}}if(uniqueTexts.length===0)return results;const engine=Engine[currentEngine];const fillResults=(text,translation)=>{if(!translation)return;cacheSet(text,translation);const indices=textToIndices.get(text);if(indices)indices.forEach(idx=>results[idx]=translation)};if(engine.isAI&&engine.translateBatch){try{const batchResults=await engine.translateBatch(uniqueTexts,targetLang);if(batchResults){for(let j=0;j<batchResults.length;j++){if(batchResults[j]&&batchResults[j]!==uniqueTexts[j])fillResults(uniqueTexts[j],batchResults[j])}}return results}catch(e){}}if(engine.translateBatch){try{const BATCH_SIZE=currentEngine==='microsoft'?MS_BATCH_SIZE:DEFAULT_BATCH_SIZE;for(let b=0;b<uniqueTexts.length;b+=BATCH_SIZE){const chunkTexts=uniqueTexts.slice(b,b+BATCH_SIZE);try{const batchResults=await engine.translateBatch(chunkTexts,targetLang);if(batchResults){for(let j=0;j<batchResults.length;j++){if(batchResults[j]&&batchResults[j]!==chunkTexts[j])fillResults(chunkTexts[j],batchResults[j])}}}catch(e){if(currentEngine==='microsoft'){try{const tencentResults=await Engine.tencent.translateBatch(chunkTexts,targetLang);if(tencentResults){for(let j=0;j<tencentResults.length;j++){if(tencentResults[j]&&tencentResults[j]!==chunkTexts[j])fillResults(chunkTexts[j],tencentResults[j])}currentEngine='tencent';GM_setValue('engine','tencent');const engineSel=document.getElementById('tuEngine');if(engineSel)engineSel.value='tencent';updateStatus('⚠️ 微软不可用，已自动切换腾讯');continue}}catch(e2){}}for(const text of chunkTexts){try{const r=await translate(text);if(r)fillResults(text,r)}catch(_){}}}}return results}catch(e){}}const concurrency=engine.isAI?AI_CONCURRENCY_LIMIT:CONCURRENCY_LIMIT;const requestDelay=engine.isAI?AI_REQUEST_DELAY:0;for(let i=0;i<uniqueTexts.length;i+=concurrency){const batch=uniqueTexts.slice(i,i+concurrency);await Promise.allSettled(batch.map(async(text,idx)=>{try{if(requestDelay>0)await delay(idx*requestDelay);const r=await engine.translate(text,targetLang);if(r)fillResults(text,r)}catch(e){if(currentEngine==='microsoft'){try{const r2=await Engine.tencent.translate(text,targetLang);if(r2){fillResults(text,r2);currentEngine='tencent';GM_setValue('engine','tencent');updateStatus('⚠️ 微软不可用，已自动切换腾讯')}}catch(_){}}}}));if(requestDelay>0&&i+concurrency<uniqueTexts.length)await delay(requestDelay)}return results}
+
+async function translate(text){
+  if(!text||!text.trim())return null;
+  const trimmed=text.trim();
+  if(/^\d+$/.test(trimmed))return null;
+  const cached=cacheGet(trimmed);
+  if(cached)return cached;
+
+  const {text: protectedText, map} = protectNoTranslate(trimmed);
+
+  const finish = (result) => {
+    if (!result) return null;
+    const restored = restoreNoTranslate(result, map);
+    if (restored && restored !== trimmed) {
+      cacheSet(trimmed, restored);
+      return restored;
+    }
+    return null;
+  };
+
+  try{
+    const result=await Engine[currentEngine].translate(protectedText,targetLang);
+    const done = finish(result);
+    if(done) return done;
+  }catch(e){
+    if(Engine[currentEngine].isAI)return null;
+    if(currentEngine==='microsoft'){
+      try{
+        const result=await Engine.tencent.translate(protectedText,targetLang);
+        const done = finish(result);
+        if(done){
+          currentEngine='tencent';
+          GM_setValue('engine','tencent');
+          const engineSel=document.getElementById('tuEngine');
+          if(engineSel)engineSel.value='tencent';
+          updateStatus('⚠️ 微软不可用，已自动切换腾讯');
+          return done;
+        }
+      }catch(e2){}
+    }
+    const fallbackEngine=currentEngine==='google'?'microsoft':'google_legacy';
+    try{
+      const result=await Engine[fallbackEngine].translate(protectedText,targetLang);
+      const done = finish(result);
+      if(done) return done;
+    }catch(_){}
+  }
+  return null;
+}
+
+async function batchTranslate(texts){
+  const results=new Array(texts.length).fill(null);
+  const uniqueTexts=[],textToIndices=new Map(),seenInBatch=new Set();
+
+  for(let i=0;i<texts.length;i++){
+    const t=texts[i].trim();
+    if(!t||/^\d+$/.test(t))continue;
+    const cached=cacheGet(t);
+    if(cached){results[i]=cached;continue}
+    if(!seenInBatch.has(t)){
+      uniqueTexts.push(t);
+      seenInBatch.add(t);
+      textToIndices.set(t,[i]);
+    }else{
+      textToIndices.get(t).push(i);
+    }
+  }
+
+  if(uniqueTexts.length===0)return results;
+
+  let engine=Engine[currentEngine];
+
+  const fillResults=(text,translation)=>{
+    if(!translation)return;
+    cacheSet(text,translation);
+    const indices=textToIndices.get(text);
+    if(indices)indices.forEach(idx=>results[idx]=translation);
+  };
+
+  const protectedInfos = uniqueTexts.map(t => protectNoTranslate(t));
+  const protectedTexts = protectedInfos.map(x => x.text);
+  const protectedMaps = protectedInfos.map(x => x.map);
+
+  const fillProtectedResult = (original, rawResult, map) => {
+    if (!rawResult) return;
+    const restored = restoreNoTranslate(rawResult, map);
+    if (restored && restored !== original) fillResults(original, restored);
+  };
+
+  if(engine.isAI&&engine.translateBatch){
+    try{
+      const batchResults=await engine.translateBatch(protectedTexts,targetLang);
+      if(batchResults){
+        for(let j=0;j<batchResults.length;j++){
+          fillProtectedResult(uniqueTexts[j], batchResults[j], protectedMaps[j]);
+        }
+      }
+      return results;
+    }catch(e){}
+  }
+
+  if(engine.translateBatch){
+    try{
+      const BATCH_SIZE=currentEngine==='microsoft'?MS_BATCH_SIZE:DEFAULT_BATCH_SIZE;
+      for(let b=0;b<uniqueTexts.length;b+=BATCH_SIZE){
+        const chunkTexts=uniqueTexts.slice(b,b+BATCH_SIZE);
+        const chunkProtected=protectedInfos.slice(b,b+BATCH_SIZE);
+        const chunkProtectedTexts=chunkProtected.map(x=>x.text);
+        const chunkMaps=chunkProtected.map(x=>x.map);
+
+        try{
+          const batchResults=await engine.translateBatch(chunkProtectedTexts,targetLang);
+          if(batchResults){
+            for(let j=0;j<batchResults.length;j++){
+              fillProtectedResult(chunkTexts[j], batchResults[j], chunkMaps[j]);
+            }
+          }
+        }catch(e){
+          if(currentEngine==='microsoft'){
+            try{
+              const tencentResults=await Engine.tencent.translateBatch(chunkProtectedTexts,targetLang);
+              if(tencentResults){
+                for(let j=0;j<tencentResults.length;j++){
+                  fillProtectedResult(chunkTexts[j], tencentResults[j], chunkMaps[j]);
+                }
+                currentEngine='tencent';
+                GM_setValue('engine','tencent');
+                engine=Engine[currentEngine];
+                const engineSel=document.getElementById('tuEngine');
+                if(engineSel)engineSel.value='tencent';
+                updateStatus('⚠️ 微软不可用，已自动切换腾讯');
+                continue;
+              }
+            }catch(e2){}
+          }
+
+          for(const text of chunkTexts){
+            try{
+              const r=await translate(text);
+              if(r)fillResults(text,r);
+            }catch(_){}
+          }
+        }
+      }
+      return results;
+    }catch(e){}
+  }
+
+  const concurrency=engine.isAI?AI_CONCURRENCY_LIMIT:CONCURRENCY_LIMIT;
+  const requestDelay=engine.isAI?AI_REQUEST_DELAY:0;
+
+  for(let i=0;i<uniqueTexts.length;i+=concurrency){
+    const batch=uniqueTexts.slice(i,i+concurrency);
+
+    await Promise.allSettled(batch.map(async(text,idx)=>{
+      try{
+        if(requestDelay>0)await delay(idx*requestDelay);
+        const info=protectNoTranslate(text);
+        const raw=await engine.translate(info.text,targetLang);
+        const restored=restoreNoTranslate(raw, info.map);
+        if(restored && restored !== text) fillResults(text, restored);
+      }catch(e){
+        if(currentEngine==='microsoft'){
+          try{
+            const info=protectNoTranslate(text);
+            const raw=await Engine.tencent.translate(info.text,targetLang);
+            const restored=restoreNoTranslate(raw, info.map);
+            if(restored && restored !== text){
+              fillResults(text, restored);
+              currentEngine='tencent';
+              GM_setValue('engine','tencent');
+              updateStatus('⚠️ 微软不可用，已自动切换腾讯');
+            }
+          }catch(_){}
+        }
+      }
+    }));
+
+    if(requestDelay>0&&i+concurrency<uniqueTexts.length)await delay(requestDelay);
+  }
+
+  return results;
+}
+
 const SKIP_TAGS=/^(script|style|code|pre|svg|math|noscript|iframe|canvas|video|audio|img|br|hr|input|select|option|textarea)$/i;
 const SKIP_CLASS=/translate-ui|notranslate|katex|mathjax/i;
 function shouldSkip(node){if(!node)return true;if(node.nodeType===Node.ELEMENT_NODE){if(SKIP_TAGS.test(node.tagName))return true;if(SKIP_CLASS.test(node.className))return true;if(node.isContentEditable)return true;if(node.dataset&&node.dataset.translated)return true;if(node.classList&&node.classList.contains('tu-bi'))return true}return false}
@@ -134,15 +352,102 @@ async function processExifPre(pre){if(!pre||!pre.isConnected)return;if(displayMo
 function collectExifPres(root){const out=[];if(!root||root.nodeType!==Node.ELEMENT_NODE)return out;if(isTranslatablePre(root))out.push(root);if(root.querySelectorAll){for(const el of root.querySelectorAll('pre')){if(isTranslatablePre(el))out.push(el)}}return out}
 function collectTextNodes(root){const nodes=[];const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,{acceptNode(node){if(shouldSkip(node.parentElement))return NodeFilter.FILTER_REJECT;const text=node.textContent.trim();if(!text||text.length<2||/^\d+$/.test(text))return NodeFilter.FILTER_REJECT;if(isTargetLang(text))return NodeFilter.FILTER_REJECT;if(node._tuTranslated)return NodeFilter.FILTER_REJECT;return NodeFilter.FILTER_ACCEPT}});while(walker.nextNode())nodes.push(walker.currentNode);return nodes}
 function collectPlaceholders(root){return[...root.querySelectorAll('input[placeholder], textarea[placeholder]')].filter(el=>!el.dataset.translated&&el.placeholder.trim()&&!isTargetLang(el.placeholder))}
+// 收集 input 按钮（submit/button/reset）的 value
+function collectInputValues(root){return[...root.querySelectorAll('input[type="submit"], input[type="button"], input[type="reset"]')].filter(el=>!el.dataset.translated&&el.value&&el.value.trim()&&!isTargetLang(el.value))}
+// 收集 select > option（下拉框选项文字）
+function collectSelectOptions(root){
+  if(!root) return [];
+  let list;
+  if(root.nodeType===Node.ELEMENT_NODE && root.matches && root.matches('select option')){
+    list=[root];
+  }else if(root.querySelectorAll){
+    list=[...root.querySelectorAll('select option')];
+  }else{
+    list=[];
+  }
+  return list.filter(opt=>{
+    if(opt.dataset && (opt.dataset.tuTranslated||opt.dataset.tuTranslating)) return false;
+    const t=(opt.textContent||'').trim();
+    if(!t||isTargetLang(t)) return false;
+    return true;
+  });
+}
+async function translateSelectOptions(root){
+  if(displayMode==='original') return;
+  const options=collectSelectOptions(root);
+  if(!options.length) return;
+  options.forEach(opt=>{opt.dataset.tuTranslating='1'});
+  const texts=options.map(o=>(o.textContent||'').trim());
+  let results;
+  try{
+    results=await batchTranslate(texts);
+  }catch(e){
+    options.forEach(opt=>{delete opt.dataset.tuTranslating});
+    return;
+  }
+  for(let i=0;i<options.length;i++){
+    const opt=options[i];
+    delete opt.dataset.tuTranslating;
+    if(!opt.isConnected) continue;
+    const res=results[i];
+    if(!res) continue;
+    const original=(opt.textContent||'').trim();
+    // 若 option 没有显式 value，改文本会导致 value 跟着变，先写死
+    if(!opt.hasAttribute('value')) opt.setAttribute('value', original);
+    if(opt.dataset.tuOriginalText===undefined) opt.dataset.tuOriginalText=original;
+    opt.dataset.tuTranslated='1';
+    opt.textContent = displayMode==='bilingual' ? `${original} / ${res}` : res;
+    translatedElements.add(opt);
+  }
+}
 let visibilityObserver=null;
 const pendingQueue=[];
 let processTimer=null;
 const translatedNodes=new Set();
 const translatedElements=new Set();
 function initObserver(){if(visibilityObserver)visibilityObserver.disconnect();visibilityObserver=new IntersectionObserver((entries)=>{for(const entry of entries){if(entry.isIntersecting){visibilityObserver.unobserve(entry.target);pendingQueue.push(entry.target)}}if(pendingQueue.length>0&&!processTimer){processTimer=setTimeout(processVisibleQueue,150)}},{rootMargin:'300px 0px',threshold:0})}
-async function processVisibleQueue(){processTimer=null;if(pendingQueue.length===0)return;const elements=[...pendingQueue];pendingQueue.length=0;const texts=[],metas=[];for(const el of elements){if(el.tagName==='INPUT'||el.tagName==='TEXTAREA'){if(el.dataset.translated)continue;const t=el.placeholder.trim();if(t&&!isTargetLang(t)){texts.push(t);metas.push({type:'ph',el:el})}}else{const nodes=[];const walker=document.createTreeWalker(el,NodeFilter.SHOW_TEXT,{acceptNode(node){if(shouldSkip(node.parentElement)||node._tuTranslated)return NodeFilter.FILTER_REJECT;return NodeFilter.FILTER_ACCEPT}});while(walker.nextNode())nodes.push(walker.currentNode);for(const node of nodes){const t=node.textContent.trim();if(t&&!isTargetLang(t)){texts.push(t);metas.push({type:'text',node:node})}}}}if(texts.length===0)return;const results=await batchTranslate(texts);for(let i=0;i<metas.length;i++){if(!results[i])continue;const meta=metas[i];if(meta.type==='text'){const parent=meta.node.parentElement;if(!parent||meta.node._tuTranslated)continue;if(meta.node._tuOriginalText===undefined)meta.node._tuOriginalText=meta.node.textContent;meta.node._tuTranslated=true;translatedNodes.add(meta.node);suppressMutations=true;try{if(displayMode==='bilingual'){const s=document.createElement('span');s.className='tu-bi';s.textContent=results[i];if(meta.node.nextSibling)parent.insertBefore(s,meta.node.nextSibling);else parent.appendChild(s)}else{meta.node.textContent=results[i]}}finally{suppressMutations=false}}else{if(meta.el.dataset.translated)continue;meta.el.dataset.originalPlaceholder=meta.el.placeholder;meta.el.placeholder=results[i];meta.el.dataset.translated='1';translatedElements.add(meta.el)}}}
-function scanAndObserve(root){if(!visibilityObserver)initObserver();collectExifPres(root).forEach(pre=>{processExifPre(pre).catch(e=>console.warn('[EXIF]',e))});const nodes=collectTextNodes(root);const parents=new Set();nodes.forEach(node=>{const p=node.parentElement;if(p)parents.add(p)});collectPlaceholders(root).forEach(el=>{if(!el.dataset.translated)parents.add(el)});parents.forEach(el=>{try{visibilityObserver.observe(el)}catch(e){}})}
-function restorePage(){if(visibilityObserver){visibilityObserver.disconnect();visibilityObserver=null}pendingQueue.length=0;if(processTimer){clearTimeout(processTimer);processTimer=null}suppressMutations=true;try{document.querySelectorAll('.tu-bi').forEach(el=>el.remove());translatedNodes.forEach(node=>{if(node._tuOriginalText!==undefined){try{node.textContent=node._tuOriginalText}catch(_){}node._tuTranslated=false;delete node._tuOriginalText;delete node._tuBiEl}})}finally{suppressMutations=false}translatedNodes.clear();translatedElements.forEach(el=>{if(el.dataset&&el.dataset.originalPlaceholder){el.placeholder=el.dataset.originalPlaceholder;delete el.dataset.originalPlaceholder}if(el.dataset)delete el.dataset.translated});translatedElements.clear()}
+async function processVisibleQueue(){processTimer=null;if(pendingQueue.length===0)return;const elements=[...pendingQueue];pendingQueue.length=0;const texts=[],metas=[];for(const el of elements){if(el.tagName==='INPUT'||el.tagName==='TEXTAREA'){if(el.dataset.translated)continue;const type=(el.type||'').toLowerCase();const isButtonInput=el.tagName==='INPUT'&&(type==='submit'||type==='button'||type==='reset');const t=isButtonInput?(el.value||'').trim():(el.placeholder||'').trim();if(t&&!isTargetLang(t)){texts.push(t);metas.push({type:isButtonInput?'val':'ph',el:el})}}else{const nodes=[];const walker=document.createTreeWalker(el,NodeFilter.SHOW_TEXT,{acceptNode(node){if(shouldSkip(node.parentElement)||node._tuTranslated)return NodeFilter.FILTER_REJECT;return NodeFilter.FILTER_ACCEPT}});while(walker.nextNode())nodes.push(walker.currentNode);for(const node of nodes){const t=node.textContent.trim();if(t&&!isTargetLang(t)){texts.push(t);metas.push({type:'text',node:node})}}}}if(texts.length===0)return;const results=await batchTranslate(texts);for(let i=0;i<metas.length;i++){if(!results[i])continue;const meta=metas[i];if(meta.type==='text'){const parent=meta.node.parentElement;if(!parent||meta.node._tuTranslated)continue;if(meta.node._tuOriginalText===undefined)meta.node._tuOriginalText=meta.node.textContent;meta.node._tuTranslated=true;translatedNodes.add(meta.node);suppressMutations=true;try{if(displayMode==='bilingual'){const s=document.createElement('span');s.className='tu-bi';s.textContent=results[i];if(meta.node.nextSibling)parent.insertBefore(s,meta.node.nextSibling);else parent.appendChild(s)}else{meta.node.textContent=results[i]}}finally{suppressMutations=false}}else if(meta.type==='val'){if(meta.el.dataset.translated)continue;meta.el.dataset.originalValue=meta.el.value;meta.el.value=results[i];meta.el.dataset.translated='1';translatedElements.add(meta.el)}else{if(meta.el.dataset.translated)continue;meta.el.dataset.originalPlaceholder=meta.el.placeholder;meta.el.placeholder=results[i];meta.el.dataset.translated='1';translatedElements.add(meta.el)}}}
+function scanAndObserve(root){
+  if(!visibilityObserver)initObserver();
+  translateSelectOptions(root).catch(e=>console.warn('[Select]',e));
+  collectExifPres(root).forEach(pre=>{processExifPre(pre).catch(e=>console.warn('[EXIF]',e))});
+  const nodes=collectTextNodes(root);
+  const parents=new Set();
+  nodes.forEach(node=>{const p=node.parentElement;if(p)parents.add(p)});
+  collectPlaceholders(root).forEach(el=>{if(!el.dataset.translated)parents.add(el)});
+  collectInputValues(root).forEach(el=>{if(!el.dataset.translated)parents.add(el)});
+  parents.forEach(el=>{try{visibilityObserver.observe(el)}catch(e){}})
+}
+function restorePage(){
+  if(visibilityObserver){visibilityObserver.disconnect();visibilityObserver=null}
+  pendingQueue.length=0;
+  if(processTimer){clearTimeout(processTimer);processTimer=null}
+  suppressMutations=true;
+  try{
+    document.querySelectorAll('.tu-bi').forEach(el=>el.remove());
+    translatedNodes.forEach(node=>{
+      if(node._tuOriginalText!==undefined){
+        try{node.textContent=node._tuOriginalText}catch(_){}
+        node._tuTranslated=false;
+        delete node._tuOriginalText;
+        delete node._tuBiEl;
+      }
+    });
+  }finally{suppressMutations=false}
+  translatedNodes.clear();
+  translatedElements.forEach(el=>{
+    if(el.dataset&&el.dataset.originalPlaceholder){el.placeholder=el.dataset.originalPlaceholder;delete el.dataset.originalPlaceholder}
+    if(el.dataset&&el.dataset.originalValue){el.value=el.dataset.originalValue;delete el.dataset.originalValue}
+    if(el.dataset&&el.dataset.tuOriginalText!==undefined){
+      try{el.textContent=el.dataset.tuOriginalText}catch(_){}
+      delete el.dataset.tuOriginalText;
+    }
+    if(el.dataset)delete el.dataset.tuTranslated;
+    if(el.dataset)delete el.dataset.tuTranslating;
+    if(el.dataset)delete el.dataset.translated;
+  });
+  translatedElements.clear();
+}
 let mutationRafId=null;
 const pendingMutationRoots=new Set();
 let mutationObserver=null;
@@ -159,7 +464,7 @@ function clampUiPos(ui){const badgeSize=getBadgeSize();const maxRight=Math.max(0
 function updateUIPos(ui){const badgeSize=getBadgeSize();ui.style.width=badgeSize+'px';ui.style.height=badgeSize+'px';const btn=document.getElementById('tuBtn');if(btn){btn.style.width=badgeSize+'px';btn.style.height=badgeSize+'px'}clampUiPos(ui)}
 function startMicrosoftMonitor(){if(msMonitorTimer)clearInterval(msMonitorTimer);msMonitorTimer=setInterval(async()=>{if(currentEngine!=='microsoft')return;try{await Engine.microsoft.translate('test','zh-CN')}catch(e){try{await Engine.tencent.translate('test','zh-CN');currentEngine='tencent';GM_setValue('engine','tencent');const engineSel=document.getElementById('tuEngine');if(engineSel)engineSel.value='tencent';updateStatus('⚠️ 微软引擎失联，已自动切换腾讯')}catch(e2){}}},5*60*1000)}
 
-async function init(){if(_initialized)return;cleanup();_initialized=true;document.querySelectorAll('[data-translated]').forEach(el=>{if(el.dataset.originalText){for(const child of el.childNodes){if(child.nodeType===Node.TEXT_NODE&&child._tuOriginalText===undefined){child.textContent=el.dataset.originalText;break}}delete el.dataset.originalText}if(el.dataset.originalPlaceholder){el.placeholder=el.dataset.originalPlaceholder;delete el.dataset.originalPlaceholder}delete el.dataset.translated});if(_engine==='microsoft'||_engine==='google'){currentEngine=await detectEngineAuto()}else{currentEngine=_engine}
+async function init(){if(_initialized)return;cleanup();_initialized=true;document.querySelectorAll('[data-translated]').forEach(el=>{if(el.dataset.originalText){for(const child of el.childNodes){if(child.nodeType===Node.TEXT_NODE&&child._tuOriginalText===undefined){child.textContent=el.dataset.originalText;break}}delete el.dataset.originalText}if(el.dataset.originalPlaceholder){el.placeholder=el.dataset.originalPlaceholder;delete el.dataset.originalPlaceholder}if(el.dataset.originalValue){el.value=el.dataset.originalValue;delete el.dataset.originalValue}delete el.dataset.translated});if(_engine==='microsoft'||_engine==='google'){currentEngine=await detectEngineAuto()}else{currentEngine=_engine}
 if(!document.getElementById('tu-custom-styles')){const styleEl=document.createElement('style');styleEl.id='tu-custom-styles';styleEl.textContent=`
 .translate-ui{position:fixed;z-index:999999;font-family:system-ui,-apple-system,sans-serif;touch-action:none;overflow:visible}
 .translate-ui *{box-sizing:border-box;margin:0;padding:0}
@@ -308,18 +613,15 @@ pre .tu-bi::before,pre .tu-bi::after{content:none}
 .tu-panel::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,0.25)}
 `;document.head.appendChild(styleEl)}
 
-// ═══ 创建 UI 容器 ═══
 const ui=document.createElement('div');
 ui.className='translate-ui';
 ui.style.right=uiPos.right+'px';
 ui.style.bottom=uiPos.bottom+'px';
 
-// ═══ 构建面板（全部用 DOM API） ═══
 const panel=document.createElement('div');
 panel.className='tu-panel';
 panel.id='tuPanel';
 
-// 翻译引擎
 const engineLabel=document.createElement('label');
 engineLabel.textContent='翻译引擎';
 panel.appendChild(engineLabel);
@@ -342,7 +644,6 @@ engineSelect.id='tuEngine';
 });
 panel.appendChild(engineSelect);
 
-// AI 配置
 const aiConfigDiv=document.createElement('div');
 aiConfigDiv.id='tuAiConfig';
 aiConfigDiv.className='tu-ai-config';
@@ -369,7 +670,6 @@ modelInput.placeholder='例如: deepseek-chat';
 aiConfigDiv.appendChild(modelInput);
 panel.appendChild(aiConfigDiv);
 
-// 目标语言
 const langLabel=document.createElement('label');
 langLabel.textContent='目标语言';
 panel.appendChild(langLabel);
@@ -390,7 +690,6 @@ for(const[group,codes]of Object.entries(LANG_GROUPS)){
 }
 panel.appendChild(langSelect);
 
-// 显示模式
 const modeLabel=document.createElement('label');
 modeLabel.textContent='显示模式';
 panel.appendChild(modeLabel);
@@ -411,14 +710,12 @@ modesEl.id='tuModes';
 });
 panel.appendChild(modesEl);
 
-// 状态
 const statusElNew=document.createElement('div');
 statusElNew.className='tu-status';
 statusElNew.id='tuStatus';
 statusElNew.textContent='Ready · 缓存: '+cache.size;
 panel.appendChild(statusElNew);
 
-// 按钮行辅助
 function buildRow(items){const row=document.createElement('div');row.className='tu-row';items.forEach(b=>row.appendChild(b));return row}
 function mkBtn(cls,id,text){const b=document.createElement('button');b.className=cls;b.id=id;b.textContent=text;return b}
 
