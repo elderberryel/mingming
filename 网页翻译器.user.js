@@ -42,7 +42,14 @@ const NO_TRANSLATE_FORMATS = [
   'MP4','WEBM','MOV','MKV','MP3','FLAC','WAV','M4A','OGG','PDF','SVG',
   'BMP','MNG','ICO','PO','MO','KB','RGB','ANI','TGS','LOTTIE','BPG',
   'FLI','FLIF','CDXL','ANIM','STATIC','MVIMG','CR2','CR3','NEF','ARW',
-  'DNG','RAF','ORF','RW2','WBMP','JP2','XCF','HEX','CSV','3GP','MiB','RESIZE'
+  'DNG','RAF','ORF','RW2','WBMP','JP2','XCF','HEX','CSV','3GP','MiB','RESIZE',
+  // 压缩 / 归档 / 打包格式
+  'TAR.GZ','TAR.BZ2','TAR.BZ','TAR.XZ','TAR.ZST','TAR.LZ','TAR.LZMA','TAR.LZ4','TAR.Z','TAR.BR',
+  'TGZ','TBZ','TBZ2','TXZ','TLZ','TZST',
+  'ZIP','RAR','7Z','TAR','GZ','GZIP','BZ2','BZIP2','XZ','LZMA','LZ4','LZO','ZST','ZSTD',
+  'BROTLI','CAB','ARJ','LZH','LHA','SITX','ZOO','ARC','PAK','CPIO',
+  'JAR','WAR','EAR','APK','IPA','DEB','RPM','DMG','ISO','VHD','VHDX','VMDK','QCOW2',
+  'SQUASHFS','WIM','ESD','MSI','MSIX','APPX','SNAP','CRX','XPI','VSIX','NUPKG','WHL','EGG','GEM'
 ];
 
 const FORMAT_TERMS = [...new Set(NO_TRANSLATE_FORMATS)].sort((a, b) => b.length - a.length);
