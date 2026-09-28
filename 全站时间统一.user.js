@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         全站时间统一 v9.1
+// @name         全站时间统一 v9.0
 // @namespace    https://github.com/elderberryel/mingming
 // @version      9.0
 // @match        *://*/*
