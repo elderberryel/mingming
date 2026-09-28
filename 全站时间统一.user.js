@@ -1,10 +1,8 @@
 // ==UserScript==
 // @name         全站时间统一 v9.0
-// @namespace    https://h3110w0r1d.com/
-// @version      9.0.0
-// @description  修复评论区内容被覆盖问题，精确匹配时间叶子节点
+// @namespace    https://github.com/elderberryel/mingming
+// @version      9.0.0  
 // @match        *://*/*
-// @grant        none
 // @run-at       document-start
 // ==/UserScript==
 
@@ -28,7 +26,6 @@
     function parseRelative(text) {
         const now = Date.now();
         let m;
-
         // 中文
         if (m = text.match(/(\d+)\s*秒前/))   return new Date(now - m[1] * 1000);
         if (m = text.match(/(\d+)\s*分钟前/))  return new Date(now - m[1] * 60000);
@@ -37,7 +34,6 @@
         if (m = text.match(/(\d+)\s*周前/))    return new Date(now - m[1] * 604800000);
         if (m = text.match(/(\d+)\s*个月前/))  return new Date(now - m[1] * 2592000000);
         if (m = text.match(/(\d+)\s*年前/))    return new Date(now - m[1] * 31536000000);
-
         // 英文
         if (m = text.match(/(\d+)\s*seconds?\s*ago/i))  return new Date(now - m[1] * 1000);
         if (m = text.match(/(\d+)\s*minutes?\s*ago/i))  return new Date(now - m[1] * 60000);
@@ -79,15 +75,12 @@
     function shouldProcess(el) {
         if (!el || !el.textContent) return false;
 
-        // ⭐ 关键：只处理叶子元素（内部没有其他元素）
         if (el.children.length > 0) return false;
 
         const txt = el.textContent.trim();
 
-        // ★ 长度严格限制在 30 字符以内（时间文本不会太长）
         if (txt.length > 30) return false;
 
-        // 跳过已经是标准格式的非链接
         if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(txt) && el.tagName !== 'A') return false;
 
         return (
@@ -131,28 +124,24 @@
         const text = format(date);
         const tag = el.tagName;
 
-        // 对于已经是叶子节点，直接替换文本是安全的，但统一用 replaceNode 更干净
         if (tag === 'TIME' || tag === 'RELATIVE-TIME') {
             if (el.textContent !== text) replaceNode(el, text);
         } else {
             if (el.textContent !== text) {
-                // 叶子节点直接修改 textContent 也行，但以防万一，用 replaceNode
+
                 replaceNode(el, text);
-                el.dataset.done = '1'; // 注意：replaceNode 后原 el 已不在 DOM 中，这个标记可忽略
+                el.dataset.done = '1'; 
             }
         }
     }
 
-    // ── 递归扫描 Shadow DOM ──
     function scanTree(root) {
         if (!root) return;
-        // 更精准的选择器：YouTube 下添加类名匹配
         let selectors = 'time, relative-time, a, span, div';
         if (isYouTube) {
             selectors += ', yt-formatted-string, ytm-formatted-string, .published-time-text, [class*="published"]';
         }
         root.querySelectorAll(selectors).forEach(process);
-        // 深入 shadow root
         root.querySelectorAll('*').forEach(el => {
             if (el.shadowRoot) scanTree(el.shadowRoot);
         });
@@ -163,14 +152,12 @@
         scanTree(root);
     }
 
-    // 启动
     if (document.readyState === 'complete' || document.readyState === 'interactive') {
         scan();
     } else {
         document.addEventListener('DOMContentLoaded', () => scan());
     }
 
-    // MutationObserver
     const observer = new MutationObserver(mutations => {
         for (const m of mutations) {
             m.addedNodes.forEach(n => {
@@ -200,7 +187,6 @@
     };
     startObserver();
 
-    // 轮询
     setInterval(() => scan(), isYande ? 400 : 600);
 
 })();
