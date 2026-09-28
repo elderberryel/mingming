@@ -61,6 +61,7 @@
     font-size:12px;color:#8b93a7;background:#1a1f2b;border:1px solid #262d3d;
     border-radius:999px;padding:3px 10px;white-space:nowrap;
   }
+  .tag.tiny{color:#8fd6a0;background:#16241b;border-color:#24402e}
   .file-head .remove{padding:6px 12px;font-size:12px;line-height:1;border-radius:8px;color:#98a1b3}
   .file-head .remove:hover{color:#ff9d9d;border-color:#5a2a2a;background:#2a1a1a}
 
@@ -86,14 +87,6 @@
   .meta{padding:10px 12px;font-size:12px;color:#98a1b3;display:flex;flex-direction:column;gap:3px}
   .meta .idx{color:#e6e9ef;font-weight:600;font-size:13px;margin-bottom:2px}
   .frame .dl{margin:0 10px 10px;padding:7px;font-size:12px;text-align:center}
-
-  .toast{
-    position:fixed;left:50%;bottom:28px;transform:translateX(-50%);
-    background:#1e2532;border:1px solid #313a4d;padding:10px 18px;border-radius:10px;
-    font-size:13px;color:#dfe4ee;opacity:0;pointer-events:none;transition:.25s;
-    max-width:80vw;text-align:center;
-  }
-  .toast.show{opacity:1}
 
   /* ---- 大图预览 ---- */
   .lightbox{
@@ -148,7 +141,7 @@
 <body>
 <div class="wrap">
   <h1>APNG 分解下载器</h1>
-  <p class="sub">把 APNG 动画拆成独立的 PNG 帧，可预览、单帧下载或打包 ZIP。支持一次选择多张图</p>
+  <p class="sub">把 APNG 动画拆成独立的 PNG 帧，可点击小图预览</p>
 
   <div class="drop" id="drop">
     <input type="file" id="file" accept="image/png,image/apng,.png,.apng" multiple hidden>
@@ -166,8 +159,6 @@
   <div id="list"></div>
 </div>
 
-<div class="toast" id="toast"></div>
-
 <!-- 大图预览层 -->
 <div class="lightbox" id="lightbox">
   <div class="lb-stage">
@@ -178,7 +169,6 @@
   <button class="lb-btn lb-prev" id="lbPrev" title="上一帧（←）">‹</button>
   <button class="lb-btn lb-next" id="lbNext" title="下一帧（→）">›</button>
 </div>
-
 <script>
  
 const PNG_SIG = new Uint8Array([0x89,0x50,0x4E,0x47,0x0D,0x0A,0x1A,0x0A]);
@@ -225,13 +215,6 @@ function makeChunk(type, data) {
 }
 function esc(s) {
   return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-}
-function toast(msg) {
-  const el = document.getElementById('toast');
-  el.textContent = msg;
-  el.classList.add('show');
-  clearTimeout(el._t);
-  el._t = setTimeout(() => el.classList.remove('show'), 2200);
 }
 const pad3 = n => String(n).padStart(3, '0');
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -323,15 +306,13 @@ function buildFramePNG(frame, ihdr, aux) {
   const dv = new DataView(newIhdr.buffer);
   dv.setUint32(0, w);
   dv.setUint32(4, h);
-  newIhdr[8]  = ihdr[8];   // bit depth
-  newIhdr[9]  = ihdr[9];   // color type
-  newIhdr[10] = ihdr[10];  // compression
-  newIhdr[11] = ihdr[11];  // filter
-  newIhdr[12] = ihdr[12];  // interlace
-
+  newIhdr[8]  = ihdr[8];   
+  newIhdr[9]  = ihdr[9];   
+  newIhdr[10] = ihdr[10];  
+  newIhdr[11] = ihdr[11];  
+  newIhdr[12] = ihdr[12];  
   const parts = [PNG_SIG, makeChunk('IHDR', newIhdr)];
   for (const [type, data] of aux) parts.push(makeChunk(type, data));
-
   const idat = concatBytes(frame.parts);
   const MAX = 65536;
   for (let i = 0; i < idat.length; i += MAX) {
@@ -439,7 +420,6 @@ async function compositeFrames(state) {
   for (let i = 0; i < state.frames.length; i++) {
     const f = state.frames[i].fctl;
 
-    // 1. 执行上一帧的 dispose
     if (prevRect) {
       if (prevDispose === 1) {
         ctx.clearRect(prevRect.x, prevRect.y, prevRect.w, prevRect.h);
@@ -447,11 +427,7 @@ async function compositeFrames(state) {
         ctx.putImageData(snapshot, 0, 0);
       }
     }
-
-    // 2. 若本帧 dispose=PREVIOUS，先保存画布
     if (f.dispose === 2) snapshot = ctx.getImageData(0, 0, cw, ch);
-
-    // 3. 绘制本帧
     const img = await loadImage(state.frames[i].blob);
     ctx.save();
     ctx.beginPath();
@@ -463,13 +439,11 @@ async function compositeFrames(state) {
 
     const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
     out.push(blob);
-
     prevDispose = f.dispose;
     prevRect = { x: f.x, y: f.y, w: f.width, h: f.height };
   }
   return out;
 }
-
 function saveBlob(blob, name) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -480,7 +454,6 @@ function saveBlob(blob, name) {
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 8000);
 }
-
 const items = [];          // 已解析的文件集合
 let uid = 0;
 
@@ -517,29 +490,46 @@ const lbInfo  = document.getElementById('lbInfo');
 const lbClose = document.getElementById('lbClose');
 const lbPrev  = document.getElementById('lbPrev');
 const lbNext  = document.getElementById('lbNext');
-let lbCtx = null;   // { item, index }
+
+let lbCtx = null;   // { list: [{item, index}...], pos }
+
+function buildGlobalFrameList() {
+  const list = [];
+  for (const it of items) {
+    for (let i = 0; i < it.frames.length; i++) list.push({ item: it, index: i });
+  }
+  return list;
+}
+
 function openLightbox(item, index) {
-  lbCtx = { item, index };
+  const list = buildGlobalFrameList();
+  const pos = list.findIndex(e => e.item === item && e.index === index);
+  if (pos === -1) return;
+
+  lbCtx = { list, pos };
   renderLightbox();
   lbEl.classList.add('show');
   document.body.style.overflow = 'hidden';
 }
+
 function closeLightbox() {
   if (!lbCtx) return;
   lbCtx = null;
   lbEl.classList.remove('show');
   document.body.style.overflow = '';
 }
+
 function stepLightbox(delta) {
   if (!lbCtx) return;
-  const n = lbCtx.item.frames.length;
+  const n = lbCtx.list.length;
   if (n < 2) return;
-  lbCtx.index = (lbCtx.index + delta + n) % n;
+  lbCtx.pos = (lbCtx.pos + delta + n) % n;
   renderLightbox();
 }
 
 function renderLightbox() {
-  const { item, index } = lbCtx;
+  const { list, pos } = lbCtx;
+  const { item, index } = list[pos];
   const f = item.frames[index];
   const c = f.fctl;
   const den = c.delayDen || 100;
@@ -548,10 +538,11 @@ function renderLightbox() {
   lbImg.alt = `${item.fileName} 第 ${index + 1} 帧`;
   lbInfo.textContent =
     `${item.fileName} · 第 ${index + 1}/${item.frames.length} 帧 · ` +
+    `全局 ${pos + 1}/${list.length} · ` +
     `${c.width}×${c.height} · 偏移 (${c.x}, ${c.y}) · ` +
     `延迟 ${(c.delayNum / den * 1000).toFixed(0)} ms`;
 
-  const multi = item.frames.length > 1;
+  const multi = list.length > 1;
   lbPrev.classList.toggle('hidden', !multi);
   lbNext.classList.toggle('hidden', !multi);
 }
@@ -575,10 +566,8 @@ document.addEventListener('keydown', e => {
 async function handleFiles(fileList) {
   const arr = Array.from(fileList || []);
   if (!arr.length) return;
-
   let ok = 0;
   const failed = [];
-
   for (const file of arr) {
     try {
       const item = await buildItem(file);
@@ -590,18 +579,21 @@ async function handleFiles(fileList) {
       failed.push(file.name);
     }
   }
-
   updateGlobal();
-
-  if (ok && !failed.length) toast(`已加载 ${ok} 个文件`);
-  else if (ok && failed.length) toast(`成功 ${ok} 个，失败 ${failed.length} 个：${failed.join('、')}`);
-  else if (failed.length) alert('解析失败：' + failed.join('、'));
+  if (failed.length && !ok) alert('解析失败：' + failed.join('、'));
 }
 
 async function buildItem(file) {
   const buf = await file.arrayBuffer();
   const state = parseAPNG(buf);
 
+  const kept = state.frames.filter(f => !(f.fctl.width === 1 && f.fctl.height === 1));
+  if (kept.length) {
+    state.tinyDropped = state.frames.length - kept.length;
+    state.frames = kept;
+  } else {
+    state.tinyDropped = 0;
+  }
   state.id       = ++uid;
   state.fileName = file.name;
   state.baseName = file.name.replace(/\.(png|apng)$/i, '') || 'frame';
@@ -612,15 +604,17 @@ async function buildItem(file) {
     f.blob  = new Blob([f.bytes], { type: 'image/png' });
     f.url   = URL.createObjectURL(f.blob);
   });
-
   return state;
-} 
-  
+}   
 function renderItem(item) {
   const card = document.createElement('section');
   card.className = 'file-card';
 
-  const declared = item.numFrames !== item.frames.length ? `（声明 ${item.numFrames}）` : '';
+  const sourceCount = item.frames.length + (item.tinyDropped || 0);
+  const declared = item.numFrames !== sourceCount ? `（声明 ${item.numFrames}）` : '';
+  const tinyTag = item.tinyDropped
+    ? `<span class="tag tiny">已忽略 ${item.tinyDropped} 个 1×1 帧</span>`
+    : '';
 
   const head = document.createElement('div');
   head.className = 'file-head';
@@ -628,6 +622,7 @@ function renderItem(item) {
     `<h2 title="${esc(item.fileName)}">${esc(item.fileName)}</h2>` +
     `<span class="tag">${item.width} × ${item.height}</span>` +
     `<span class="tag">${item.frames.length} 帧${declared}</span>` +
+    tinyTag +
     `<span class="tag">${item.numPlays === 0 ? '无限循环' : '循环 ' + item.numPlays + ' 次'}</span>` +
     `<button class="remove" title="移除该文件">✕ 移除</button>`;
 
@@ -696,7 +691,7 @@ function renderItem(item) {
 function removeItem(item) {
   const idx = items.indexOf(item);
   if (idx === -1) return;
-  if (lbCtx && lbCtx.item === item) closeLightbox();   // 关掉正在预览的该文件
+  if (lbCtx && lbCtx.list.some(e => e.item === item)) closeLightbox();   // 关掉正在预览的该文件
   items.splice(idx, 1);
   item.frames.forEach(f => URL.revokeObjectURL(f.url));
   item.el.card.remove();
@@ -718,13 +713,14 @@ function updateGlobal() {
   globalBar.classList.toggle('hidden', n === 0);
   if (!n) return;
   const total = items.reduce((a, b) => a + b.frames.length, 0);
-  globalCount.textContent = `已加载 ${n} 个文件，共 ${total} 帧`;
+  const tiny  = items.reduce((a, b) => a + (b.tinyDropped || 0), 0);
+  globalCount.textContent =
+    `已加载 ${n} 个文件，共 ${total} 帧` + (tiny ? `（已忽略 ${tiny} 个 1×1 帧）` : '');
 }
 
 // 始终合成到完整画布尺寸
 async function getOutputs(item) {
   if (!item.compositeCache) {
-    toast(`正在合成「${item.fileName}」…`);
     item.compositeCache = await compositeFrames(item);
   }
   return item.compositeCache;
@@ -738,7 +734,6 @@ async function downloadZip(item) {
       files.push({ name: frameName(item, i), data: new Uint8Array(await blobs[i].arrayBuffer()) });
     }
     saveBlob(buildZip(files), `${item.baseName}_frames.zip`);
-    toast(`「${item.fileName}」已打包 ${files.length} 帧`);
   } catch (e) {
     console.error(e);
     alert('打包失败：' + e.message);
@@ -749,9 +744,8 @@ async function downloadEach(item) {
     const blobs = await getOutputs(item);
     for (let i = 0; i < blobs.length; i++) {
       saveBlob(blobs[i], frameName(item, i));
-      await sleep(180); // 降低被浏览器拦截的概率
+      await sleep(180);
     }
-    toast(`「${item.fileName}」已开始下载 ${blobs.length} 个文件`);
   } catch (e) {
     console.error(e);
     alert('下载失败：' + e.message);
@@ -765,7 +759,6 @@ btnZipAll.addEventListener('click', async () => {
   try {
     const files = [];
     const used = new Set();
-
     for (const item of items) {
       // 保证 ZIP 内前缀不重复
       let prefix = item.baseName;
@@ -775,7 +768,6 @@ btnZipAll.addEventListener('click', async () => {
         prefix = `${prefix}_${k}`;
       }
       used.add(prefix);
-
       const blobs = await getOutputs(item);
       for (let i = 0; i < blobs.length; i++) {
         files.push({
@@ -784,9 +776,7 @@ btnZipAll.addEventListener('click', async () => {
         });
       }
     }
-
     saveBlob(buildZip(files), `apng_frames_${items.length}files.zip`);
-    toast(`已打包 ${items.length} 个文件的 ${files.length} 帧`);
   } catch (e) {
     console.error(e);
     alert('打包失败：' + e.message);
