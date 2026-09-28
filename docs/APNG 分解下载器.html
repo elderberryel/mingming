@@ -46,6 +46,8 @@
   button:disabled{opacity:.5;cursor:default}
   button.primary{background:#3b6fd4;border-color:#3b6fd4}
   button.primary:hover:not(:disabled){background:#4a80e8}
+  button.ghost{color:#8fc6ff;border-color:#26406b;background:#16223a}
+  button.ghost:hover{background:#1c2c4a;border-color:#33538a}
 
   /* ---- 文件卡片 ---- */
   .file-card{
@@ -62,8 +64,33 @@
     border-radius:999px;padding:3px 10px;white-space:nowrap;
   }
   .tag.tiny{color:#8fd6a0;background:#16241b;border-color:#24402e}
+  .tag.def{color:#8fc6ff;background:#16223a;border-color:#26406b}
   .file-head .remove{padding:6px 12px;font-size:12px;line-height:1;border-radius:8px;color:#98a1b3}
   .file-head .remove:hover{color:#ff9d9d;border-color:#5a2a2a;background:#2a1a1a}
+
+  /* ---- 默认图区域 ---- */
+  .default-img{
+    margin-top:14px;background:#141821;border:1px solid #2c3548;
+    border-radius:12px;padding:12px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  }
+  .default-img .di-thumb{
+    width:88px;height:88px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;
+    border-radius:8px;overflow:hidden;cursor:zoom-in;padding:6px;
+    background-image:
+      linear-gradient(45deg,#1b202b 25%,transparent 25%),
+      linear-gradient(-45deg,#1b202b 25%,transparent 25%),
+      linear-gradient(45deg,transparent 75%,#1b202b 75%),
+      linear-gradient(-45deg,transparent 75%,#1b202b 75%);
+    background-size:12px 12px;
+    background-position:0 0,0 6px,6px -6px,-6px 0;
+    background-color:#151a23;
+    border:1px solid #232936;
+  }
+  .default-img .di-thumb img{max-width:100%;max-height:100%;image-rendering:pixelated;display:block}
+  .default-img .di-thumb:focus{outline:2px solid #4f8cff;outline-offset:2px}
+  .default-img .di-info{flex:1 1 220px;min-width:0;font-size:12px;color:#8b93a7;line-height:1.55}
+  .default-img .di-info .t{font-size:13px;font-weight:600;color:#e6e9ef;margin-bottom:4px}
+  .default-img .dl-default{padding:7px 14px;font-size:12px;flex:0 0 auto}
 
   .frames{margin-top:20px;display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px}
   .file-card .frames{margin-top:16px}
@@ -149,13 +176,12 @@
     <p>点击选择，或把 APNG 文件拖到这里（可多选）</p>
     <p class="hint">支持 .png / .apng，可一次选中多个文件</p>
   </div>
-
   <div class="actions hidden" id="globalBar">
     <span class="count" id="globalCount"></span>
+    <button id="btnToggleDefault" class="ghost">隐藏默认图</button>
     <button class="primary" id="btnZipAll">全部打包 ZIP</button>
     <button id="btnClear">清空全部</button>
   </div>
-
   <div id="list"></div>
 </div>
 
@@ -169,6 +195,7 @@
   <button class="lb-btn lb-prev" id="lbPrev" title="上一帧（←）">‹</button>
   <button class="lb-btn lb-next" id="lbNext" title="下一帧（→）">›</button>
 </div>
+
 <script>
  
 const PNG_SIG = new Uint8Array([0x89,0x50,0x4E,0x47,0x0D,0x0A,0x1A,0x0A]);
@@ -280,6 +307,14 @@ function parseAPNG(arrayBuffer) {
   const firstIdat = chunks.findIndex(c => c.type === 'IDAT');
   const idatInFrame0 = firstFctl !== -1 && firstIdat !== -1 && firstIdat > firstFctl;
 
+  let defaultIdat = null;
+  if (!idatInFrame0) {
+    const idatChunks = chunks.filter(c => c.type === 'IDAT');
+    if (idatChunks.length) {
+      defaultIdat = concatBytes(idatChunks.map(c => c.data));
+    }
+  }
+
   const frames = [];
   let cur = null;
   for (const c of chunks) {
@@ -295,7 +330,18 @@ function parseAPNG(arrayBuffer) {
 
   if (frames.length === 0) throw new Error('没有解析到任何动画帧');
 
-  return { width, height, numFrames, numPlays, ihdr, aux, frames };
+  return { width, height, numFrames, numPlays, ihdr, aux, frames, defaultIdat };
+}
+
+function buildStaticPNG(ihdr, aux, idat) {
+  const parts = [PNG_SIG, makeChunk('IHDR', ihdr)];
+  for (const [type, data] of aux) parts.push(makeChunk(type, data));
+  const MAX = 65536;
+  for (let i = 0; i < idat.length; i += MAX) {
+    parts.push(makeChunk('IDAT', idat.subarray(i, Math.min(i + MAX, idat.length))));
+  }
+  parts.push(makeChunk('IEND', EMPTY));
+  return concatBytes(parts);
 }
 
 function buildFramePNG(frame, ihdr, aux) {
@@ -306,21 +352,14 @@ function buildFramePNG(frame, ihdr, aux) {
   const dv = new DataView(newIhdr.buffer);
   dv.setUint32(0, w);
   dv.setUint32(4, h);
-  newIhdr[8]  = ihdr[8];   
-  newIhdr[9]  = ihdr[9];   
-  newIhdr[10] = ihdr[10];  
-  newIhdr[11] = ihdr[11];  
-  newIhdr[12] = ihdr[12];  
-  const parts = [PNG_SIG, makeChunk('IHDR', newIhdr)];
-  for (const [type, data] of aux) parts.push(makeChunk(type, data));
-  const idat = concatBytes(frame.parts);
-  const MAX = 65536;
-  for (let i = 0; i < idat.length; i += MAX) {
-    parts.push(makeChunk('IDAT', idat.subarray(i, Math.min(i + MAX, idat.length))));
-  }
-  parts.push(makeChunk('IEND', EMPTY));
+  newIhdr[8]  = ihdr[8];   // bit depth
+  newIhdr[9]  = ihdr[9];   // color type
+  newIhdr[10] = ihdr[10];  // compression
+  newIhdr[11] = ihdr[11];  // filter
+  newIhdr[12] = ihdr[12];  // interlace
 
-  return concatBytes(parts);
+  const idat = concatBytes(frame.parts);
+  return buildStaticPNG(newIhdr, aux, idat);
 }
 
 function buildZip(files) {
@@ -454,9 +493,9 @@ function saveBlob(blob, name) {
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 8000);
 }
-const items = [];          // 已解析的文件集合
+const items = [];          
 let uid = 0;
-
+let showDefaults = false;   
 const dropEl      = document.getElementById('drop');
 const fileEl      = document.getElementById('file');
 const listEl      = document.getElementById('list');
@@ -464,6 +503,7 @@ const globalBar   = document.getElementById('globalBar');
 const globalCount = document.getElementById('globalCount');
 const btnZipAll   = document.getElementById('btnZipAll');
 const btnClear    = document.getElementById('btnClear');
+const btnToggleDefault = document.getElementById('btnToggleDefault');
 
 const DISPOSE_NAME = { 0: 'NONE', 1: 'BACKGROUND', 2: 'PREVIOUS' };
 const BLEND_NAME   = { 0: 'SOURCE', 1: 'OVER' };
@@ -484,6 +524,33 @@ dropEl.addEventListener('drop', e => {
   if (e.dataTransfer && e.dataTransfer.files.length) handleFiles(e.dataTransfer.files);
 });
 
+// —— 全局“隐藏/显示默认图”按钮 ——
+btnToggleDefault.addEventListener('click', () => {
+  showDefaults = !showDefaults;
+  document.querySelectorAll('.default-img').forEach(el => {
+    el.classList.toggle('hidden', !showDefaults);
+  });
+  btnToggleDefault.textContent = showDefaults ? '隐藏默认图' : '显示默认图';
+
+  // 若正在大图预览，同步刷新预览列表（默认图隐藏时从序列中移除）
+  if (lbCtx) {
+    const cur = lbCtx.list[lbCtx.pos];
+    const list = buildGlobalFrameList();
+    let pos = -1;
+    if (cur.isDefault) {
+      // 之前在看默认图：显示时保留，隐藏时跳到该文件的第一帧
+      pos = showDefaults
+        ? list.findIndex(e => e.item === cur.item && e.index === -1)
+        : list.findIndex(e => e.item === cur.item && e.index === 0);
+    } else {
+      pos = list.findIndex(e => e.item === cur.item && e.index === cur.index);
+    }
+    if (pos === -1) { closeLightbox(); return; }
+    lbCtx = { list, pos };
+    renderLightbox();
+  }
+});
+
 const lbEl    = document.getElementById('lightbox');
 const lbImg   = document.getElementById('lbImg');
 const lbInfo  = document.getElementById('lbInfo');
@@ -491,19 +558,25 @@ const lbClose = document.getElementById('lbClose');
 const lbPrev  = document.getElementById('lbPrev');
 const lbNext  = document.getElementById('lbNext');
 
-let lbCtx = null;   // { list: [{item, index}...], pos }
+let lbCtx = null;   // { list: [{item, index, isDefault}...], pos }
 
 function buildGlobalFrameList() {
   const list = [];
   for (const it of items) {
-    for (let i = 0; i < it.frames.length; i++) list.push({ item: it, index: i });
+    // 只有默认图处于“显示”状态时才加入预览序列
+    if (it.defaultUrl && showDefaults) list.push({ item: it, index: -1, isDefault: true });
+    for (let i = 0; i < it.frames.length; i++) list.push({ item: it, index: i, isDefault: false });
   }
   return list;
 }
 
 function openLightbox(item, index) {
   const list = buildGlobalFrameList();
-  const pos = list.findIndex(e => e.item === item && e.index === index);
+  let pos = list.findIndex(e => e.item === item && e.index === index);
+  if (pos === -1) {
+    // 请求的是被隐藏的默认图 → 退回到该文件第一帧
+    pos = list.findIndex(e => e.item === item && e.index === 0);
+  }
   if (pos === -1) return;
 
   lbCtx = { list, pos };
@@ -529,18 +602,27 @@ function stepLightbox(delta) {
 
 function renderLightbox() {
   const { list, pos } = lbCtx;
-  const { item, index } = list[pos];
-  const f = item.frames[index];
-  const c = f.fctl;
-  const den = c.delayDen || 100;
+  const entry = list[pos];
+  const { item, index, isDefault } = entry;
 
-  lbImg.src = f.url;
-  lbImg.alt = `${item.fileName} 第 ${index + 1} 帧`;
-  lbInfo.textContent =
-    `${item.fileName} · 第 ${index + 1}/${item.frames.length} 帧 · ` +
-    `全局 ${pos + 1}/${list.length} · ` +
-    `${c.width}×${c.height} · 偏移 (${c.x}, ${c.y}) · ` +
-    `延迟 ${(c.delayNum / den * 1000).toFixed(0)} ms`;
+  if (isDefault) {
+    lbImg.src = item.defaultUrl;
+    lbImg.alt = `${item.fileName} 默认图`;
+    lbInfo.textContent =
+      `${item.fileName} · 默认图（IDAT 静态图） · ` +
+      `${item.width}×${item.height} · 不在动画序列中`;
+  } else {
+    const f = item.frames[index];
+    const c = f.fctl;
+    const den = c.delayDen || 100;
+    lbImg.src = f.url;
+    lbImg.alt = `${item.fileName} 第 ${index + 1} 帧`;
+    lbInfo.textContent =
+      `${item.fileName} · 第 ${index + 1}/${item.frames.length} 帧 · ` +
+      `全局 ${pos + 1}/${list.length} · ` +
+      `${c.width}×${c.height} · 偏移 (${c.x}, ${c.y}) · ` +
+      `延迟 ${(c.delayNum / den * 1000).toFixed(0)} ms`;
+  }
 
   const multi = list.length > 1;
   lbPrev.classList.toggle('hidden', !multi);
@@ -604,6 +686,16 @@ async function buildItem(file) {
     f.blob  = new Blob([f.bytes], { type: 'image/png' });
     f.url   = URL.createObjectURL(f.blob);
   });
+
+  if (state.defaultIdat) {
+    const defaultBytes = buildStaticPNG(state.ihdr, state.aux, state.defaultIdat);
+    state.defaultBlob = new Blob([defaultBytes], { type: 'image/png' });
+    state.defaultUrl  = URL.createObjectURL(state.defaultBlob);
+  } else {
+    state.defaultBlob = null;
+    state.defaultUrl  = null;
+  }
+
   return state;
 }   
 function renderItem(item) {
@@ -615,6 +707,9 @@ function renderItem(item) {
   const tinyTag = item.tinyDropped
     ? `<span class="tag tiny">已忽略 ${item.tinyDropped} 个 1×1 帧</span>`
     : '';
+  const defTag = item.defaultUrl
+    ? `<span class="tag def">含默认图</span>`
+    : '';
 
   const head = document.createElement('div');
   head.className = 'file-head';
@@ -622,9 +717,25 @@ function renderItem(item) {
     `<h2 title="${esc(item.fileName)}">${esc(item.fileName)}</h2>` +
     `<span class="tag">${item.width} × ${item.height}</span>` +
     `<span class="tag">${item.frames.length} 帧${declared}</span>` +
-    tinyTag +
-    `<span class="tag">${item.numPlays === 0 ? '无限循环' : '循环 ' + item.numPlays + ' 次'}</span>` +
+    tinyTag + defTag +
     `<button class="remove" title="移除该文件">✕ 移除</button>`;
+
+  // —— 默认图区域 ——
+  let defaultBox = null;
+  if (item.defaultUrl) {
+    defaultBox = document.createElement('div');
+    defaultBox.className = 'default-img';
+    if (!showDefaults) defaultBox.classList.add('hidden');
+    defaultBox.innerHTML =
+      `<div class="di-thumb" tabindex="0" title="点击查看大图">` +
+        `<img src="${item.defaultUrl}" alt="默认图">` +
+      `</div>` +
+      `<div class="di-info">` +
+        `<div class="t">🖼️ 默认图（IDAT 静态图，不在动画序列中）</div>` +
+        `<div>在支持 APNG 的软件里，这张图会被动画覆盖；在不支持 APNG 的软件（或部分聊天工具的缩略图/点开预览）里，它作为普通 PNG 显示。这就是为什么同一文件在不同地方看起来内容不一样。</div>` +
+      `</div>` +
+      `<button class="dl-default">导出默认图</button>`;
+  }
 
   const bar = document.createElement('div');
   bar.className = 'actions';
@@ -654,7 +765,9 @@ function renderItem(item) {
     `;
   }).join('');
 
-  card.append(head, bar, grid);
+  if (defaultBox) card.append(head, defaultBox, bar, grid);
+  else card.append(head, bar, grid);
+
   listEl.appendChild(card);
 
   item.el = {
@@ -666,6 +779,19 @@ function renderItem(item) {
   head.querySelector('.remove').addEventListener('click', () => removeItem(item));
   item.el.zip.addEventListener('click', () => downloadZip(item));
   item.el.each.addEventListener('click', () => downloadEach(item));
+  // 默认图事件
+  if (defaultBox) {
+    const thumb = defaultBox.querySelector('.di-thumb');
+    const btn   = defaultBox.querySelector('.dl-default');
+    const openDef = () => openLightbox(item, -1);
+    thumb.addEventListener('click', openDef);
+    thumb.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDef(); }
+    });
+    btn.addEventListener('click', () => {
+      saveBlob(item.defaultBlob, `${item.baseName}_default.png`);
+    });
+  }
 
   grid.querySelectorAll('button.dl').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -673,7 +799,6 @@ function renderItem(item) {
       saveBlob(item.frames[i].blob, frameName(item, i));
     });
   });
-
   // 点击小图 → 查看大图
   grid.querySelectorAll('.thumb img').forEach(img => {
     const i = +img.dataset.i;
@@ -686,50 +811,60 @@ function renderItem(item) {
       }
     });
   });
-}
-   
+}   
 function removeItem(item) {
   const idx = items.indexOf(item);
   if (idx === -1) return;
-  if (lbCtx && lbCtx.list.some(e => e.item === item)) closeLightbox();   // 关掉正在预览的该文件
+  if (lbCtx && lbCtx.list.some(e => e.item === item)) closeLightbox();   
   items.splice(idx, 1);
   item.frames.forEach(f => URL.revokeObjectURL(f.url));
+  if (item.defaultUrl) URL.revokeObjectURL(item.defaultUrl);
   item.el.card.remove();
   updateGlobal();
 }
-
 btnClear.addEventListener('click', () => {
   if (!items.length) return;
   if (!confirm(`确定清空全部 ${items.length} 个文件吗？`)) return;
   closeLightbox();
-  items.forEach(item => item.frames.forEach(f => URL.revokeObjectURL(f.url)));
+  items.forEach(item => {
+    item.frames.forEach(f => URL.revokeObjectURL(f.url));
+    if (item.defaultUrl) URL.revokeObjectURL(item.defaultUrl);
+  });
   items.length = 0;
   listEl.innerHTML = '';
   updateGlobal();
 });
-
 function updateGlobal() {
   const n = items.length;
   globalBar.classList.toggle('hidden', n === 0);
   if (!n) return;
   const total = items.reduce((a, b) => a + b.frames.length, 0);
   const tiny  = items.reduce((a, b) => a + (b.tinyDropped || 0), 0);
-  globalCount.textContent =
-    `已加载 ${n} 个文件，共 ${total} 帧` + (tiny ? `（已忽略 ${tiny} 个 1×1 帧）` : '');
+  const defs  = items.reduce((a, b) => a + (b.defaultUrl ? 1 : 0), 0);
+  let txt = `已加载 ${n} 个文件，共 ${total} 帧`;
+  if (tiny) txt += `（已忽略 ${tiny} 个 1×1 帧）`;
+  if (defs) txt += `（含 ${defs} 张默认图）`;
+  globalCount.textContent = txt;
+  btnToggleDefault.classList.toggle('hidden', defs === 0);
+  btnToggleDefault.textContent = showDefaults ? '隐藏默认图' : '显示默认图';
 }
-
-// 始终合成到完整画布尺寸
 async function getOutputs(item) {
   if (!item.compositeCache) {
     item.compositeCache = await compositeFrames(item);
   }
   return item.compositeCache;
 }
-
 async function downloadZip(item) {
   try {
     const blobs = await getOutputs(item);
     const files = [];
+
+    if (showDefaults && item.defaultBlob) {
+      files.push({
+        name: `${item.baseName}_default.png`,
+        data: new Uint8Array(await item.defaultBlob.arrayBuffer())
+      });
+    }
     for (let i = 0; i < blobs.length; i++) {
       files.push({ name: frameName(item, i), data: new Uint8Array(await blobs[i].arrayBuffer()) });
     }
@@ -741,6 +876,11 @@ async function downloadZip(item) {
 }
 async function downloadEach(item) {
   try {
+
+    if (showDefaults && item.defaultBlob) {
+      saveBlob(item.defaultBlob, `${item.baseName}_default.png`);
+      await sleep(180);
+    }
     const blobs = await getOutputs(item);
     for (let i = 0; i < blobs.length; i++) {
       saveBlob(blobs[i], frameName(item, i));
@@ -768,6 +908,13 @@ btnZipAll.addEventListener('click', async () => {
         prefix = `${prefix}_${k}`;
       }
       used.add(prefix);
+      if (showDefaults && item.defaultBlob) {
+        files.push({
+          name: `${prefix}_default.png`,
+          data: new Uint8Array(await item.defaultBlob.arrayBuffer())
+        });
+      }
+
       const blobs = await getOutputs(item);
       for (let i = 0; i < blobs.length; i++) {
         files.push({
