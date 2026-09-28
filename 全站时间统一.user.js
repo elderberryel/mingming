@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         全站时间统一 v9.0
+// @name         全站时间统一 v9.1
 // @namespace    https://github.com/elderberryel/mingming
-// @version      9.0.0  
+// @version      9.0
 // @match        *://*/*
 // @run-at       document-start
 // ==/UserScript==
@@ -14,15 +14,12 @@
 
     const isYande = location.hostname.includes('yande');
     const isYouTube = location.hostname.includes('youtube.com');
-
     const pad = n => String(n).padStart(2, '0');
-
     function format(date) {
         return USE_UTC
             ? `${date.getUTCFullYear()}-${pad(date.getUTCMonth()+1)}-${pad(date.getUTCDate())} ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}`
             : `${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
     }
-
     function parseRelative(text) {
         const now = Date.now();
         let m;
@@ -43,8 +40,26 @@
         if (m = text.match(/(\d+)\s*months?\s*ago/i))   return new Date(now - m[1] * 2592000000);
         if (m = text.match(/(\d+)\s*years?\s*ago/i))    return new Date(now - m[1] * 31536000000);
 
+        // yande 模糊写法：over 1 year 前 / over 2 months 前 ...
+        if (m = text.match(/over\s+(\d+)\s*years?\s*前/i))  return new Date(now - m[1] * 31536000000);
+        if (m = text.match(/over\s+(\d+)\s*months?\s*前/i)) return new Date(now - m[1] * 2592000000);
+        if (m = text.match(/over\s+(\d+)\s*weeks?\s*前/i))  return new Date(now - m[1] * 604800000);
+        if (m = text.match(/over\s+(\d+)\s*days?\s*前/i))   return new Date(now - m[1] * 86400000);
+        if (m = text.match(/over\s+(\d+)\s*hours?\s*前/i))  return new Date(now - m[1] * 3600000);
+        if (m = text.match(/over\s+(\d+)\s*minutes?\s*前/i))return new Date(now - m[1] * 60000);
+
         if (/刚刚|just now/i.test(text)) return new Date();
 
+        return null;
+    }
+
+    function parseTitle(t) {
+        if (!t) return null;
+        const cleaned = t.replace(/^posted\s+at\s*/i, '').trim();
+        let d = new Date(cleaned);
+        if (d && !isNaN(d)) return d;
+        d = new Date(t);
+        if (d && !isNaN(d)) return d;
         return null;
     }
 
@@ -54,9 +69,16 @@
         const dt = el.getAttribute?.('datetime');
         if (dt) date = new Date(dt);
 
-        if ((!date || isNaN(date)) && el.getAttribute) {
-            const t = el.getAttribute('title');
-            if (t && /\d{4}/.test(t)) date = new Date(t);
+        if (!date || isNaN(date)) {
+            let node = el;
+            for (let i = 0; i < 4 && node; i++) {
+                const t = node.getAttribute?.('title');
+                if (t && /\d{4}/.test(t)) {
+                    const d = parseTitle(t);
+                    if (d && !isNaN(d)) { date = d; break; }
+                }
+                node = node.parentElement;
+            }
         }
 
         if ((!date || isNaN(date)) && el.tagName === 'A') {
@@ -79,7 +101,7 @@
 
         const txt = el.textContent.trim();
 
-        if (txt.length > 30) return false;
+        if (txt.length > 40) return false;
 
         if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(txt) && el.tagName !== 'A') return false;
 
@@ -128,9 +150,8 @@
             if (el.textContent !== text) replaceNode(el, text);
         } else {
             if (el.textContent !== text) {
-
                 replaceNode(el, text);
-                el.dataset.done = '1'; 
+                el.dataset.done = '1';
             }
         }
     }
@@ -151,13 +172,11 @@
         if (!document.body) return;
         scanTree(root);
     }
-
     if (document.readyState === 'complete' || document.readyState === 'interactive') {
         scan();
     } else {
         document.addEventListener('DOMContentLoaded', () => scan());
     }
-
     const observer = new MutationObserver(mutations => {
         for (const m of mutations) {
             m.addedNodes.forEach(n => {
@@ -186,7 +205,6 @@
         }
     };
     startObserver();
-
     setInterval(() => scan(), isYande ? 400 : 600);
 
 })();
