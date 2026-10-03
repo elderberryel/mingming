@@ -1,16 +1,19 @@
 // ==UserScript==
 // @name         复制授权拦截器
 // @namespace    https://viayoo.com/
-// @version      5.0
-// @description  复制必弹窗，2次允许后开始自由复制，3次拒绝永久禁用。
-// @author       Aloazny & Deepseek & ChatGPT
+// @version      5.1
+// @description  复制必弹窗
+// @author       明明
 // @match        http://*/*
 // @match        https://*/*
+// @exclude      *://*.x.com/*
+// @exclude      *://*.github.com/*
+// @exclude      *://*.chatgpt.com/*
 // @run-at       document-start
-// @icon         data:image/png;base64,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
 // @grant        GM_registerMenuCommand
 // @grant        GM_getValue
 // @grant        GM_setValue
+// @exclude      *://*.chatgpt.com/*
 // @license      MIT
 // ==/UserScript==
 
@@ -22,9 +25,16 @@
     if (window[KEY]) return;
     window[KEY] = true;
 
+    // ==========================================
+    // 配置读写小工具
+    // ==========================================
+    const gv = (k, d) => { try { return (typeof GM_getValue !== 'undefined') ? GM_getValue(k, d) : d; } catch (e) { return d; } };
+    const sv = (k, v) => { try { if (typeof GM_setValue !== 'undefined') GM_setValue(k, v); } catch (e) {} };
+
     let denyCount = 0, allowCount = 0, enabled = true, freeCopyMode = false, isShowingModal = false;
-    const MAX_DENY = 3, AUTO_FREE_AFTER_ALLOW = 2, COPY_TIME_THRESHOLD = 1000, COPY_COUNT_THRESHOLD = 3;
-    let copyRecords = [], dot = null, hideTimer = null, shadowRoot = null, container = null;
+    let blockCopy = false;                 // ✅ 当前网站永久禁止复制
+    const MAX_DENY = 3, AUTO_FREE_AFTER_ALLOW = 2;
+    let dot = null, hideTimer = null, shadowRoot = null, container = null;
     const UI_TYPES = ['DEFAULT', 'IOS', 'MIUI', 'EDGE'];
     let currentUI = (typeof GM_getValue !== 'undefined' ? GM_getValue('clipboard_ui_style', 'EDGE') : 'EDGE');
     let editAbortController = null;
@@ -87,9 +97,10 @@
 
     // ==========================================
     // 确认弹窗（Shadow DOM 内，pointer-events:auto）
+    // 被占用时返回 null（表示"忽略"，非"拒绝"）
     // ==========================================
     const showConfirm = (msg, txt = '') => {
-        if (isShowingModal) return Promise.resolve(false);
+        if (isShowingModal) return Promise.resolve(null);
         return new Promise(r => {
             isShowingModal = true;
             ensureShadow();
@@ -186,6 +197,7 @@
     };
 
     const showDot = () => {
+        if (blockCopy) return;                  // ✅ 永久禁止时不再提示
         if (dot) {
             clearTimeout(hideTimer);
             dot.style.opacity = '.8'; dot.style.transform = 'scale(1)';
@@ -204,7 +216,7 @@
             taps++; clearTimeout(timer);
             timer = setTimeout(() => {
                 if (taps === 1) {
-                    if (enabled && !freeCopyMode) { freeCopyMode = true; enabled = true; }
+                    if (enabled && !freeCopyMode) { freeCopyMode = true; }
                     else if (freeCopyMode) { freeCopyMode = false; }
                     else { enabled = true; denyCount = 0; restoreAllCopyAPIs(); hookAPI(); hookExec(); }
                 } else if (taps === 2) {
@@ -218,26 +230,17 @@
     };
 
     // ==========================================
-    // 恶意复制检测
+    // 授权处理
+    // 弹窗被占用返回 null → 本次失败但不计入拒绝
+    // ✅ blockCopy 时直接拒绝，不弹窗
     // ==========================================
-    const recordCopy = (method) => {
-        const now = Date.now();
-        copyRecords.push({ timestamp: now, method });
-        copyRecords = copyRecords.filter(r => now - r.timestamp <= COPY_TIME_THRESHOLD);
-        if (copyRecords.length >= COPY_COUNT_THRESHOLD) {
-            enabled = false; hideAllModals(); updateDot(); copyRecords = [];
-            disableAllCopyAPIs(); showToast('检测到恶意复制行为，复制功能已被永久禁用');
-            return false;
-        }
-        return true;
-    };
-
     const handleAuth = (txt, successCb, failCb) => {
-        if (!recordCopy('api')) return failCb?.();
+        if (blockCopy) return failCb?.();                       // ✅ 本站永久禁止复制
         if (freeCopyMode) return successCb();
         if (!enabled || denyCount >= MAX_DENY) return failCb?.();
         showDot();
         showConfirm('允许复制内容？', txt).then(ok => {
+            if (ok === null) { failCb?.(); updateDot(); return; } // 弹窗占用，忽略，不累加 denyCount
             if (ok) {
                 successCb(); allowCount++;
                 if (allowCount >= AUTO_FREE_AFTER_ALLOW) freeCopyMode = true;
@@ -248,6 +251,31 @@
             }
             updateDot();
         });
+    };
+
+    // ==========================================
+    // ✅ 统一状态应用：永久禁止 > 忽略本站 > 正常监控
+    // ==========================================
+    const applyCopyState = () => {
+        const ig = gv('clipboard_ignore_' + location.host, false);
+        if (blockCopy) {
+            enabled = false;
+            freeCopyMode = false;
+            hideAllModals();
+            if (dot) { dot.remove(); dot = null; }
+            hookAPI(); hookExec();               // 保证复制一定被拦截
+        } else if (ig) {
+            enabled = false;
+            freeCopyMode = false;
+            restoreAllCopyAPIs();
+            hideAllModals();
+            if (dot) { dot.remove(); dot = null; }
+        } else {
+            enabled = true;
+            denyCount = 0;
+            restoreAllCopyAPIs();
+            hookAPI(); hookExec();
+        }
     };
 
     // ==========================================
@@ -292,7 +320,7 @@
     };
 
     // ==========================================
-    // 编辑模式
+    // 编辑模式（点击定位光标；定位失败兜底到末尾）
     // ==========================================
     const enableContentEdit = () => {
         if (editAbortController) return;
@@ -302,13 +330,31 @@
         const start = (e) => {
             const el = e.target;
             if (!el?.tagName || !['P','SPAN','DIV','H1','H2','H3','H4','H5','LI','B','FONT'].includes(el.tagName)) return;
+            // 记录点击坐标（触摸/鼠标兼容）
+            const point = e.touches?.[0] || e;
+            const px = point.clientX, py = point.clientY;
             t = setTimeout(() => {
                 const parent = el.parentNode;
                 if (parent) Array.from(parent.children).forEach(s => { if (s.tagName === el.tagName) { s.style.userSelect = 'text'; s.style.webkitUserSelect = 'text'; } });
                 el.setAttribute('contenteditable', 'true'); el.focus();
                 const bg = el.style.backgroundColor; el.style.backgroundColor = 'rgba(255,255,0,0.15)';
-                const range = document.createRange(); range.selectNodeContents(el);
-                const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
+                // 把光标放到点击位置，而不是全选
+                const sel = window.getSelection();
+                let caret = null;
+                if (document.caretRangeFromPoint) caret = document.caretRangeFromPoint(px, py);
+                else if (document.caretPositionFromPoint) {
+                    const cp = document.caretPositionFromPoint(px, py);
+                    if (cp) { caret = document.createRange(); caret.setStart(cp.offsetNode, cp.offset); caret.collapse(true); }
+                }
+                if (caret) { sel.removeAllRanges(); sel.addRange(caret); }
+                else {
+                    // 定位失败兜底：光标折叠到元素末尾，保证能进入编辑
+                    try {
+                        const r2 = document.createRange();
+                        r2.selectNodeContents(el); r2.collapse(false);
+                        sel.removeAllRanges(); sel.addRange(r2);
+                    } catch (e) {}
+                }
                 el.addEventListener('blur', () => { el.removeAttribute('contenteditable'); el.style.backgroundColor = bg; }, { once: true });
             }, 800);
         };
@@ -391,22 +437,30 @@
         } catch (e) {}
     };
 
+    // 同时处理直接新增的 iframe 与嵌套在新增容器内的 iframe
     const obs = new MutationObserver(m => {
-        for (const r of m) for (const n of r.addedNodes) if (n.nodeType === 1 && n.tagName === 'IFRAME') setupFrame(n);
+        for (const rec of m) for (const n of rec.addedNodes) {
+            if (n.nodeType !== 1) continue;
+            if (n.tagName === 'IFRAME') setupFrame(n);
+            else if (n.querySelectorAll) n.querySelectorAll('iframe').forEach(setupFrame);
+        }
     });
 
     // ==========================================
-    // ✅ 设置面板（修复：pointer-events + 无 backdrop-filter）
+    // ✅ 设置面板
     // ==========================================
     const registerMenu = () => {
         if (typeof GM_registerMenuCommand === 'undefined' || menuRegistered) return;
         menuRegistered = true;
 
         GM_registerMenuCommand('剪切板设定 🛠️', () => {
-            if (shadowRoot?.querySelector('.auth-settings-mask')) return;
+            if (shadowRoot?.querySelector('.asm')) return;
             ensureShadow();
 
-            const isIgnored = (typeof GM_getValue !== 'undefined') ? GM_getValue('clipboard_ignore_' + location.host, false) : false;
+            const isIgnored = gv('clipboard_ignore_' + location.host, false);
+            const isBlocked = gv('clipboard_block_' + location.host, false);
+            // 打开时取一次深色模式，后续复用
+            const dk = window.matchMedia('(prefers-color-scheme:dark)').matches;
 
             const style = document.createElement('style');
             style.textContent = `
@@ -415,14 +469,14 @@
                 .asp button { border:none;border-radius:14px;padding:14px 16px;cursor:pointer;font-size:14px;font-weight:600;display:flex;align-items:center;justify-content:space-between;transition:transform .1s;pointer-events:auto }
                 .asp button:active { transform:scale(.96) }
                 .asp .bu { background:#f5f5f5;color:#007AFF }
-                .asp .bs { background:${isIgnored?'#fff1f0':'#f6ffed'};color:${isIgnored?'#ff4d4f':'#52c41a'} }
+                .asp .bs { background:#f6ffed;color:#52c41a }
                 .asp .bc { margin-top:4px;background:none;color:#888;font-size:13px;text-align:center;padding:12px }
                 .asp .bc:hover { color:#333 }
                 @media(prefers-color-scheme:dark){
                     .asm{background:rgba(0,0,0,.5)}
                     .asp{background:#1c1c1e}
                     .bu{background:#2c2c2e;color:#0A84FF}
-                    .bs{background:${isIgnored?'#2c1515':'#162312'};color:${isIgnored?'#ff6961':'#30d158'}}
+                    .bs{background:#162312;color:#30d158}
                     .bc{color:#aaa}.bc:hover{color:#fff}
                 }
                 @keyframes asmIn{from{opacity:0}to{opacity:1}}
@@ -450,37 +504,67 @@
             // --- 复制授权按钮 ---
             const btnStatus = document.createElement('button');
             btnStatus.className = 'bs';
-            const refreshStatus = (ig) => {
+
+            // --- ✅ 当前网站永久禁止复制按钮 ---
+            const btnBlock = document.createElement('button');
+            btnBlock.className = 'bs';
+
+            const paintStatus = (ig) => {
                 btnStatus.innerHTML = `<span>复制授权</span><small style="font-weight:700">${ig?'已禁用':'监控中'}</small>`;
+                btnStatus.style.background = ig ? (dk?'#2c1515':'#fff1f0') : (dk?'#162312':'#f6ffed');
+                btnStatus.style.color = ig ? (dk?'#ff6961':'#ff4d4f') : (dk?'#30d158':'#52c41a');
             };
-            refreshStatus(isIgnored);
+            const paintBlock = (b) => {
+                btnBlock.innerHTML = `<span>本站永久禁止复制</span><small style="font-weight:700">${b?'已禁止':'未禁止'}</small>`;
+                btnBlock.style.background = b ? (dk?'#2c1515':'#fff1f0') : (dk?'#162312':'#f6ffed');
+                btnBlock.style.color = b ? (dk?'#ff6961':'#ff4d4f') : (dk?'#30d158':'#52c41a');
+            };
+
+            paintStatus(isIgnored);
+            paintBlock(isBlocked);
+
             btnStatus.onclick = e => {
                 e.stopPropagation();
-                const cur = !(typeof GM_getValue !== 'undefined' ? GM_getValue('clipboard_ignore_'+location.host, false) : false);
-                if (typeof GM_setValue !== 'undefined') GM_setValue('clipboard_ignore_'+location.host, cur);
-                refreshStatus(cur);
-                const dk = window.matchMedia('(prefers-color-scheme:dark)').matches;
-                btnStatus.style.background = cur ? (dk?'#2c1515':'#fff1f0') : (dk?'#162312':'#f6ffed');
-                btnStatus.style.color = cur ? (dk?'#ff6961':'#ff4d4f') : (dk?'#30d158':'#52c41a');
-                if (cur) { enabled=false; restoreAllCopyAPIs(); if(dot){dot.remove();dot=null;} hideAllModals(); }
-                else { enabled=true; hookAPI(); hookExec(); }
+                const cur = !gv('clipboard_ignore_' + location.host, false);
+                sv('clipboard_ignore_' + location.host, cur);
+                // 开启“不监控”时，自动解除“永久禁止”，两者互斥
+                if (cur && blockCopy) {
+                    blockCopy = false;
+                    sv('clipboard_block_' + location.host, false);
+                    paintBlock(false);
+                }
+                paintStatus(cur);
+                applyCopyState();
+            };
+
+            btnBlock.onclick = e => {
+                e.stopPropagation();
+                const nv = !gv('clipboard_block_' + location.host, false);
+                blockCopy = nv;
+                sv('clipboard_block_' + location.host, nv);
+                // 开启“永久禁止”时，自动关闭“复制授权监控”
+                if (nv) {
+                    sv('clipboard_ignore_' + location.host, false);
+                    paintStatus(false);
+                }
+                paintBlock(nv);
+                applyCopyState();
             };
 
             // --- 解除复制限制按钮 ---
-            const isUnlockAllowed = (typeof GM_getValue !== 'undefined') ? GM_getValue('clipboard_unlock_'+location.host, true) : true;
+            const isUnlockAllowed = gv('clipboard_unlock_' + location.host, true);
             const btnUnlock = document.createElement('button');
             btnUnlock.className = 'bs';
             const refreshUnlock = (a) => {
                 btnUnlock.innerHTML = `<span>解除复制限制</span><small style="font-weight:700">${a?'运行中':'已禁用'}</small>`;
-                const dk = window.matchMedia('(prefers-color-scheme:dark)').matches;
                 btnUnlock.style.background = a ? (dk?'#162312':'#f6ffed') : (dk?'#2c1515':'#fff1f0');
                 btnUnlock.style.color = a ? (dk?'#30d158':'#52c41a') : (dk?'#ff6961':'#ff4d4f');
             };
             refreshUnlock(isUnlockAllowed);
             btnUnlock.onclick = e => {
                 e.stopPropagation();
-                const nv = !(typeof GM_getValue !== 'undefined' ? GM_getValue('clipboard_unlock_'+location.host, true) : true);
-                if (typeof GM_setValue !== 'undefined') GM_setValue('clipboard_unlock_'+location.host, nv);
+                const nv = !gv('clipboard_unlock_' + location.host, true);
+                sv('clipboard_unlock_' + location.host, nv);
                 refreshUnlock(nv);
                 toggleUnlock(nv);
             };
@@ -490,8 +574,8 @@
             btnEdit.className = 'bu';
             const refreshEdit = () => {
                 const on = editAbortController !== null;
-                btnEdit.innerHTML = `<span>编辑模式</span><small style="opacity:.6;font-weight:400">${on?'ON':'OFF'}</small>`;
-                btnEdit.style.color = on ? '#FF9500' : '#007AFF';
+                btnEdit.innerHTML = `<span>编辑模式</span><small style="opacity:.6;font-weight:400">${on?'开':'关'}</small>`;
+                btnEdit.style.color = on ? '#FF9500' : (dk ? '#0A84FF' : '#007AFF');
             };
             refreshEdit();
             btnEdit.onclick = e => {
@@ -507,7 +591,7 @@
             btnClose.onclick = () => { mask.remove(); style.remove(); };
             mask.onclick = e => { if (e.target === mask) { mask.remove(); style.remove(); } };
 
-            panel.append(btnUI, btnStatus, btnUnlock, btnEdit, btnClose);
+            panel.append(btnUI, btnStatus, btnBlock, btnUnlock, btnEdit, btnClose);
             mask.appendChild(panel);
             shadowRoot.appendChild(mask);
         }, { id: 'ui_settings_main_v49' });
@@ -519,11 +603,22 @@
     const init = () => {
         if (inited) return;
         inited = true;
-        const isIgnored = (typeof GM_getValue !== 'undefined') ? GM_getValue('clipboard_ignore_'+location.host, false) : false;
-        const isUnlockAllowed = (typeof GM_getValue !== 'undefined') ? GM_getValue('clipboard_unlock_'+location.host, true) : true;
+
+        // ✅ 永久禁止复制时，抢在 toggleUnlock 之前拦下原生 Ctrl+C / 右键复制
+        document.addEventListener('copy', e => {
+            if (!blockCopy) return;
+            e.preventDefault();
+            e.stopImmediatePropagation();
+        }, { capture: true, passive: false });
+
+        blockCopy = gv('clipboard_block_' + location.host, false);
+
+        const isUnlockAllowed = gv('clipboard_unlock_' + location.host, true);
         if (isUnlockAllowed) toggleUnlock(true);
-        if (!isIgnored) { hookAPI(); hookExec(); } else { enabled = false; }
+
+        applyCopyState();
         registerMenu();
+
         try { obs.observe(document.documentElement, { childList: true, subtree: true }); document.querySelectorAll('iframe').forEach(setupFrame); } catch (e) {}
     };
 
@@ -533,7 +628,7 @@
 
     // visibilitychange 替代 setInterval
     const checkHook = () => {
-        if (!enabled && !freeCopyMode) return;
+        if (!enabled && !freeCopyMode && !blockCopy) return;
         try { if (navigator.clipboard && origWriteText && navigator.clipboard.writeText === origWriteText) hookAPI(); } catch(e){}
         try { if (originalExec && document.execCommand === originalExec) hookExec(); } catch(e){}
     };
