@@ -2,7 +2,7 @@
 // @name         去除链接重定向
 // @namespace    https://github.com/elderberryel/mingming
 // @version      3.0
-// @description  去除链接重定向（增加跳转防护）
+// @description  去除链接重定向
 // @exclude      *://*.x.com/*
 // @exclude      *://*.chatgpt.com/*
 // @match        *://*/*
