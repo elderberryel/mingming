@@ -1,13 +1,12 @@
 // ==UserScript==
 // @name         去除链接重定向
 // @namespace    https://github.com/elderberryel/mingming
-// @version      2.0
-// @description  去除链接重定向
+// @version      3.0
+// @description  去除链接重定向（增加跳转防护）
 // @exclude      *://*.x.com/*
 // @exclude      *://*.chatgpt.com/*
 // @match        *://*/*
 // @grant        GM.xmlHttpRequest
-// @connect      *
 // @run-at       document-start
 // ==/UserScript==
 
@@ -17,6 +16,44 @@
   const MARK = "data-fixed";
   const cache = new Map();
   const pending = new Map();
+
+  // ===== 跳转防护 =====
+  const MAX_REDIRECTS = 3;
+  const REDIRECT_KEY = "script_redirect_count";
+
+  function incrementRedirect() {
+    const count = parseInt(sessionStorage.getItem(REDIRECT_KEY) || "0", 10) + 1;
+    sessionStorage.setItem(REDIRECT_KEY, String(count));
+    return count;
+  }
+
+  function resetRedirect() {
+    sessionStorage.removeItem(REDIRECT_KEY);
+  }
+
+  function checkRedirect(targetUrl) {
+    const count = incrementRedirect();
+    if (count > MAX_REDIRECTS) {
+      console.warn("[去重定向] 超过最大跳转次数，停止跳转");
+      resetRedirect();
+      return false;
+    }
+    // 同源且路径相同 → 阻止跳转
+    try {
+      const target = new URL(targetUrl, location.href);
+      if (
+        target.hostname === location.hostname &&
+        target.pathname === location.pathname
+      ) {
+        console.warn("[去重定向] 检测到同源同路径循环，跳过:", targetUrl);
+        resetRedirect();
+        return false;
+      }
+    } catch {
+      // URL 解析失败，放行
+    }
+    return true;
+  }
 
   // 安全解码函数
   function safeDecode(url) {
@@ -67,7 +104,9 @@
     if (/pixiv\.net/i.test(location.host) && location.pathname === '/jump.php') {
       const search = location.search.substring(1);
       if (search && /^https?:/i.test(safeDecode(search))) {
-        location.replace(clean(safeDecode(search)));
+        if (checkRedirect(safeDecode(search))) {
+          location.replace(clean(safeDecode(search)));
+        }
         return;
       }
     }
@@ -77,8 +116,9 @@
     for (const k of keys) {
       const v = p.get(k);
       if (v && /^https?:/i.test(v)) {
-
-        location.replace(safeDecode(v));
+        if (checkRedirect(v)) {
+          location.replace(safeDecode(v));
+        }
         return;
       }
     }
@@ -86,7 +126,9 @@
     if (/\/(jump|redirect|out|link|go)(\/|$)/i.test(location.pathname)) {
       const r = p.get("redirect");
       if (r && /^https?:/i.test(r)) {
-        location.replace(clean(safeDecode(r)));
+        if (checkRedirect(r)) {
+          location.replace(clean(safeDecode(r)));
+        }
         return;
       }
     }
@@ -97,12 +139,13 @@
         const el = document.querySelector('p.link');
         if (el) {
           const link = el.textContent.trim();
-          // 防循环检测
           if (link && /^https?:/i.test(link) && link !== location.href) {
-            setTimeout(() => {
-              location.replace(link);
-            }, 0);
-            return true;
+            if (checkRedirect(link)) {
+              setTimeout(() => {
+                location.replace(link);
+              }, 0);
+              return true;
+            }
           }
         }
         return false;
@@ -125,8 +168,10 @@
       if (el) {
         const link = (el.textContent || "").trim();
         if (link && /^https?:/i.test(link) && link !== location.href) {
-          location.replace(clean(link));
-          return true;
+          if (checkRedirect(link)) {
+            location.replace(clean(link));
+            return true;
+          }
         }
       }
       return false;
