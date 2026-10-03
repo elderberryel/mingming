@@ -11,7 +11,7 @@
 // @exclude      *://*.chatgpt.com/*
 // @grant        GM_getValue
 // @namespace    https://github.com/elderberryel/mingming
-// @run-at       document-idle
+// @run-at       document-start
 // @updateURL    https://raw.githubusercontent.com/elderberryel/mingming/main/%E8%BF%94%E5%9B%9E%E9%A1%B6%E9%83%A8%E5%92%8C%E5%BA%95%E9%83%A8.user.js
 // @downloadURL  https://raw.githubusercontent.com/elderberryel/mingming/main/%E8%BF%94%E5%9B%9E%E9%A1%B6%E9%83%A8%E5%92%8C%E5%BA%95%E9%83%A8.user.js
 // ==/UserScript==
