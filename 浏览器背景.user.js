@@ -123,7 +123,8 @@ const SLOT_POPUP_CHILD=kid(SLOT_POPUP);
 const POPUP_PANEL='[data-slot="select-content"] [data-slot="select-group"],[data-slot="select-content"] [data-slot="select-viewport"],[data-slot="command"] [data-slot="command-list"],[role="listbox"] [role="group"],[role="menu"] [role="group"],[id^="base-ui-"][id$="-list"]';
 const POPUP_UNFILTER='[data-slot="select-content"],[data-slot="dropdown-menu-content"],[data-slot="context-menu-content"],[data-slot="menubar-content"],[data-slot="popover-content"],[data-slot="hover-card-content"],[data-slot="tooltip-content"],[data-slot="select-popup"],[data-slot="menu-popup"],[data-slot="popover-popup"],[id^="base-ui-"][id$="-popup"]';
 const POPUP_LEAF='[data-slot="select-item"],[data-slot="select-item-text"],[data-slot="dropdown-menu-item"],[data-slot="command-item"],[role="option"],[role="menuitem"]';
-const DROP='[id^="typeaheadDropdown"],.search-suggest,.sug-list,.s-sug,[class*="suggest"],[class*="dropdown"],[class*="autocomplete"],[id*="search-result"],[id*="search-results"],[id*="searchResult"],[id*="search_result"],[class*="search-result"],[class*="searchResult"],[class*="search-results"],[role="listbox"],[role="menu"],[id^="base-ui-"][id$="-list"],[id^="base-ui-"][id$="-popup"],'+SLOT_POPUP;
+// ===== 关键修复：排除用边框画的三角/箭头元素（caret / arrow），避免被玻璃弹层规则误伤 =====
+const DROP='[id^="typeaheadDropdown"],.search-suggest,.sug-list,.s-sug,[class*="suggest"],[class*="dropdown"]:not([class*="caret"]):not([class*="Caret"]):not([class*="arrow"]):not([class*="Arrow"]),[class*="autocomplete"],[id*="search-result"],[id*="search-results"],[id*="searchResult"],[id*="search_result"],[class*="search-result"],[class*="searchResult"],[class*="search-results"],[role="listbox"],[role="menu"],[id^="base-ui-"][id$="-list"],[id^="base-ui-"][id$="-popup"],'+SLOT_POPUP;
 const DROP_CHILD=kid('[id^="typeaheadDropdown"],.search-suggest,.sug-list,.s-sug,[class*="suggest"],[id*="search-result"],[id*="search-results"],[class*="search-result"],[role="listbox"],[role="menu"],[id^="base-ui-"][id$="-list"],[id^="base-ui-"][id$="-popup"],'+SLOT_POPUP);
 
 // ===== LGGC 玻璃片段 =====
@@ -1966,7 +1967,22 @@ html body [data-highlight-icon]::after{
   background-image:none!important;
 }
 `;
-
+css += `
+html body .share-user-info,
+html body .nd-share-user,
+html body .file-content,
+html body .m-item,
+html body .m-group-item{
+  background:transparent!important;
+  background-color:transparent!important;
+  background-image:none!important;
+}
+html body .nd-share-user[style],
+html body .file-content[style],
+html body .m-item[style]{
+  background-color:transparent!important;
+}
+`;
  return css+ROOT_HARDEN;}
 };
 
@@ -3364,13 +3380,11 @@ init(){
   HamburgerFixer.fix(true);
   AdmSearchFixer.fix();
  };
-
  if(document.readyState==='loading'){
   document.addEventListener('DOMContentLoaded',onReady,{once:true});
  }else{
   onReady();
  }
-
  addEventListener('load',()=>{
   CaptchaGuard.throttledCheck();StyleManager.applyAgain();ShadowFixer.run();FloatPanel.create();
   HamburgerFixer.fix(true);
