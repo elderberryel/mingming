@@ -123,8 +123,7 @@ const SLOT_POPUP_CHILD=kid(SLOT_POPUP);
 const POPUP_PANEL='[data-slot="select-content"] [data-slot="select-group"],[data-slot="select-content"] [data-slot="select-viewport"],[data-slot="command"] [data-slot="command-list"],[role="listbox"] [role="group"],[role="menu"] [role="group"],[id^="base-ui-"][id$="-list"]';
 const POPUP_UNFILTER='[data-slot="select-content"],[data-slot="dropdown-menu-content"],[data-slot="context-menu-content"],[data-slot="menubar-content"],[data-slot="popover-content"],[data-slot="hover-card-content"],[data-slot="tooltip-content"],[data-slot="select-popup"],[data-slot="menu-popup"],[data-slot="popover-popup"],[id^="base-ui-"][id$="-popup"]';
 const POPUP_LEAF='[data-slot="select-item"],[data-slot="select-item-text"],[data-slot="dropdown-menu-item"],[data-slot="command-item"],[role="option"],[role="menuitem"]';
-// ===== 关键修复：排除用边框画的三角/箭头元素（caret / arrow），避免被玻璃弹层规则误伤 =====
-const DROP='[id^="typeaheadDropdown"],.search-suggest,.sug-list,.s-sug,[class*="suggest"],[class*="dropdown"]:not([class*="caret"]):not([class*="Caret"]):not([class*="arrow"]):not([class*="Arrow"]),[class*="autocomplete"],[id*="search-result"],[id*="search-results"],[id*="searchResult"],[id*="search_result"],[class*="search-result"],[class*="searchResult"],[class*="search-results"],[role="listbox"],[role="menu"],[id^="base-ui-"][id$="-list"],[id^="base-ui-"][id$="-popup"],'+SLOT_POPUP;
+const DROP='[id^="typeaheadDropdown"],.search-suggest,.sug-list,.s-sug,[class*="suggest"],[class*="dropdown"],[class*="autocomplete"],[id*="search-result"],[id*="search-results"],[id*="searchResult"],[id*="search_result"],[class*="search-result"],[class*="searchResult"],[class*="search-results"],[role="listbox"],[role="menu"],[id^="base-ui-"][id$="-list"],[id^="base-ui-"][id$="-popup"],'+SLOT_POPUP;
 const DROP_CHILD=kid('[id^="typeaheadDropdown"],.search-suggest,.sug-list,.s-sug,[class*="suggest"],[id*="search-result"],[id*="search-results"],[class*="search-result"],[role="listbox"],[role="menu"],[id^="base-ui-"][id$="-list"],[id^="base-ui-"][id$="-popup"],'+SLOT_POPUP);
 
 // ===== LGGC 玻璃片段 =====
@@ -2429,8 +2428,7 @@ findVisible(){
  if(CaptchaGuard.isCfStructure())return true;
  if(!document.body)return false;
  for(const sel of CAPTCHA_SELECTORS){
-  try{const n=document.body.querySelectorAll(sel);for(let i=0;i<n.length;i++)if(CaptchaGuard.isRealCaptcha(n[i]))return true;}catch(e){}}
- return false;},
+  try{const n=document.body.querySelectorAll(sel);for(let i=0;i<n.length;i++)if(CaptchaGuard.isRealCaptcha(n[i]))return true;}catch(e){}}return false;},
 check(){
  const host=Utils.getHost();
  if(SPA_WHITELIST.some(d=>host===d||host.endsWith('.'+d))){if(CaptchaGuard.active){CaptchaGuard.active=false;StyleManager.applyStyle();}return;}
@@ -2830,10 +2828,14 @@ compress(dataUrl,target,cb){
    hasAlpha=/^data:image\/(png|webp|gif|svg)/i.test(dataUrl);
   }
 
+  // 优先尝试 WebP（含 Alpha 时也优先；不支持则回退）
+  const webpTest=c.toDataURL('image/webp',0.9);
+  const webpSupported=webpTest.indexOf('data:image/webp')===0;
   let format;
-  if(hasAlpha){
-   const test=c.toDataURL('image/webp',0.9);
-   format=test.indexOf('data:image/webp')===0?'image/webp':'image/png';
+  if(webpSupported){
+   format='image/webp';
+  }else if(hasAlpha){
+   format='image/png';
   }else{
    format='image/jpeg';
   }
@@ -2863,7 +2865,18 @@ pickLocal(cb){
    if(!isWebP&&res.length>COMPRESS_THRESHOLD){
     const c=await new Promise(r=>ImageTools.compress(res,COMPRESS_TARGET,r));
     if(c){alert(`已压缩：${Math.round(res.length/1024)}KB → ${Math.round(c.length/1024)}KB`);data=c;}}
-   const ck=await ImageStore.store(data,null,name);
+   // 让保存文件名扩展名与实际数据 MIME 保持一致（压缩后可能是 webp）
+   const mm=data.match(/^data:image\/([a-zA-Z0-9+.-]+)[;,]/);
+   let saveName=name;
+   if(mm){
+    const dataExt=mm[1].toLowerCase().replace('jpeg','jpg');
+    const dotIdx=name.lastIndexOf('.');
+    const curExt=dotIdx>-1?name.slice(dotIdx+1).toLowerCase().replace('jpeg','jpg'):'';
+    if(curExt!==dataExt){
+     saveName=(dotIdx>-1?name.slice(0,dotIdx):name)+'.'+dataExt;
+    }
+   }
+   const ck=await ImageStore.store(data,null,saveName);
    if(ck)cb(ImageStore.buildCacheKeyUrl(ck),file,ck);else alert('图片存储失败');};
   reader.readAsDataURL(file);});
  input.click();},
@@ -3196,8 +3209,7 @@ create(){
   e.stopPropagation();e.preventDefault();if(toggle.__dragging)return;
   if(getComputedStyle(panel).display==='none'){
    panel.style.display='block';advPanel.style.display='none';advBtn.textContent='⚙️ 高级设置 ▼';
-   panel.style.pointerEvents='none';panel.style.opacity='0.85';
-   if(protectTimer)clearTimeout(protectTimer);
+   panel.style.pointerEvents='none';panel.style.opacity='0.85';   if(protectTimer)clearTimeout(protectTimer);
    protectTimer=setTimeout(()=>{panel.style.pointerEvents='';panel.style.opacity='';},400);
   }else collapse();});
  advBtn.addEventListener('click',e=>{
@@ -3291,19 +3303,12 @@ ensureAlive(){
  if(!el||!((document.body&&document.body.contains(el))||document.documentElement.contains(el))){FloatPanel.node=null;FloatPanel.create();}
  else{FloatPanel.node=el;FloatPanel.fixPosition(el);}}
 };
-
 const Menus={
 register(){
- const host=Utils.getHost(),g=Config.getGlobal(),s=Config.getSite(host);
- GM_registerMenuCommand(g.enabled?'❌ 关闭背景（全局）':'✅ 开启背景（全局）',()=>Config.setGlobalValue(KEYS.enabled,!g.enabled));
- GM_registerMenuCommand(g.listMode==='blacklist'?'⚪ 切换白名单':'⚫ 切换黑名单',()=>Config.setGlobalValue(KEYS.listMode,g.listMode==='blacklist'?'whitelist':'blacklist'));
- GM_registerMenuCommand(Config.inSiteList(host)?'📌 移出站点列表':'📌 加入站点列表',()=>Config.toggleCurrentSiteInList());
- GM_registerMenuCommand('🌙 '+THEME_LABEL[1]+'（本站）',()=>Config.updateCurrentSite({theme:1}));
- GM_registerMenuCommand('☀️ '+THEME_LABEL[2]+'（本站）',()=>Config.updateCurrentSite({theme:2}));
- GM_registerMenuCommand('🎨 恢复默认文字色调（本站）',()=>{const h=Utils.getHost(),c=Config.getSite(h);if(c){delete c.theme;Config.setSite(h,c);}Config.invalidate();StyleManager.applyAgain();});
+ const host=Utils.getHost(),g=Config.getGlobal(),s=Config.getSite(host); GM_registerMenuCommand(g.enabled?'❌ 关闭背景（全局）':'✅ 开启背景（全局）',()=>Config.setGlobalValue(KEYS.enabled,!g.enabled)); GM_registerMenuCommand(g.listMode==='blacklist'?'⚪ 切换白名单':'⚫ 切换黑名单',()=>Config.setGlobalValue(KEYS.listMode,g.listMode==='blacklist'?'whitelist':'blacklist')); GM_registerMenuCommand(Config.inSiteList(host)?'📌 移出站点列表':'📌 加入站点列表',()=>Config.toggleCurrentSiteInList());
+ GM_registerMenuCommand('🌙 '+THEME_LABEL[1]+'（本站）',()=>Config.updateCurrentSite({theme:1})); GM_registerMenuCommand('☀️ '+THEME_LABEL[2]+'（本站）',()=>Config.updateCurrentSite({theme:2})); GM_registerMenuCommand('🎨 恢复默认文字色调（本站）',()=>{const h=Utils.getHost(),c=Config.getSite(h);if(c){delete c.theme;Config.setSite(h,c);}Config.invalidate();StyleManager.applyAgain();});
  GM_registerMenuCommand(s&&s.enabled===false?'🟢 单独启用':'🔴 单独禁用',()=>Config.updateCurrentSite({enabled:(Config.getSite(host)||{}).enabled===false}));}
 };
-
 const Bootstrap={
 _listenersBound:false,_mutationTimer:null,_mutationUrgent:false,
 bindGlobalListeners(){
@@ -3315,7 +3320,6 @@ bindGlobalListeners(){
   if(e.target!==box&&!box.contains(e.target)&&FloatPanel.closePanel)FloatPanel.closePanel();},true);
 
 },
-
 observe(){
  const runWork=(urgent)=>{
   Bootstrap._mutationTimer=null;
@@ -3350,7 +3354,6 @@ observe(){
    if(urgent)break;
   }
   if(skipAll)return;
-
   if(Bootstrap._mutationTimer!==null){
    if(urgent&&!Bootstrap._mutationUrgent){
     Bootstrap._mutationUrgent=true;
@@ -3370,7 +3373,6 @@ init(){
  Bootstrap.bindGlobalListeners();
  Bootstrap.observe();
  AdmSearchFixer.init();
-
  const onReady=()=>{
   CaptchaGuard.throttledCheck();
   StyleManager.applyAgain();
@@ -3388,9 +3390,7 @@ init(){
  addEventListener('load',()=>{
   CaptchaGuard.throttledCheck();StyleManager.applyAgain();ShadowFixer.run();FloatPanel.create();
   HamburgerFixer.fix(true);
-  AdmSearchFixer.fix();
-  setTimeout(()=>{FloatPanel.ensureAlive();StyleManager.applyStyleFull();ShadowFixer.run();HamburgerFixer.fix(true);AdmSearchFixer.fix();},500);
-  setTimeout(()=>{FloatPanel.ensureAlive();StyleManager.applyStyleFull();ShadowFixer.run();HamburgerFixer.fix(true);AdmSearchFixer.fix();},2000);},{once:true});
+  AdmSearchFixer.fix();  setTimeout(()=>{FloatPanel.ensureAlive();StyleManager.applyStyleFull();ShadowFixer.run();HamburgerFixer.fix(true);AdmSearchFixer.fix();},500);  setTimeout(()=>{FloatPanel.ensureAlive();StyleManager.applyStyleFull();ShadowFixer.run();HamburgerFixer.fix(true);AdmSearchFixer.fix();},2000);},{once:true});
  HamburgerFixer.fix(true);
  AdmSearchFixer.fix();
  Menus.register();}
