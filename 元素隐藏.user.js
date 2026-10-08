@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         元素隐藏
 // @namespace    https://github.com/elderberryel/mingming
-// @version      2.0
+// @version      2.3
 // @description  元素隐藏
 // @author       明明
 // @match        *://*/*
@@ -90,7 +90,6 @@
         '.grecaptcha-badge',
 
         'div.mx-auto:has(> h1.text-center.font-bold):has(> div > div.tool > form.tool-form)',
-        // 单独兜底：Telegram 频道横幅 / Reface 广告横幅
         'a[href*="t.me/twittervideoranking"]',
         'a[href*="mufufu.link"]',
 
@@ -98,8 +97,8 @@
         '.adsbygoogle',
         '.footer[role="contentinfo"]',
         '.ains',
-'[class~="google-anno"]',
-'[id~="google-anno"]',
+        '[class~="google-anno"]',
+        '[id~="google-anno"]',
         'div[style*="position: fixed"][style*="z-index: 1000"]',
 
         '#clickCanvas',
@@ -108,7 +107,6 @@
         '.ad-blank.ad-blank--fullwidth',
         'div:has(> .ad-blanks-wrapper)',
 
-        // 右下角固定广告弹窗（Tailwind class + data-cl-spot）
         'div[data-cl-spot]',
         'div:has(> div[data-cl-spot])',
         'div:has(> div > div > div[data-cl-spot])',
@@ -118,7 +116,6 @@
         'div[class*="w-\\[300px\\]"][class*="h-\\[250px\\]"]:has(> div > div[data-cl-spot])'
     ];
 
-    // ===== 分域名隐藏规则 =====
     const domainHideSelectors = {
         'itdog.cn': [
             '.top-recruit-notice-wrap',
@@ -142,6 +139,29 @@
         ],
         '123pan.cn': [
             '.app-header'
+        ],
+
+        'vctcn.com': [
+            '.header-strip',
+            '.app-container',
+            '.txtzone',
+            '#ad-list',
+
+            '.f63092',
+            'div[style*="z-index: 19999"]',
+            'a[href*="153.43.232.93"]',
+            'a[href*="by553pf5.cc"]',
+            'a[href*="bw63sc7em.cc"]',
+            'a[href*="hcrhkezg.f9y6v4.com"]',
+            'a[href*="putaosp.com"]',
+
+            'img[src*="svlqgh.com"]',
+            'img[src*="aa333dd666.com"]',
+            'img[src*="xn--xhq326aj6yqpw.com"]',
+            'img[src*="jqzscqcy.com"]',
+            'img[src*="fd5q27kyqb.com"]',
+            'img[src*="hz9p8m2bby.com"]',
+            'article[aria-label="澳门新葡京"]',
         ]
     };
 
@@ -154,6 +174,18 @@
         'div[class*="w-\\[300px\\]"][class*="h-\\[250px\\]"]:has(> div > div[data-cl-spot])',
         'div[data-cl-spot]'
     ];
+
+    const domainRemoveSelectors = {
+        'vctcn.com': [
+            '.header-strip',
+            '.app-container',
+            '.txtzone',
+            '.f63092',
+            'div[style*="z-index: 19999"]',
+            'a[href*="153.43.232.93"]',
+            'article[aria-label="澳门新葡京"]'
+        ]
+    };
 
     // 追踪像素域名正则
     const trackingRegex = /quantserve\.com|quantcount\.com|pixel\.quantserve\.com|hm\.baidu\.com/i;
@@ -198,7 +230,7 @@
     })();
 
     function removeNodes(root = document) {
-        // 删除广告 video / 广告容器
+        // 全局删除
         for (const sel of removeSelectors) {
             let nodes;
             try {
@@ -207,6 +239,21 @@
                 continue;
             }
             nodes.forEach(el => el.remove());
+        }
+
+        // 分域名删除
+        const host = currentHost();
+        for (const [domain, sels] of Object.entries(domainRemoveSelectors)) {
+            if (!domainMatchesHost(host, domain)) continue;
+            for (const sel of sels) {
+                let nodes;
+                try {
+                    nodes = root.querySelectorAll(sel);
+                } catch (_) {
+                    continue;
+                }
+                nodes.forEach(el => el.remove());
+            }
         }
     }
 
