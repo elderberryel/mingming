@@ -190,6 +190,9 @@ let currentGcjLat = null;
 let hasValidGpsCoord = false;
 let currentKey = '';
 
+// ★ 新增：文件头解析出的真实尺寸
+let trueSize = null;
+
 const STORAGE_KEY_TENCENT = 'tencent_key_mobile';
 
 const LIB_STATUS = {
@@ -201,6 +204,92 @@ function updateLibStatus() {
     document.getElementById('exifrStatus').textContent = `Exifr: ${LIB_STATUS.EXIFR ? '✅' : '❌'}`;
     document.getElementById('exifreaderStatus').textContent = `ExifReader: ${LIB_STATUS.EXIFREADER ? '✅' : '❌'}`;
 }
+
+/* =========================================================
+   ★ 新增：从文件字节流读取真实像素尺寸（不依赖浏览器解码）
+   浏览器对超大图会降采样，naturalWidth 会失真
+   ========================================================= */
+function readSizeFromHeader(buffer) {
+    const view = new DataView(buffer);
+    if (view.byteLength < 24) return null;
+
+    // ---- JPEG ----
+    if (view.getUint16(0) === 0xFFD8) {
+        let offset = 2;
+        const len = view.byteLength;
+        while (offset + 9 < len) {
+            if (view.getUint8(offset) !== 0xFF) { offset++; continue; }
+            const marker = view.getUint8(offset + 1);
+
+            // 无长度字段的标记
+            if (marker === 0xD8 || marker === 0x01 || (marker >= 0xD0 && marker <= 0xD7)) {
+                offset += 2;
+                continue;
+            }
+            if (marker === 0xD9 || marker === 0xDA) break; // EOI / SOS
+
+            const segLen = view.getUint16(offset + 2);
+            if (segLen < 2) break;
+
+            // SOF0~SOF15（排除 DHT/JPG/DAC）
+            if (marker >= 0xC0 && marker <= 0xCF &&
+                marker !== 0xC4 && marker !== 0xC8 && marker !== 0xCC) {
+                return {
+                    width:  view.getUint16(offset + 7),
+                    height: view.getUint16(offset + 5)
+                };
+            }
+            offset += 2 + segLen;
+        }
+        return null;
+    }
+
+    // ---- PNG ----
+    if (view.getUint32(0) === 0x89504E47) {
+        return {
+            width:  view.getUint32(16),
+            height: view.getUint32(20)
+        };
+    }
+
+    // ---- WebP ----
+    if (view.getUint32(0) === 0x52494646 && view.getUint32(8) === 0x57454250) {
+        const f = String.fromCharCode(
+            view.getUint8(12), view.getUint8(13), view.getUint8(14), view.getUint8(15)
+        );
+        if (f === 'VP8X') {
+            return {
+                width:  1 + (view.getUint8(24) | (view.getUint8(25) << 8) | (view.getUint8(26) << 16)),
+                height: 1 + (view.getUint8(27) | (view.getUint8(28) << 8) | (view.getUint8(29) << 16))
+            };
+        }
+        if (f === 'VP8 ') {
+            return {
+                width:  view.getUint16(26, true) & 0x3FFF,
+                height: view.getUint16(28, true) & 0x3FFF
+            };
+        }
+        if (f === 'VP8L') {
+            const b = view.getUint8(21) | (view.getUint8(22) << 8) |
+                      (view.getUint8(23) << 16) | (view.getUint8(24) << 24);
+            return { width: (b & 0x3FFF) + 1, height: ((b >> 14) & 0x3FFF) + 1 };
+        }
+    }
+
+    return null;
+}
+
+async function getTrueImageSize(file) {
+    try {
+        // EXIF 段通常在前 1MB 内，足够
+        const head = await file.slice(0, 1024 * 1024).arrayBuffer();
+        return readSizeFromHeader(head);
+    } catch (e) {
+        console.warn('读取文件头尺寸失败:', e);
+        return null;
+    }
+}
+/* ========================================================= */
 
 function generateMapLinks(lat, lng) {
     return `
@@ -322,14 +411,19 @@ async function manualReverse() {
     await reverseGeocodeWithProxy(currentGcjLng, currentGcjLat);
 }
 
+/* ★ 修改：基础信息优先使用文件头里的真实尺寸，不再显示浏览器解码提示 */
 function showBasic(file) {
-    basicInfo.textContent = 
+    const w = (trueSize && trueSize.width)  ? trueSize.width  : previewImg.naturalWidth;
+    const h = (trueSize && trueSize.height) ? trueSize.height : previewImg.naturalHeight;
+
+    basicInfo.textContent =
 `📛 文件名: ${file.name}
 📦 大小: ${(file.size/1024/1024).toFixed(2)} MB
-📐 尺寸: ${previewImg.naturalWidth}×${previewImg.naturalHeight}
+📐 尺寸: ${w}×${h}
 🎞️ 类型: ${file.type || 'image/jpeg'}
 📅 最后修改: ${new Date(file.lastModified).toLocaleString()}`;
 }
+
 function decodeExifBytes(bytes) {
     try {
         let arr = Array.from(bytes);
@@ -660,6 +754,7 @@ function resetUIForNewImage() {
     currentGcjLng = null;
     currentGcjLat = null;
     hasValidGpsCoord = false;
+    trueSize = null;                       
     geoAddressDisplay.innerHTML = '<span style="color:#6c86a3;">🔄 解析中...</span>';
     geoStatusIcon.innerText = '🌐 等待';
     coordDebugSpan.innerHTML = '';
@@ -672,6 +767,9 @@ async function handleFile(file) {
         return;
     }
     resetUIForNewImage();
+    // ★ 先解析文件头，拿到真实像素尺寸
+    trueSize = await getTrueImageSize(file);
+
     const url = URL.createObjectURL(file);
     previewImg.src = url;
     previewImg.onload = async () => {
