@@ -1983,6 +1983,25 @@ html body .m-item[style]{
   background-color:transparent!important;
 }
 `;
+css += `
+html body .notice-banner,
+html body [class*="notice-banner"]{
+  background:transparent!important;
+  background-color:transparent!important;
+  background-image:none!important;
+  box-shadow:none!important;
+  border-color:transparent!important;
+  --banner-fade-color:transparent!important;
+  --banner-fade-left-color:transparent!important;
+}
+html body .notice-banner::before,
+html body .notice-banner::after,
+html body [class*="notice-banner"]::before,
+html body [class*="notice-banner"]::after{
+  background:transparent!important;
+  background-image:none!important;
+}
+`;
  return css+ROOT_HARDEN;}
 };
 
