@@ -2274,7 +2274,8 @@ pan123OverlayCSS(blur,alpha){
  const alphaVal=Number.isFinite(a)?Utils.clamp(a,0,.8):.1;
  const gf=b>0?LGGC.filter(b):'none';
  const bg=`rgba(${LGGC.bgDark},${alphaVal})`;
- return `[class*="mfy_h-popup-module__body"]{`
+// ⬇️ 把 drawer body 也纳入
+ return `[class*="mfy_h-popup-module__body"],[class*="mfy_h-drawer-module__body"]{`
  +`background:${bg}!important;`
  +`background-color:${bg}!important;`
  +`background-image:none!important;`
@@ -2549,7 +2550,8 @@ isExcludedElement(el){
  if(cl&&cl.contains('menu')&&cl.contains('only-mobile'))return true;
  if(typeof el.className==='string'&&(el.className.includes('UnderlineNav')||el.className.includes('GlobalNav')))return true;
 
- if(el.closest&&el.closest('[class*="mfy_h-popup-module"],[class*="e3-strong-cashier"],[class*="mfy_h-button-module"]'))return true;
+if(el.closest&&el.closest('[class*="mfy_h-popup-module"],[class*="mfy_h-drawer-module"],[class*="e3-strong-cashier"],[class*="mfy_h-button-module"]'))return true;
+if(el.matches&&el.matches('.ant-drawer,.ant-modal-wrap,.ant-drawer-content-wrapper,.ant-modal'))return true;
  try{if(el.matches&&el.matches(CAPTCHA_CSS_SELECTOR))return true;if(el.closest&&el.closest(CAPTCHA_CSS_SELECTOR))return true;}catch(e){}
  if(el.tagName==='IFRAME'){const s=el.src||'';if(s.includes('challenges.cloudflare.com')||s.includes('hcaptcha.com')||s.includes('recaptcha'))return true;}
  if(el.getAttribute&&el.getAttribute('role')==='menu'&&el.tagName==='DETAILS-MENU')return true;
@@ -2836,7 +2838,6 @@ compress(dataUrl,target,cb){
   }else{
    format='image/jpeg';
   }
-
   let q=.9,res=dataUrl,att=0;
   const tryC=()=>{
    if(format==='image/png')res=c.toDataURL('image/png');
@@ -2862,7 +2863,6 @@ pickLocal(cb){
    if(!isWebP&&res.length>COMPRESS_THRESHOLD){
     const c=await new Promise(r=>ImageTools.compress(res,COMPRESS_TARGET,r));
     if(c){alert(`已压缩：${Math.round(res.length/1024)}KB → ${Math.round(c.length/1024)}KB`);data=c;}}
-   // 让保存文件名扩展名与实际数据 MIME 保持一致（压缩后可能是 webp）
    const mm=data.match(/^data:image\/([a-zA-Z0-9+.-]+)[;,]/);
    let saveName=name;
    if(mm){
