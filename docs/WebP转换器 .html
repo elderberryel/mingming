@@ -1,0 +1,1051 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WebP 转 GIF / MP4</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+    padding: 24px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: radial-gradient(1200px 600px at 50% -10%, #1b2537, #0b0e14 60%);
+    color: #e6edf3;
+  }
+  .card {
+    width: 100%; max-width: 700px;
+    background: rgba(22, 27, 34, .82);
+    border: 1px solid #262d38;
+    border-radius: 16px;
+    padding: 28px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.55);
+  }
+  h1 { font-size: 20px; margin: 0 0 6px; font-weight: 650; }
+  .sub { color: #8b949e; font-size: 13px; margin: 0 0 20px; line-height: 1.6; }
+
+  /* ---------- 格式选择 ---------- */
+  .fmt-row { display: flex; gap: 10px; margin-bottom: 18px; }
+  .fmt {
+    flex: 1;
+    display: flex; flex-direction: column; align-items: flex-start; gap: 3px;
+    padding: 12px 14px;
+    border-radius: 11px;
+    border: 1.5px solid #30363d;
+    background: #12171f;
+    color: #c9d1d9;
+    cursor: pointer;
+    text-align: left;
+    transition: .16s ease;
+    font-family: inherit;
+  }
+  .fmt:hover { border-color: #4a5568; background: #172033; }
+  .fmt.active {
+    border-color: #58a6ff;
+    background: linear-gradient(180deg, #16263d, #121b2b);
+    box-shadow: 0 0 0 3px rgba(88,166,255,.13);
+  }
+  .fmt .fmt-name { font-size: 14px; font-weight: 700; letter-spacing: .3px; }
+  .fmt .fmt-desc { font-size: 11.5px; color: #7d8590; line-height: 1.4; }
+  .fmt.active .fmt-name { color: #79c0ff; }
+
+  /* ---------- 拖拽区 ---------- */
+  #drop {
+    border: 2px dashed #30363d;
+    border-radius: 12px;
+    padding: 34px 20px;
+    text-align: center;
+    cursor: pointer;
+    background: #12171f;
+    transition: .18s ease;
+    user-select: none;
+  }
+  #drop:hover, #drop.hover { border-color: #58a6ff; background: #172033; }
+  #drop .icon { font-size: 30px; display: block; margin-bottom: 10px; opacity: .9; }
+  #drop .t1 { font-size: 15px; font-weight: 600; }
+  #drop .t2 { font-size: 12px; color: #7d8590; margin-top: 6px; }
+
+  /* ---------- 进度面板 ---------- */
+  .panel { margin-top: 20px; display: none; }
+  .panel.show { display: block; }
+
+  .row { display: flex; justify-content: space-between; font-size: 13px; color: #8b949e; margin-bottom: 8px; gap: 12px; }
+  .row #statusText { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bar-wrap { height: 8px; background: #21262d; border-radius: 99px; overflow: hidden; }
+  .bar { height: 100%; width: 0%; background: linear-gradient(90deg, #1f6feb, #58a6ff); transition: width .15s ease; }
+
+  .preview-box {
+    margin-top: 18px; padding: 12px; border-radius: 12px;
+    background: #0d1117; border: 1px solid #21262d;
+    display: flex; align-items: center; justify-content: center;
+    min-height: 80px;
+    background-image:
+      linear-gradient(45deg, #161b22 25%, transparent 25%),
+      linear-gradient(-45deg, #161b22 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, #161b22 75%),
+      linear-gradient(-45deg, transparent 75%, #161b22 75%);
+    background-size: 18px 18px;
+    background-position: 0 0, 0 9px, 9px -9px, -9px 0;
+  }
+  .preview-box img, .preview-box video {
+    max-width: 100%; max-height: 280px; display: block; border-radius: 6px; background: #000;
+  }
+
+  .actions { margin-top: 18px; display: flex; gap: 10px; flex-wrap: wrap; }
+  a.btn, button.btn {
+    flex: 1; min-width: 140px;
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 11px 18px; border-radius: 9px;
+    font-size: 14px; font-weight: 600; text-decoration: none;
+    border: 1px solid transparent; cursor: pointer; transition: .15s;
+    font-family: inherit;
+  }
+  .btn.primary { background: #238636; color: #fff; }
+  .btn.primary:hover { background: #2ea043; }
+  .btn.ghost { background: #21262d; color: #c9d1d9; border-color: #30363d; }
+  .btn.ghost:hover { background: #30363d; }
+
+  .err { color: #f85149; font-size: 13px; margin-top: 14px; white-space: pre-wrap; line-height: 1.6; }
+  .meta { font-size: 12px; color: #7d8590; margin-top: 12px; line-height: 1.8; }
+  .meta b { color: #c9d1d9; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>WebP 转换器</h1>
+  <p class="sub">纯浏览器本地转换，文件不会上传到任何服务器。支持静态 WebP 与动态 WebP 动画。</p>
+
+  <!-- 格式选择 -->
+  <div class="fmt-row" id="fmtRow">
+    <button class="fmt active" data-fmt="gif">
+      <span class="fmt-name">GIF</span>
+      <span class="fmt-desc">兼容性最好，支持透明背景</span>
+    </button>
+    <button class="fmt" data-fmt="mp4">
+      <span class="fmt-name">MP4</span>
+      <span class="fmt-desc">体积更小，画质更好（H.264）</span>
+    </button>
+  </div>
+
+  <div id="drop">
+    <span class="icon">🖼️</span>
+    <div class="t1">点击选择 WebP 文件</div>
+    <div class="t2">或将文件拖拽到此处</div>
+  </div>
+  <input type="file" id="fileInput" accept="image/webp,.webp" hidden>
+
+  <div class="panel" id="panel">
+    <div class="row">
+      <span id="statusText">准备中…</span>
+      <span id="percent">0%</span>
+    </div>
+    <div class="bar-wrap"><div class="bar" id="bar"></div></div>
+
+    <div class="preview-box" id="previewBox" style="display:none">
+      <img id="previewImg" alt="预览" style="display:none">
+      <video id="previewVid" controls loop muted playsinline style="display:none"></video>
+    </div>
+
+    <div class="meta" id="meta"></div>
+    <div class="err" id="err"></div>
+
+    <div class="actions" id="actions" style="display:none">
+      <a class="btn primary" id="download" download>⬇ 下载文件</a>
+      <button class="btn ghost" id="reset">转换另一个</button>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+function concatBytes(arrays) {
+  let len = 0;
+  for (const a of arrays) len += a.length;
+  const out = new Uint8Array(len);
+  let off = 0;
+  for (const a of arrays) { out.set(a, off); off += a.length; }
+  return out;
+}
+const bU8  = v => new Uint8Array([v & 255]);
+const bU16 = v => { const b = new Uint8Array(2); new DataView(b.buffer).setUint16(0, v & 0xffff); return b; };
+const bU32 = v => { const b = new Uint8Array(4); new DataView(b.buffer).setUint32(0, v >>> 0); return b; };
+const fourcc = s => new Uint8Array([s.charCodeAt(0), s.charCodeAt(1), s.charCodeAt(2), s.charCodeAt(3)]);
+
+function makeBox(type, ...parts) {
+  const payload = concatBytes(parts);
+  const out = new Uint8Array(8 + payload.length);
+  new DataView(out.buffer).setUint32(0, out.length);
+  out.set(fourcc(type), 4);
+  out.set(payload, 8);
+  return out;
+}
+
+class ByteWriter {
+  constructor(cap = 1 << 16) {
+    this.buf = new Uint8Array(cap);
+    this.len = 0;
+  }
+  _ensure(n) {
+    if (this.len + n <= this.buf.length) return;
+    let cap = this.buf.length;
+    while (cap < this.len + n) cap *= 2;
+    const nb = new Uint8Array(cap);
+    nb.set(this.buf.subarray(0, this.len));
+    this.buf = nb;
+  }
+  u8(b) { this._ensure(1); this.buf[this.len++] = b & 0xff; }
+  u16(v) { this._ensure(2); this.buf[this.len++] = v & 0xff; this.buf[this.len++] = (v >> 8) & 0xff; }
+  bytes(arr) { this._ensure(arr.length); this.buf.set(arr, this.len); this.len += arr.length; }
+  str(s) { this._ensure(s.length); for (let i = 0; i < s.length; i++) this.buf[this.len++] = s.charCodeAt(i) & 0xff; }
+  toUint8Array() { return this.buf.slice(0, this.len); }
+}
+
+function lzwEncode(minCodeSize, indices) {
+  const clearCode = 1 << minCodeSize;
+  const eoiCode = clearCode + 1;
+
+  let codeSize = minCodeSize + 1;
+  let nextCode = eoiCode + 1;
+  let dict = new Map();
+
+  const out = new ByteWriter(indices.length >> 1 || 1024);
+  let cur = 0, curBits = 0;
+
+  function emit(code) {
+    cur |= code << curBits;
+    curBits += codeSize;
+    while (curBits >= 8) {
+      out.u8(cur & 0xff);
+      cur >>>= 8;
+      curBits -= 8;
+    }
+  }
+
+  emit(clearCode);
+
+  if (indices.length > 0) {
+    let ib = indices[0];
+    for (let i = 1; i < indices.length; i++) {
+      const k = indices[i];
+      const key = (ib << 8) | k;
+      const found = dict.get(key);
+
+      if (found !== undefined) {
+        ib = found;
+      } else {
+        emit(ib);
+        if (nextCode === 4096) {
+          emit(clearCode);
+          dict = new Map();
+          nextCode = eoiCode + 1;
+          codeSize = minCodeSize + 1;
+        } else {
+          if (nextCode >= (1 << codeSize)) codeSize++;
+          dict.set(key, nextCode);
+          nextCode++;
+        }
+        ib = k;
+      }
+    }
+    emit(ib);
+  }
+
+  emit(eoiCode);
+  if (curBits > 0) out.u8(cur & 0xff);
+  return out.toUint8Array();
+}
+
+function buildPalette(colorMap, maxColors) {
+  const keys = Array.from(colorMap.keys());
+  if (keys.length === 0) return new Uint8Array([0, 0, 0]);
+
+  if (keys.length <= maxColors) {
+    const out = new Uint8Array(keys.length * 3);
+    for (let i = 0; i < keys.length; i++) {
+      const k = keys[i];
+      out[i * 3]     = (k >> 16) & 255;
+      out[i * 3 + 1] = (k >> 8) & 255;
+      out[i * 3 + 2] = k & 255;
+    }
+    return out;
+  }
+
+  const makeBox = (arr) => {
+    let rmin = 255, rmax = 0, gmin = 255, gmax = 0, bmin = 255, bmax = 0, total = 0;
+    for (let i = 0; i < arr.length; i++) {
+      const k = arr[i];
+      const r = (k >> 16) & 255, g = (k >> 8) & 255, b = k & 255;
+      if (r < rmin) rmin = r; if (r > rmax) rmax = r;
+      if (g < gmin) gmin = g; if (g > gmax) gmax = g;
+      if (b < bmin) bmin = b; if (b > bmax) bmax = b;
+      total += colorMap.get(k);
+    }
+    return { arr, rmin, rmax, gmin, gmax, bmin, bmax, total };
+  };
+
+  const boxes = [makeBox(keys)];
+
+  while (boxes.length < maxColors) {
+    let bi = -1, bestTotal = 0;
+    for (let i = 0; i < boxes.length; i++) {
+      const b = boxes[i];
+      if (b.arr.length < 2) continue;
+      if (b.total > bestTotal) { bestTotal = b.total; bi = i; }
+    }
+    if (bi < 0) break;
+
+    const b = boxes[bi];
+    const rl = b.rmax - b.rmin, gl = b.gmax - b.gmin, bl = b.bmax - b.bmin;
+    let shift = 0;
+    if (rl >= gl && rl >= bl) shift = 16;
+    else if (gl >= bl) shift = 8;
+
+    b.arr.sort((x, y) => ((x >> shift) & 255) - ((y >> shift) & 255));
+
+    const half = b.total / 2;
+    let acc = 0, cut = 0;
+    for (; cut < b.arr.length - 1; cut++) {
+      acc += colorMap.get(b.arr[cut]);
+      if (acc >= half) break;
+    }
+
+    const left = b.arr.slice(0, cut + 1);
+    const right = b.arr.slice(cut + 1);
+    boxes.splice(bi, 1, makeBox(left), makeBox(right));
+  }
+
+  const out = new Uint8Array(boxes.length * 3);
+  for (let i = 0; i < boxes.length; i++) {
+    const b = boxes[i];
+    let r = 0, g = 0, bl = 0, tot = 0;
+    for (let j = 0; j < b.arr.length; j++) {
+      const k = b.arr[j];
+      const c = colorMap.get(k);
+      r  += ((k >> 16) & 255) * c;
+      g  += ((k >> 8) & 255) * c;
+      bl += (k & 255) * c;
+      tot += c;
+    }
+    out[i * 3]     = Math.round(r / tot);
+    out[i * 3 + 1] = Math.round(g / tot);
+    out[i * 3 + 2] = Math.round(bl / tot);
+  }
+  return out;
+}
+
+function nearestColorIndex(pal, r, g, b) {
+  let best = 0, bestD = Infinity;
+  for (let i = 0; i < pal.length; i += 3) {
+    const dr = pal[i] - r, dg = pal[i + 1] - g, db = pal[i + 2] - b;
+    const d = dr * dr + dg * dg + db * db;
+    if (d < bestD) { bestD = d; best = i / 3; if (d === 0) break; }
+  }
+  return best;
+}
+
+function quantizeFrame(rgba, maxColors) {
+  const n = rgba.length >> 2;
+  const colorMap = new Map();
+  let hasAlpha = false;
+
+  for (let i = 0; i < n; i++) {
+    const p = i << 2;
+    if (rgba[p + 3] < 128) { hasAlpha = true; continue; }
+    const key = (rgba[p] << 16) | (rgba[p + 1] << 8) | rgba[p + 2];
+    colorMap.set(key, (colorMap.get(key) || 0) + 1);
+  }
+
+  const reserve = hasAlpha ? 1 : 0;
+  const pal = buildPalette(colorMap, Math.max(1, maxColors - reserve));
+  const numColors = pal.length / 3;
+  const totalColors = numColors + reserve;
+
+  let bits = 2;
+  while ((1 << bits) < totalColors) bits++;
+
+  const tableSize = 1 << bits;
+  const fullPalette = new Uint8Array(tableSize * 3);
+  if (hasAlpha) {
+    fullPalette.set(pal, 3);
+  } else {
+    fullPalette.set(pal, 0);
+  }
+
+  const baseIndex = reserve;
+  const cache = new Map();
+  const indices = new Uint8Array(n);
+
+  for (let i = 0; i < n; i++) {
+    const p = i << 2;
+    if (hasAlpha && rgba[p + 3] < 128) { indices[i] = 0; continue; }
+
+    const key = (rgba[p] << 16) | (rgba[p + 1] << 8) | rgba[p + 2];
+    let idx = cache.get(key);
+    if (idx === undefined) {
+      idx = baseIndex + nearestColorIndex(pal, rgba[p], rgba[p + 1], rgba[p + 2]);
+      cache.set(key, idx);
+    }
+    indices[i] = idx;
+  }
+
+  return {
+    palette: fullPalette,
+    indices,
+    bits,
+    transparentIndex: hasAlpha ? 0 : -1
+  };
+}
+
+async function encodeGIF(frames, width, height, loop, onProgress) {
+  const w = new ByteWriter(1 << 16);
+
+  w.str("GIF89a");
+  w.u16(width);
+  w.u16(height);
+  w.u8(0x00);
+  w.u8(0x00);
+  w.u8(0x00);
+
+  if (frames.length > 1) {
+    w.u8(0x21); w.u8(0xFF); w.u8(0x0B);
+    w.str("NETSCAPE2.0");
+    w.u8(0x03); w.u8(0x01);
+    w.u16(loop);
+    w.u8(0x00);
+  }
+
+  for (let fi = 0; fi < frames.length; fi++) {
+    const frame = frames[fi];
+    const q = quantizeFrame(frame.rgba, 256);
+    const delayCs = Math.max(1, Math.round((frame.delay || 100) / 10));
+
+    w.u8(0x21); w.u8(0xF9); w.u8(0x04);
+    let packed = 0x04;
+    if (q.transparentIndex >= 0) packed |= 0x01;
+    w.u8(packed);
+    w.u16(delayCs);
+    w.u8(q.transparentIndex >= 0 ? q.transparentIndex : 0);
+    w.u8(0x00);
+
+    w.u8(0x2C);
+    w.u16(0); w.u16(0);
+    w.u16(width); w.u16(height);
+    w.u8(0x80 | (q.bits - 1));
+
+    const pal = q.palette;
+    const tableSize = 1 << q.bits;
+    for (let i = 0; i < tableSize; i++) {
+      w.u8(pal[i * 3] || 0);
+      w.u8(pal[i * 3 + 1] || 0);
+      w.u8(pal[i * 3 + 2] || 0);
+    }
+
+    w.u8(q.bits);
+    const data = lzwEncode(q.bits, q.indices);
+    for (let i = 0; i < data.length; i += 255) {
+      const len = Math.min(255, data.length - i);
+      w.u8(len);
+      w.bytes(data.subarray(i, i + len));
+    }
+    w.u8(0x00);
+
+    if (onProgress) onProgress((fi + 1) / frames.length);
+    if (fi % 3 === 2) await new Promise(r => setTimeout(r, 0));
+  }
+
+  w.u8(0x3B);
+  return w.toUint8Array();
+}
+
+function muxMP4({ width, height, samples, avcC }) {
+  const TIMESCALE = 1000000; // 微秒
+  const totalDurationUs = samples.reduce((s, x) => s + x.durationUs, 0);
+  const mvhdDurationMs = Math.max(1, Math.round(totalDurationUs / 1000));
+
+  /* ---- ftyp ---- */
+  const ftyp = makeBox('ftyp',
+    fourcc('isom'), bU32(0x200),
+    fourcc('isom'), fourcc('iso2'), fourcc('avc1'), fourcc('mp41')
+  );
+
+  /* ---- mdat ---- */
+  const mdat = makeBox('mdat', concatBytes(samples.map(s => s.data)));
+
+  /* ---- chunk 偏移量（每个样本自成一块） ---- */
+  const baseOffset = ftyp.length + 8;
+  const chunkOffsets = [];
+  let off = baseOffset;
+  for (const s of samples) { chunkOffsets.push(off); off += s.data.length; }
+
+  /* ---- avc1 sample entry ---- */
+  const avcCBox = makeBox('avcC', avcC);
+  const avc1Payload = new Uint8Array(78 + avcCBox.length);
+  {
+    const dv = new DataView(avc1Payload.buffer);
+    dv.setUint16(6, 1);            // data_reference_index
+    dv.setUint16(24, width);
+    dv.setUint16(26, height);
+    dv.setUint32(28, 0x00480000);  // 72 dpi
+    dv.setUint32(32, 0x00480000);
+    dv.setUint16(40, 1);           // frame_count
+    avc1Payload[42] = 0;           // compressorname 长度 0
+    dv.setUint16(74, 0x0018);      // depth
+    dv.setInt16(76, -1);           // pre_defined
+    avc1Payload.set(avcCBox, 78);
+  }
+  const avc1 = makeBox('avc1', avc1Payload);
+
+  /* ---- stsd ---- */
+  const stsd = makeBox('stsd', bU32(0), bU32(1), avc1);
+
+  /* ---- stts ---- */
+  const sttsEntries = [];
+  for (const s of samples) {
+    const d = Math.max(1, Math.round(s.durationUs));
+    const last = sttsEntries[sttsEntries.length - 1];
+    if (last && last.delta === d) last.count++;
+    else sttsEntries.push({ count: 1, delta: d });
+  }
+  const sttsParts = [bU32(0), bU32(sttsEntries.length)];
+  for (const e of sttsEntries) sttsParts.push(bU32(e.count), bU32(e.delta));
+  const stts = makeBox('stts', ...sttsParts);
+
+  /* ---- stss（关键帧索引） ---- */
+  const syncIndices = [];
+  samples.forEach((s, i) => { if (s.key) syncIndices.push(i + 1); });
+  let stss = null;
+  if (syncIndices.length > 0 && syncIndices.length < samples.length) {
+    const parts = [bU32(0), bU32(syncIndices.length)];
+    for (const n of syncIndices) parts.push(bU32(n));
+    stss = makeBox('stss', ...parts);
+  }
+
+  /* ---- stsc：每块一个样本 ---- */
+  const stsc = makeBox('stsc', bU32(0), bU32(1), bU32(1), bU32(1), bU32(1));
+
+  /* ---- stsz ---- */
+  const sizes = samples.map(s => s.data.length);
+  const allSame = sizes.length > 0 && sizes.every(v => v === sizes[0]);
+  let stsz;
+  if (allSame) {
+    stsz = makeBox('stsz', bU32(0), bU32(sizes[0]), bU32(sizes.length));
+  } else {
+    const parts = [bU32(0), bU32(0), bU32(sizes.length)];
+    for (const s of sizes) parts.push(bU32(s));
+    stsz = makeBox('stsz', ...parts);
+  }
+
+  /* ---- stco ---- */
+  const stcoParts = [bU32(0), bU32(chunkOffsets.length)];
+  for (const o of chunkOffsets) stcoParts.push(bU32(o));
+  const stco = makeBox('stco', ...stcoParts);
+
+  /* ---- stbl ---- */
+  const stblParts = [stsd, stts];
+  if (stss) stblParts.push(stss);
+  stblParts.push(stsc, stsz, stco);
+  const stbl = makeBox('stbl', ...stblParts);
+
+  /* ---- minf ---- */
+  const vmhd = makeBox('vmhd', bU32(1), bU16(0), bU16(0), bU16(0), bU16(0));
+  const urlBox = makeBox('url ', bU32(1));
+  const dref = makeBox('dref', bU32(0), bU32(1), urlBox);
+  const dinf = makeBox('dinf', dref);
+  const minf = makeBox('minf', vmhd, dinf, stbl);
+
+  /* ---- mdia ---- */
+  const hdlr = makeBox('hdlr',
+    bU32(0), bU32(0), fourcc('vide'),
+    bU32(0), bU32(0), bU32(0),
+    new Uint8Array([0])
+  );
+  const mdhd = makeBox('mdhd',
+    bU32(0), bU32(0), bU32(0),
+    bU32(TIMESCALE),
+    bU32(totalDurationUs),
+    bU16(0x55C4), bU16(0)
+  );
+  const mdia = makeBox('mdia', mdhd, hdlr, minf);
+
+  /* ---- trak ---- */
+  const tkhd = makeBox('tkhd',
+    bU32(0x00000007),
+    bU32(0), bU32(0),
+    bU32(1),
+    bU32(0),
+    bU32(mvhdDurationMs),
+    bU32(0), bU32(0),
+    bU16(0), bU16(0),
+    bU16(0), bU16(0),
+    bU32(0x00010000), bU32(0), bU32(0),
+    bU32(0), bU32(0x00010000), bU32(0),
+    bU32(0), bU32(0), bU32(0x40000000),
+    bU32(width * 65536), bU32(height * 65536)
+  );
+  const trak = makeBox('trak', tkhd, mdia);
+
+  /* ---- moov ---- */
+  const mvhd = makeBox('mvhd',
+    bU32(0),
+    bU32(0), bU32(0),
+    bU32(1000),
+    bU32(mvhdDurationMs),
+    bU32(0x00010000),
+    bU16(0x0100), bU16(0),
+    bU32(0), bU32(0),
+    bU32(0x00010000), bU32(0), bU32(0),
+    bU32(0), bU32(0x00010000), bU32(0),
+    bU32(0), bU32(0), bU32(0x40000000),
+    bU32(0), bU32(0), bU32(0), bU32(0), bU32(0), bU32(0),
+    bU32(2)
+  );
+  const moov = makeBox('moov', mvhd, trak);
+
+  return concatBytes([ftyp, mdat, moov]);
+}
+
+async function pickH264Config(width, height, framerate, bitrate) {
+  const candidates = [
+    'avc1.640028', // High 4.0
+    'avc1.4d002a', // Main 4.2
+    'avc1.4d401f', // Main 3.1
+    'avc1.42e01f', // Baseline 3.1
+    'avc1.42001f', // Baseline 3.1
+  ];
+  for (const codec of candidates) {
+    const cfg = {
+      codec, width, height, bitrate, framerate,
+      avc: { format: 'avc' },
+    };
+    try {
+      const r = await VideoEncoder.isConfigSupported(cfg);
+      if (r && r.supported) return cfg;
+    } catch (_) { /* 继续尝试下一个 */ }
+  }
+  return null;
+}
+
+async function encodeMP4(frames, width, height, onProgress) {
+  const report = p => { if (onProgress) onProgress(p); };
+
+  if (typeof VideoEncoder === 'undefined') {
+    throw new Error(
+      '当前浏览器不支持 WebCodecs，无法导出 MP4。\n' +
+      '请使用最新版 Chrome / Edge / Safari，或改用 GIF 格式。'
+    );
+  }
+
+  /* ---- 时长 / 帧率 ---- */
+  const frameDurationsUs = frames.map(f =>
+    Math.max(20000, Math.round((f.delay || 100) * 1000))
+  );
+  const totalUs = frameDurationsUs.reduce((a, b) => a + b, 0);
+
+  let framerate = 30;
+  if (frames.length > 1 && totalUs > 0) {
+    framerate = Math.round(frames.length / (totalUs / 1e6));
+    framerate = Math.max(1, Math.min(60, framerate));
+  }
+
+  /* ---- 编码尺寸必须为偶数 ---- */
+  const encW = width & ~1;
+  const encH = height & ~1;
+  const needScale = (encW !== width) || (encH !== height);
+
+  const bitrate = Math.min(
+    20_000_000,
+    Math.max(1_000_000, Math.round(width * height * framerate * 0.15))
+  );
+
+  report(0.02);
+
+  const config = await pickH264Config(encW, encH, framerate, bitrate);
+  if (!config) {
+    throw new Error('当前浏览器找不到可用的 H.264 编码配置。');
+  }
+
+  /* ---- 采集编码数据 ---- */
+  const rawChunks = [];
+  let decoderDescription = null;
+  let encoderError = null;
+
+  const encoder = new VideoEncoder({
+    output: (chunk, metadata) => {
+      if (!decoderDescription &&
+          metadata && metadata.decoderConfig && metadata.decoderConfig.description) {
+        decoderDescription = new Uint8Array(metadata.decoderConfig.description);
+      }
+      const data = new Uint8Array(chunk.byteLength);
+      chunk.copyTo(data);
+      rawChunks.push({
+        data,
+        timestamp: chunk.timestamp,
+        duration: chunk.duration || 0,
+        key: chunk.type === 'key'
+      });
+    },
+    error: (e) => { encoderError = e; }
+  });
+
+  encoder.configure(config);
+
+  /* ---- 画布 ---- */
+  const srcCanvas = document.createElement('canvas');
+  srcCanvas.width = width;
+  srcCanvas.height = height;
+  const srcCtx = srcCanvas.getContext('2d');
+
+  const encCanvas = document.createElement('canvas');
+  encCanvas.width = encW;
+  encCanvas.height = encH;
+  const encCtx = encCanvas.getContext('2d');
+
+  const imgData = new ImageData(width, height);
+
+  /* ---- 逐帧编码 ---- */
+  let ts = 0;
+  for (let i = 0; i < frames.length; i++) {
+    if (encoderError) throw encoderError;
+
+    const f = frames[i];
+    const dur = frameDurationsUs[i];
+
+    imgData.data.set(f.rgba);
+    srcCtx.putImageData(imgData, 0, 0);
+    if (needScale) {
+      encCtx.drawImage(srcCanvas, 0, 0, width, height, 0, 0, encW, encH);
+    } else {
+      encCtx.drawImage(srcCanvas, 0, 0);
+    }
+
+    const vf = new VideoFrame(encCanvas, { timestamp: ts, duration: dur });
+    encoder.encode(vf, { keyFrame: (i % 60 === 0) });
+    vf.close();
+
+    ts += dur;
+
+    // 背压控制 + 让出主线程
+    let guard = 0;
+    while (encoder.encodeQueueSize > 8 && guard++ < 400) {
+      await new Promise(r => setTimeout(r, 4));
+    }
+    if (i % 4 === 3) await new Promise(r => setTimeout(r, 0));
+
+    report(0.05 + (i + 1) / frames.length * 0.80);
+  }
+
+  /* ---- 收尾 ---- */
+  try {
+    await encoder.flush();
+  } catch (e) {
+    throw encoderError || e;
+  }
+  try { encoder.close(); } catch (_) {}
+  if (encoderError) throw encoderError;
+
+  if (!rawChunks.length) throw new Error('编码没有产生任何数据。');
+  if (!decoderDescription) throw new Error('未能获取 H.264 解码器配置（avcC）。');
+
+  report(0.88);
+
+  /* ---- 排序并补齐时长 ---- */
+  rawChunks.sort((a, b) => a.timestamp - b.timestamp);
+  const samples = rawChunks.map((c, i) => ({
+    data: c.data,
+    key: c.key,
+    durationUs: (c.duration && c.duration > 0)
+      ? c.duration
+      : frameDurationsUs[Math.min(i, frameDurationsUs.length - 1)]
+  }));
+
+  /* ---- 封装 ---- */
+  const mp4 = muxMP4({
+    width: encW,
+    height: encH,
+    samples,
+    avcC: decoderDescription
+  });
+
+  report(1);
+  return mp4;
+}
+
+async function decodeWebPFrames(buffer, mimeType) {
+  const frames = [];
+
+  const canUseImageDecoder =
+    typeof ImageDecoder !== "undefined" &&
+    (!ImageDecoder.isTypeSupported || ImageDecoder.isTypeSupported("image/webp"));
+
+  if (canUseImageDecoder) {
+    let decoder = null;
+    try {
+      decoder = new ImageDecoder({ data: buffer, type: "image/webp" });
+      if (decoder.tracks && decoder.tracks.ready) await decoder.tracks.ready;
+      await decoder.completed;
+
+      const track = decoder.tracks.selectedTrack;
+      const count = track ? track.frameCount : 1;
+
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d", { willReadFrequently: true });
+
+      let W = 0, H = 0;
+
+      for (let i = 0; i < count; i++) {
+        const result = await decoder.decode({ frameIndex: i });
+        const img = result.image;
+        const fw = img.displayWidth || img.codedWidth;
+        const fh = img.displayHeight || img.codedHeight;
+
+        if (i === 0) {
+          W = fw; H = fh;
+          canvas.width = W;
+          canvas.height = H;
+        }
+
+        ctx.clearRect(0, 0, W, H);
+        const dx = Math.floor((W - fw) / 2);
+        const dy = Math.floor((H - fh) / 2);
+        ctx.drawImage(img, dx, dy, fw, fh);
+
+        const rgba = ctx.getImageData(0, 0, W, H).data;
+        const durUs = img.duration;
+        img.close();
+
+        frames.push({
+          rgba,
+          width: W,
+          height: H,
+          delay: durUs && durUs > 0 ? durUs / 1000 : 100
+        });
+      }
+
+      if (frames.length > 0) {
+        decoder.close();
+        return frames;
+      }
+    } catch (e) {
+      console.warn("ImageDecoder 解码失败，回退到静态模式：", e);
+      if (decoder) { try { decoder.close(); } catch (_) {} }
+      frames.length = 0;
+    }
+  }
+
+  // ---- 回退：按静态图处理 ----
+  const blob = new Blob([buffer], { type: mimeType || "image/webp" });
+  const bitmap = await createImageBitmap(blob);
+
+  const canvas = document.createElement("canvas");
+  canvas.width = bitmap.width;
+  canvas.height = bitmap.height;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  ctx.drawImage(bitmap, 0, 0);
+
+  const rgba = ctx.getImageData(0, 0, bitmap.width, bitmap.height).data;
+  bitmap.close();
+
+  frames.push({
+    rgba,
+    width: canvas.width,
+    height: canvas.height,
+    delay: 100
+  });
+  return frames;
+}
+
+const fmtRow      = document.getElementById("fmtRow");
+const drop        = document.getElementById("drop");
+const fileInput   = document.getElementById("fileInput");
+const panel       = document.getElementById("panel");
+const statusText  = document.getElementById("statusText");
+const percentEl   = document.getElementById("percent");
+const bar         = document.getElementById("bar");
+const previewBox  = document.getElementById("previewBox");
+const previewImg  = document.getElementById("previewImg");
+const previewVid  = document.getElementById("previewVid");
+const metaEl      = document.getElementById("meta");
+const errEl       = document.getElementById("err");
+const actions     = document.getElementById("actions");
+const downloadBtn = document.getElementById("download");
+const resetBtn    = document.getElementById("reset");
+
+let currentFormat = "gif";
+let lastURL = null;
+
+/* ---- 格式切换 ---- */
+fmtRow.addEventListener("click", (e) => {
+  const btn = e.target.closest(".fmt");
+  if (!btn) return;
+  const fmt = btn.dataset.fmt;
+  if (fmt === currentFormat) return;
+  currentFormat = fmt;
+  fmtRow.querySelectorAll(".fmt").forEach(b =>
+    b.classList.toggle("active", b.dataset.fmt === fmt)
+  );
+  // 已经转换完的，重新跑一次
+  if (fileInput.files && fileInput.files[0]) handleFile(fileInput.files[0]);
+});
+
+function fmtSize(bytes) {
+  if (bytes < 1024) return bytes + " B";
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+  return (bytes / 1024 / 1024).toFixed(2) + " MB";
+}
+
+function setProgress(p, text) {
+  const v = Math.max(0, Math.min(1, p));
+  bar.style.width = (v * 100).toFixed(1) + "%";
+  percentEl.textContent = Math.round(v * 100) + "%";
+  if (text) statusText.textContent = text;
+}
+
+function clearPreview() {
+  previewImg.style.display = "none";
+  previewVid.style.display = "none";
+  previewImg.removeAttribute("src");
+  previewVid.removeAttribute("src");
+  try { previewVid.load(); } catch (_) {}
+}
+
+function resetUI() {
+  errEl.textContent = "";
+  metaEl.innerHTML = "";
+  previewBox.style.display = "none";
+  actions.style.display = "none";
+  clearPreview();
+  panel.classList.add("show");
+  setProgress(0, "准备中…");
+}
+
+/* ---- 文件选择 ---- */
+drop.addEventListener("click", () => fileInput.click());
+
+drop.addEventListener("dragover", (e) => {
+  e.preventDefault();
+  drop.classList.add("hover");
+});
+drop.addEventListener("dragleave", () => drop.classList.remove("hover"));
+drop.addEventListener("drop", (e) => {
+  e.preventDefault();
+  drop.classList.remove("hover");
+  const f = e.dataTransfer.files && e.dataTransfer.files[0];
+  if (f) handleFile(f);
+});
+
+fileInput.addEventListener("change", () => {
+  if (fileInput.files && fileInput.files[0]) handleFile(fileInput.files[0]);
+});
+
+resetBtn.addEventListener("click", () => {
+  fileInput.value = "";
+  panel.classList.remove("show");
+  if (lastURL) { URL.revokeObjectURL(lastURL); lastURL = null; }
+  clearPreview();
+});
+
+/* ---- 主流程 ---- */
+async function handleFile(file) {
+  if (!/^image\/webp$/.test(file.type) && !/\.webp$/i.test(file.name)) {
+    resetUI();
+    errEl.textContent = "请选择 .webp 格式的图片文件。";
+    return;
+  }
+
+  resetUI();
+  if (lastURL) { URL.revokeObjectURL(lastURL); lastURL = null; }
+
+  const format = currentFormat;
+
+  try {
+    setProgress(0.02, "读取文件…");
+    await new Promise(r => setTimeout(r, 20));
+
+    const buffer = await file.arrayBuffer();
+
+    setProgress(0.08, "正在解码 WebP…");
+    await new Promise(r => setTimeout(r, 20));
+    const frames = await decodeWebPFrames(buffer, file.type);
+
+    if (!frames.length) throw new Error("未能解码出任何帧");
+
+    const W = frames[0].width;
+    const H = frames[0].height;
+    const frameCount = frames.length;
+
+    let blob, ext, sizeNote;
+
+    if (format === "gif") {
+      setProgress(0.15, `正在编码 GIF…（共 ${frameCount} 帧，${W}×${H}）`);
+      await new Promise(r => setTimeout(r, 20));
+
+      const gifBytes = await encodeGIF(frames, W, H, 0, (p) => {
+        setProgress(
+          0.15 + p * 0.83,
+          `正在编码 GIF…（${Math.round(p * frameCount)}/${frameCount} 帧）`
+        );
+      });
+
+      blob = new Blob([gifBytes], { type: "image/gif" });
+      ext = "gif";
+      sizeNote = "GIF";
+
+    } else {
+      setProgress(0.15, `正在编码 MP4（H.264）…（共 ${frameCount} 帧，${W}×${H}）`);
+      await new Promise(r => setTimeout(r, 20));
+
+      const mp4Bytes = await encodeMP4(frames, W, H, (p) => {
+        setProgress(
+          0.15 + p * 0.83,
+          p < 0.9
+            ? `正在编码 MP4（H.264）…（${Math.round((p - 0.05) / 0.8 * frameCount)}/${frameCount} 帧）`
+            : "正在封装 MP4 容器…"
+        );
+      });
+
+      blob = new Blob([mp4Bytes], { type: "video/mp4" });
+      ext = "mp4";
+      sizeNote = "MP4";
+    }
+
+    setProgress(1, "完成 ✓");
+
+    lastURL = URL.createObjectURL(blob);
+
+    /* ---- 预览 ---- */
+    previewBox.style.display = "flex";
+    if (ext === "gif") {
+      previewImg.src = lastURL;
+      previewImg.style.display = "block";
+    } else {
+      previewVid.src = lastURL;
+      previewVid.style.display = "block";
+    }
+
+    /* ---- 下载 ---- */
+    const baseName = file.name.replace(/\.[^.]+$/, "") || "output";
+    downloadBtn.href = lastURL;
+    downloadBtn.download = baseName + "." + ext;
+    downloadBtn.textContent = `⬇ 下载 ${sizeNote}`;
+    actions.style.display = "flex";
+
+    /* ---- 信息 ---- */
+    const ratio = ((blob.size / file.size) * 100).toFixed(0);
+    metaEl.innerHTML =
+      `源文件：<b>${file.name}</b> · ${fmtSize(file.size)}<br>` +
+      `输出 ${sizeNote}：<b>${fmtSize(blob.size)}</b>（原大小的 ${ratio}%）<br>` +
+      `尺寸：<b>${W} × ${H}</b> · 帧数：<b>${frameCount}</b>` +
+      (ext === "mp4" ? `<br><span style="color:#d29922">提示：MP4 不支持透明通道，透明区域会显示为黑色。</span>` : "");
+
+  } catch (err) {
+    console.error(err);
+    panel.classList.add("show");
+    setProgress(0, "转换失败");
+    errEl.textContent = "转换失败：" + (err && err.message ? err.message : String(err));
+  }
+}
+</script>
+</body>
+</html>
