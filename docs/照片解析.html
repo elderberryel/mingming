@@ -7,6 +7,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/exifr@7.1.3/dist/full.umd.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/exifreader@4.23.5/dist/exif-reader.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
 
 <style>
 *{ box-sizing: border-box; }
@@ -125,7 +126,7 @@ input.key-input{
 <div class="container">
 
 <div class="upload" id="uploadBox">
-    📂 点击上传照片
+    📂 点击上传照片 (支持JPG/PNG/HEIC)
     <input type="file" id="fileInput" accept="image/*">
 </div>
 
@@ -189,15 +190,15 @@ let currentGcjLng = null;
 let currentGcjLat = null;
 let hasValidGpsCoord = false;
 let currentKey = '';
-
-// ★ 新增：文件头解析出的真实尺寸
 let trueSize = null;
+let currentFile = null;
 
 const STORAGE_KEY_TENCENT = 'tencent_key_mobile';
 
 const LIB_STATUS = {
     EXIFR: typeof exifr !== 'undefined',
-    EXIFREADER: typeof ExifReader !== 'undefined'
+    EXIFREADER: typeof ExifReader !== 'undefined',
+    HEIC2ANY: typeof heic2any !== 'undefined'
 };
 
 function updateLibStatus() {
@@ -205,10 +206,6 @@ function updateLibStatus() {
     document.getElementById('exifreaderStatus').textContent = `ExifReader: ${LIB_STATUS.EXIFREADER ? '✅' : '❌'}`;
 }
 
-/* =========================================================
-   ★ 新增：从文件字节流读取真实像素尺寸（不依赖浏览器解码）
-   浏览器对超大图会降采样，naturalWidth 会失真
-   ========================================================= */
 function readSizeFromHeader(buffer) {
     const view = new DataView(buffer);
     if (view.byteLength < 24) return null;
@@ -220,18 +217,12 @@ function readSizeFromHeader(buffer) {
         while (offset + 9 < len) {
             if (view.getUint8(offset) !== 0xFF) { offset++; continue; }
             const marker = view.getUint8(offset + 1);
-
-            // 无长度字段的标记
             if (marker === 0xD8 || marker === 0x01 || (marker >= 0xD0 && marker <= 0xD7)) {
-                offset += 2;
-                continue;
+                offset += 2; continue;
             }
-            if (marker === 0xD9 || marker === 0xDA) break; // EOI / SOS
-
+            if (marker === 0xD9 || marker === 0xDA) break;
             const segLen = view.getUint16(offset + 2);
             if (segLen < 2) break;
-
-            // SOF0~SOF15（排除 DHT/JPG/DAC）
             if (marker >= 0xC0 && marker <= 0xCF &&
                 marker !== 0xC4 && marker !== 0xC8 && marker !== 0xCC) {
                 return {
@@ -246,10 +237,7 @@ function readSizeFromHeader(buffer) {
 
     // ---- PNG ----
     if (view.getUint32(0) === 0x89504E47) {
-        return {
-            width:  view.getUint32(16),
-            height: view.getUint32(20)
-        };
+        return { width: view.getUint32(16), height: view.getUint32(20) };
     }
 
     // ---- WebP ----
@@ -279,17 +267,71 @@ function readSizeFromHeader(buffer) {
     return null;
 }
 
-async function getTrueImageSize(file) {
+async function getTrueImageSize(blob) {
     try {
-        // EXIF 段通常在前 1MB 内，足够
-        const head = await file.slice(0, 1024 * 1024).arrayBuffer();
+        const head = await blob.slice(0, 1024 * 1024).arrayBuffer();
         return readSizeFromHeader(head);
     } catch (e) {
         console.warn('读取文件头尺寸失败:', e);
         return null;
     }
 }
-/* ========================================================= */
+
+async function isHeicFile(file) {
+    const type = (file.type || '').toLowerCase();
+    if (type === 'image/heic' || type === 'image/heif' ||
+        type === 'image/heic-sequence' || type === 'image/heif-sequence') return true;
+
+    const name = (file.name || '').toLowerCase();
+    if (name.endsWith('.heic') || name.endsWith('.heif')) return true;
+
+    try {
+        const head = await file.slice(0, 32).arrayBuffer();
+        const view = new DataView(head);
+        if (view.byteLength < 12) return false;
+        const ftyp = String.fromCharCode(
+            view.getUint8(4), view.getUint8(5), view.getUint8(6), view.getUint8(7)
+        );
+        if (ftyp !== 'ftyp') return false;
+        const brand = String.fromCharCode(
+            view.getUint8(8), view.getUint8(9), view.getUint8(10), view.getUint8(11)
+        ).toLowerCase();
+        const heicBrands = ['heic','heix','hevc','hevx','heim','heis','hevm','hevs','mif1','msf1'];
+        return heicBrands.includes(brand);
+    } catch (e) {
+        return false;
+    }
+}
+
+function readHeicSize(buffer) {
+    const view = new DataView(buffer);
+    const bytes = new Uint8Array(buffer);
+    const len = bytes.length;
+
+    let best = null;
+    for (let i = 4; i < len - 16; i++) {
+        if (bytes[i] === 0x69 && bytes[i+1] === 0x73 &&
+            bytes[i+2] === 0x70 && bytes[i+3] === 0x65) {
+            const width  = view.getUint32(i + 8);
+            const height = view.getUint32(i + 12);
+            if (width > 0 && height > 0 && width < 200000 && height < 200000) {
+                if (!best || (width * height > best.width * best.height)) {
+                    best = { width, height };
+                }
+            }
+        }
+    }
+    return best;
+}
+
+async function getHeicTrueSize(file) {
+    try {
+        const head = await file.slice(0, 4 * 1024 * 1024).arrayBuffer();
+        return readHeicSize(head);
+    } catch (e) {
+        return null;
+    }
+}
 
 function generateMapLinks(lat, lng) {
     return `
@@ -402,7 +444,6 @@ function saveKey() {
         geoAddressDisplay.innerHTML = '<span style="color:#6c86a3;">Key已保存，上传GPS照片后自动解析</span>';
     }
 }
-
 async function manualReverse() {
     if (!hasValidGpsCoord) {
         geoAddressDisplay.innerHTML = '<span style="color:#ffb347;">📡 当前照片无GPS坐标</span>';
@@ -411,17 +452,26 @@ async function manualReverse() {
     await reverseGeocodeWithProxy(currentGcjLng, currentGcjLat);
 }
 
-/* ★ 修改：基础信息优先使用文件头里的真实尺寸，不再显示浏览器解码提示 */
 function showBasic(file) {
     const w = (trueSize && trueSize.width)  ? trueSize.width  : previewImg.naturalWidth;
     const h = (trueSize && trueSize.height) ? trueSize.height : previewImg.naturalHeight;
+
+    let modTime = '未知';
+    const ts = file.lastModified;
+    if (typeof ts === 'number' && isFinite(ts) && ts > 0) {
+        const d = new Date(ts);
+
+        if (!isNaN(d.getTime()) && d.getFullYear() >= 1980 && d.getFullYear() <= 2200) {
+            modTime = d.toLocaleString();
+        }
+    }
 
     basicInfo.textContent =
 `📛 文件名: ${file.name}
 📦 大小: ${(file.size/1024/1024).toFixed(2)} MB
 📐 尺寸: ${w}×${h}
-🎞️ 类型: ${file.type || 'image/jpeg'}
-📅 最后修改: ${new Date(file.lastModified).toLocaleString()}`;
+🎞️ 类型: ${file.type || '未知'}
+📅 最后修改: ${modTime}`;
 }
 
 function decodeExifBytes(bytes) {
@@ -443,6 +493,7 @@ function decodeExifBytes(bytes) {
         return null;
     }
 }
+
 function tryPrettyJSON(str) {
     if (typeof str !== 'string') return str;
     if (str.length < 60) return str;
@@ -453,6 +504,7 @@ function tryPrettyJSON(str) {
         return str;
     }
 }
+
 function normalizeValue(key, raw) {
     if (raw === undefined || raw === null) return null;
     let value = raw;
@@ -467,8 +519,11 @@ function normalizeValue(key, raw) {
         value = value.value;
         if (value === undefined || value === null) return null;
     }
+
     if (value instanceof Date) {
-        return value.toString();
+        const p = n => String(n).padStart(2, '0');
+        return `${value.getFullYear()}-${p(value.getMonth()+1)}-${p(value.getDate())} ` +
+               `${p(value.getHours())}:${p(value.getMinutes())}:${p(value.getSeconds())}`;
     }
 
     if (ArrayBuffer.isView(value) && !(value instanceof DataView)) {
@@ -498,7 +553,6 @@ function normalizeValue(key, raw) {
     return tryPrettyJSON(String(value));
 }
 
-// ========== GPS 工具 ==========
 function toNumber(v) {
     if (typeof v === 'number') return v;
     if (Array.isArray(v)) return v[0] / (v[1] || 1);
@@ -541,21 +595,37 @@ function pickRef(raw) {
 function extractGPS(data) {
     if (!data) return null;
     if (typeof data.latitude === 'number' && typeof data.longitude === 'number'
-        && !isNaN(data.latitude) && !isNaN(data.longitude)) {
+        && !isNaN(data.latitude) && !isNaN(data.longitude)
+        && (data.latitude !== 0 || data.longitude !== 0)) {
         return { lat: data.latitude, lon: data.longitude };
     }
 
     let rawLat = data.GPSLatitude;
     let rawLon = data.GPSLongitude;
+
     if (rawLat && typeof rawLat === 'object' && 'value' in rawLat) rawLat = rawLat.value;
     if (rawLon && typeof rawLon === 'object' && 'value' in rawLon) rawLon = rawLon.value;
-    if (rawLat === undefined || rawLon === undefined) return null;
 
-    const latRef = pickRef(data.GPSLatitudeRef) || 'N';
-    const lonRef = pickRef(data.GPSLongitudeRef) || 'E';
+    if (rawLat === undefined || rawLat === null || rawLon === undefined || rawLon === null) {
+
+        if (data.gps && typeof data.gps === 'object') {
+            rawLat = data.gps.GPSLatitude ?? data.gps.latitude ?? data.gps.Latitude;
+            rawLon = data.gps.GPSLongitude ?? data.gps.longitude ?? data.gps.Longitude;
+            if (rawLat && typeof rawLat === 'object' && 'value' in rawLat) rawLat = rawLat.value;
+            if (rawLon && typeof rawLon === 'object' && 'value' in rawLon) rawLon = rawLon.value;
+        }
+    }
+
+    if (rawLat === undefined || rawLat === null || rawLon === undefined || rawLon === null) {
+        return null;
+    }
+
+    const latRef = pickRef(data.GPSLatitudeRef) || pickRef(data.gps && data.gps.GPSLatitudeRef) || 'N';
+    const lonRef = pickRef(data.GPSLongitudeRef) || pickRef(data.gps && data.gps.GPSLongitudeRef) || 'E';
     const lat = convertGPS(rawLat, latRef);
     const lon = convertGPS(rawLon, lonRef);
     if (isNaN(lat) || isNaN(lon)) return null;
+    if (lat === 0 && lon === 0) return null;
     return { lat, lon };
 }
 
@@ -601,50 +671,184 @@ function transformLon(x, y) {
            + (20*Math.sin(x*pi)+40*Math.sin(x/3*pi))*2/3
            + (150*Math.sin(x/12*pi)+300*Math.sin(x/30*pi))*2/3;
 }
+   
+const KEY_ALIAS = {
+    'isospeedratings': 'iso',
+    'photographicsensitivity': 'iso',
+    'isospeed': 'iso'
+};
+
+function canonicalKey(key) {
+    const k = String(key).toLowerCase().replace(/[^a-z0-9]/g, '');
+    return KEY_ALIAS[k] || k;
+}
+
+function looseNum(text) {
+    if (typeof text === 'number') return text;
+    if (typeof text !== 'string') return NaN;
+    const t = text.trim();
+    let m = t.match(/^(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)$/);
+    if (m) return parseFloat(m[1]) / parseFloat(m[2]);
+    m = t.match(/^(-?\d+(?:\.\d+)?)\s*(?:mm|cm|m|s|sec|ms|dpi|px|%|"|')?\s*$/i);
+    if (m) return parseFloat(m[1]);
+    return NaN;
+}
+
+function normStr(s) {
+    return String(s).trim().toLowerCase()
+        .replace(/[:\s]+/g, '-')
+        .replace(/[,\s]+/g, ' ');
+}
+
+function textEqual(a, b) {
+    if (a === b) return true;
+    const na = looseNum(a), nb = looseNum(b);
+    if (!isNaN(na) && !isNaN(nb)) {
+        const diff = Math.abs(na - nb);
+        const scale = Math.max(Math.abs(na), Math.abs(nb), 1e-12);
+        if (diff / scale <= 1e-4) return true;
+    }
+    return normStr(a) === normStr(b);
+}
+
+const GPS_SKIP = /^GPS/i;
+const SKIP_KEYS = new Set([
+    'MakerNote', 'thumbnail', 'Thumbnail', 'Photoshop',
+    'latitude', 'longitude',
+    'GPSInfo', 'ExifOffset', 'InteropOffset', 'InteropIndex',
+    'ApplicationNotes', 'PrintIM'
+]);
+
+/**
+ * 合并两个库的标签
+ * @returns {Map} canonKey -> { key, items:[{text}] }
+ */
+function mergeTagSources(exifrTags, exifReaderTags) {
+    const map = new Map();
+    const sources = [
+        { data: exifrTags },
+        { data: exifReaderTags }
+    ];
+
+    for (const { data } of sources) {
+        if (!data) continue;
+        for (const key in data) {
+            if (SKIP_KEYS.has(key) || GPS_SKIP.test(key)) continue;
+            const raw = data[key];
+            if (raw === undefined || raw === null) continue;
+
+            const text = normalizeValue(key, raw);
+            if (text === null || text === undefined) continue;
+            if (typeof text === 'string' && text.trim() === '') continue;
+
+            const ck = canonicalKey(key);
+            let entry = map.get(ck);
+            if (!entry) {
+                entry = { key, items: [] };
+                map.set(ck, entry);
+            }
+
+            let matched = false;
+            for (const it of entry.items) {
+                if (textEqual(it.text, text)) { matched = true; break; }
+            }
+            if (!matched) entry.items.push({ text });
+        }
+    }
+    return map;
+}
+
+function extractSizeFromTags(exifrTags, exifReaderTags) {
+    const wKeys = ['ExifImageWidth', 'PixelXDimension', 'ImageWidth'];
+    const hKeys = ['ExifImageLength', 'ExifImageHeight', 'PixelYDimension', 'ImageHeight'];
+    const getNum = v => {
+        if (v == null) return NaN;
+        if (typeof v === 'object' && 'value' in v) v = v.value;
+        if (typeof v === 'object' && 'description' in v) v = v.description;
+        const n = Number(String(v).replace(/[^\d.]/g, ''));
+        return isNaN(n) ? NaN : n;
+    };
+    for (const src of [exifrTags, exifReaderTags]) {
+        if (!src) continue;
+        let w = NaN, h = NaN;
+        for (const k of wKeys) { const n = getNum(src[k]); if (n > 0) { w = n; break; } }
+        for (const k of hKeys) { const n = getNum(src[k]); if (n > 0) { h = n; break; } }
+        if (w > 0 && h > 0) return { width: w, height: h };
+    }
+    return null;
+}
+
+const nameMap = {
+    Make: '品牌', Model: '型号',
+    DateTimeOriginal: '拍摄时间', CreateDate: '创建时间', ModifyDate: '修改时间',
+    DateTimeDigitized: '数字化时间',
+    FNumber: '光圈', ExposureTime: '快门', ISOSpeedRatings: 'ISO',
+    PhotographicSensitivity: 'ISO', ISO: 'ISO',
+    FocalLength: '焦距', Software: '软件', WhiteBalance: '白平衡',
+    Flash: '闪光灯', Orientation: '方向', LensModel: '镜头', LensMake: '镜头厂商',
+    ImageWidth: '图像宽度', ImageHeight: '图像高度',
+    ExifImageWidth: '图片宽度', ExifImageLength: '图片高度', ExifImageHeight: '图片高度',
+    PixelXDimension: '像素宽', PixelYDimension: '像素高',
+    UserComment: '用户注释', ImageDescription: '图片描述',
+    Artist: '作者', Copyright: '版权',
+    DeviceSettingDescription: '设备设置描述',
+    ExposureProgram: '曝光程序', ExposureBiasValue: '曝光补偿',
+    MeteringMode: '测光模式', SceneCaptureType: '场景类型',
+    ColorSpace: '色彩空间', ResolutionUnit: '分辨率单位',
+    XResolution: '水平分辨率', YResolution: '垂直分辨率',
+    FocalLengthIn35mmFilm: '等效焦距', DigitalZoomRatio: '数码变焦',
+    SubjectDistance: '被摄距离', BrightnessValue: '亮度值',
+    ShutterSpeedValue: '快门速度值', ApertureValue: '光圈值',
+    GPSAltitude: '海拔', GPSAltitudeRef: '海拔基准'
+};
 
 async function parseEXIF(file) {
-    console.log('开始EXIF解析...');
+    console.log('开始EXIF解析（双库并行 + 合并去重）...');
 
-    let result = null;
+    let exifrTags = null;
+    let exifReaderTags = null;
 
     if (LIB_STATUS.EXIFR) {
         try {
-            const tags = await exifr.parse(file, {
-                tiff: true,
-                ifd0: true,
-                exif: true,
-                gps: true,
-                interop: true,
-                iptc: true,
-                xmp: true,
-                icc: true,
-                jfif: true,
-                translateKeys: true,
-                reviveValues: true,   
-                mergeOutput: true
+            exifrTags = await exifr.parse(file, {
+                tiff: true, ifd0: true, exif: true, gps: true, interop: true,
+                iptc: true, xmp: true, icc: true, jfif: true,
+                translateKeys: true, reviveValues: true, mergeOutput: true
             });
-            if (tags) {
-                result = { lib: 'Exifr', data: tags, gps: extractGPS(tags) };
-                console.log('✅ Exifr 成功');
-            }
+            console.log('✅ Exifr 标签数:', exifrTags ? Object.keys(exifrTags).length : 0);
         } catch (err) {
             console.warn('Exifr 失败:', err.message);
         }
     }
 
-    if (!result && LIB_STATUS.EXIFREADER) {
+    if (LIB_STATUS.EXIFREADER) {
         try {
-            const tags = await ExifReader.load(file);
-            if (tags) {
-                result = { lib: 'ExifReader', data: tags, gps: extractGPS(tags) };
-                console.log('✅ ExifReader 成功');
-            }
+            exifReaderTags = await ExifReader.load(file);
+            console.log('✅ ExifReader 标签数:', exifReaderTags ? Object.keys(exifReaderTags).length : 0);
         } catch (err) {
             console.warn('ExifReader 失败:', err.message);
         }
     }
 
-    if (!result) {
+    let gps = null;
+    let gpsLib = null;
+    if (exifrTags) {
+        gps = extractGPS(exifrTags);
+        if (gps) gpsLib = 'Exifr';
+    }
+    if (!gps && exifReaderTags) {
+        gps = extractGPS(exifReaderTags);
+        if (gps) gpsLib = 'ExifReader';
+    }
+    console.log('GPS 提取结果:', gps, '来源:', gpsLib);
+
+    /* ---------- 合并去重 ---------- */
+    const merged = mergeTagSources(exifrTags, exifReaderTags);
+
+    const exifrCount  = exifrTags ? Object.keys(exifrTags).length : 0;
+    const readerCount = exifReaderTags ? Object.keys(exifReaderTags).length : 0;
+
+    if (merged.size === 0 && !gps) {
         exifInfo.textContent =
             '⚠️ 未找到EXIF数据或GPS信息\n\n可能原因:\n1. 照片不含EXIF信息\n2. 照片被压缩/编辑过\n3. 照片来自社交软件传输';
         geoStatusIcon.innerText = '📡 无EXIF数据';
@@ -652,54 +856,45 @@ async function parseEXIF(file) {
         return;
     }
 
-    let text = `📡 解析库: ${result.lib}\n\n`;
-
-    const nameMap = {
-        Make: '品牌', Model: '型号',
-        DateTimeOriginal: '拍摄时间', CreateDate: '创建时间', ModifyDate: '修改时间',
-        FNumber: '光圈', ExposureTime: '快门', ISOSpeedRatings: 'ISO',
-        FocalLength: '焦距', Software: '软件', WhiteBalance: '白平衡',
-        Flash: '闪光灯', Orientation: '方向', LensModel: '镜头',
-        ImageWidth: '图像宽度', ImageHeight: '图像高度',
-        ExifImageWidth: '图片宽度', ExifImageLength: '图片高度', ExifImageHeight: '图片高度',
-        UserComment: '用户注释', ImageDescription: '图片描述',
-        Artist: '作者', Copyright: '版权',
-        DeviceSettingDescription: '设备设置描述'
-    };
-
-    const SKIP_KEYS = new Set([
-        'MakerNote', 'thumbnail', 'Thumbnail', 'Photoshop',
-        'GPSLatitude', 'GPSLongitude', 'GPSLatitudeRef', 'GPSLongitudeRef',
-        'GPSAltitude', 'GPSAltitudeRef', 'GPSVersionID', 'GPSDateStamp',
-        'GPSTimeStamp', 'GPSProcessingMethod', 'GPSMapDatum',
-        'latitude', 'longitude'
-    ]);
+    let text = '';
+    text += `📡 Exifr:      ${exifrTags ? `✅ ${exifrCount} 项` : '❌ 解析失败/未加载'}\n`;
+    text += `📡 ExifReader: ${exifReaderTags ? `✅ ${readerCount} 项` : '❌ 解析失败/未加载'}\n`;
+    text += `🧮 合并去重后: ${merged.size} 个字段`;
+    if (gpsLib) text += `　|　GPS 来源: ${gpsLib}`;
+    text += '\n';
+    text += '─'.repeat(34) + '\n\n';
 
     let printedAny = false;
-    for (let key in result.data) {
-        if (SKIP_KEYS.has(key)) continue;
-        const raw = result.data[key];
-        if (raw === undefined || raw === null) continue;
+    for (const [, entry] of merged) {
+        const cn = nameMap[entry.key] || entry.key;
+        const values = entry.items.map(it => it.text);
 
-        const str = normalizeValue(key, raw);
-        if (str === null || str === '') continue;
-
-        const cn = nameMap[key] || key;
-
-        if (str.includes('\n') || str.length > 80) {
-            text += `${cn}:\n${str}\n\n`;
+        if (values.length === 1) {
+            const str = values[0];
+            if (str.includes('\n') || str.length > 80) {
+                text += `${cn}:\n${str}\n\n`;
+            } else {
+                text += `${cn}: ${str}\n`;
+            }
         } else {
-            text += `${cn}: ${str}\n`;
+
+            text += `${cn}:\n`;
+            for (const str of values) {
+                if (str.includes('\n') || str.length > 80) {
+                    text += `${str}\n\n`;
+                } else {
+                    text += `  ${str}\n`;
+                }
+            }
+            text += '\n';
         }
         printedAny = true;
     }
-
     if (!printedAny) text += '（没有可显示的标签字段）\n';
 
-    const gps = result.gps;
+    /* ---------- GPS 坐标 ---------- */
     let hasGPS = false;
-
-    if (gps && !isNaN(gps.lat) && !isNaN(gps.lon) && (gps.lat !== 0 || gps.lon !== 0)) {
+    if (gps && !isNaN(gps.lat) && !isNaN(gps.lon)) {
         hasGPS = true;
         const wgsLat = gps.lat;
         const wgsLon = gps.lon;
@@ -716,6 +911,7 @@ async function parseEXIF(file) {
         text += `\n📍 纬度: ${toDMS(latFinal, 'N', 'S')}\n`;
         text += `📍 经度: ${toDMS(lonFinal, 'E', 'W')}\n`;
         text += `📍 十进制: ${lonFinal.toFixed(6)}, ${latFinal.toFixed(6)}\n`;
+        if (gpsLib) text += `📍 GPS来源: ${gpsLib}\n`;
 
         currentGcjLat = latFinal;
         currentGcjLng = lonFinal;
@@ -724,8 +920,7 @@ async function parseEXIF(file) {
 
         geoAddressDisplay.innerHTML = `
             <div class="success-box">
-                ✅ <strong>GPS坐标</strong>
-                <span class="lib-badge lib-${result.lib === 'Exifr' ? 'exifr' : 'exifreader'}">${result.lib}</span><br><br>
+                ✅ <strong>GPS坐标</strong><br><br>
                 坐标: ${lonFinal.toFixed(6)}, ${latFinal.toFixed(6)}
             </div>
             ${generateMapLinks(latFinal, lonFinal)}
@@ -745,6 +940,15 @@ async function parseEXIF(file) {
         hasValidGpsCoord = false;
     }
 
+    /* ---------- 尺寸兜底 ---------- */
+    if (!trueSize || !trueSize.width) {
+        const sz = extractSizeFromTags(exifrTags, exifReaderTags);
+        if (sz) {
+            trueSize = sz;
+            showBasic(currentFile);
+        }
+    }
+
     exifInfo.textContent = text;
 }
 
@@ -754,7 +958,7 @@ function resetUIForNewImage() {
     currentGcjLng = null;
     currentGcjLat = null;
     hasValidGpsCoord = false;
-    trueSize = null;                       
+    trueSize = null;
     geoAddressDisplay.innerHTML = '<span style="color:#6c86a3;">🔄 解析中...</span>';
     geoStatusIcon.innerText = '🌐 等待';
     coordDebugSpan.innerHTML = '';
@@ -767,10 +971,43 @@ async function handleFile(file) {
         return;
     }
     resetUIForNewImage();
-    // ★ 先解析文件头，拿到真实像素尺寸
-    trueSize = await getTrueImageSize(file);
+    currentFile = file;
 
-    const url = URL.createObjectURL(file);
+    const heic = await isHeicFile(file);
+    let previewBlob = file;
+
+    if (heic) {
+        if (typeof heic2any === 'undefined') {
+            basicInfo.textContent = '❌ HEIC 解码库未加载，请刷新页面重试';
+            await parseEXIF(file);
+            return;
+        }
+        basicInfo.textContent = '🔄 HEIC 转换中...';
+        try {
+            const converted = await heic2any({
+                blob: file,
+                toType: 'image/jpeg',
+                quality: 0.92
+            });
+            previewBlob = Array.isArray(converted) ? converted[0] : converted;
+        } catch (err) {
+            console.error('HEIC 转换失败:', err);
+            basicInfo.textContent = '❌ HEIC 转换失败：' + (err && err.message ? err.message : err);
+            await parseEXIF(file);
+            return;
+        }
+    }
+
+    if (heic) {
+        trueSize = await getHeicTrueSize(file);
+        if (!trueSize) {
+            trueSize = await getTrueImageSize(previewBlob);
+        }
+    } else {
+        trueSize = await getTrueImageSize(previewBlob);
+    }
+
+    const url = URL.createObjectURL(previewBlob);
     previewImg.src = url;
     previewImg.onload = async () => {
         canvas.width = previewImg.naturalWidth;
@@ -782,6 +1019,7 @@ async function handleFile(file) {
     };
     previewImg.onerror = () => {
         basicInfo.textContent = '图片加载失败';
+        parseEXIF(file);
     };
 }
 
