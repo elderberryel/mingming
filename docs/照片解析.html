@@ -355,28 +355,82 @@ function generateMapLinks(lat, lng) {
     `;
 }
 
-async function fetchWithProxy(url) {
-    const proxies = [
-        `https://cors-anywhere.herokuapp.com/${url}`,
-        `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-        `https://corsproxy.io/?${encodeURIComponent(url)}`
-    ];
-    for (const proxyUrl of proxies) {
+function jsonpRequest(url, timeout = 9000) {
+    return new Promise((resolve, reject) => {
+        const cb = 'qqgeo_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+        const script = document.createElement('script');
+        let settled = false;
+
+        const finish = (fn, arg) => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            try { delete window[cb]; } catch (e) { window[cb] = undefined; }
+            if (script.parentNode) script.parentNode.removeChild(script);
+            fn(arg);
+        };
+
+        const timer = setTimeout(() => finish(reject, new Error('JSONP 超时')), timeout);
+
+        window[cb] = (data) => finish(resolve, data);
+        script.onerror = () => finish(reject, new Error('JSONP 加载失败'));
+        script.src = url + (url.indexOf('?') >= 0 ? '&' : '?') +
+                     'output=jsonp&callback=' + cb;
+        document.head.appendChild(script);
+    });
+}
+
+async function fetchJsonWithTimeout(url, timeout = 12000) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeout);
+    try {
+        const res = await fetch(url, {
+            signal: controller.signal,
+            mode: 'cors',
+            credentials: 'omit',
+            referrerPolicy: 'no-referrer'
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const text = await res.text();
         try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 10000);
-            const response = await fetch(proxyUrl, {
-                headers: { 'X-Requested-With': 'XMLHttpRequest' },
-                signal: controller.signal
-            });
-            clearTimeout(timeoutId);
-            if (response.ok) {
-                const text = await response.text();
-                return JSON.parse(text);
-            }
-        } catch (err) { continue; }
+            return JSON.parse(text);
+        } catch (e) {
+            const m = text.match(/\{[\s\S]*\}/);
+            if (m) return JSON.parse(m[0]);
+            throw new Error('返回内容不是 JSON');
+        }
+    } finally {
+        clearTimeout(timer);
     }
-    throw new Error('所有代理都失败');
+}
+
+const PROXY_BUILDERS = [
+    u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+    u => `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(u)}`,
+    u => `https://corsproxy.io/?url=${encodeURIComponent(u)}`,
+    u => `https://cors-anywhere.herokuapp.com/${u}`
+];
+async function fetchWithProxy(url) {
+    const errors = [];
+    try {
+        const data = await jsonpRequest(url);
+        if (data && typeof data === 'object') return data;
+        throw new Error('返回异常');
+    } catch (e) {
+        errors.push('JSONP: ' + e.message);
+    }
+
+    for (const build of PROXY_BUILDERS) {
+        try {
+            const data = await fetchJsonWithTimeout(build(url));
+            if (data && typeof data === 'object') return data;
+            throw new Error('返回异常');
+        } catch (e) {
+            errors.push(e.message);
+        }
+    }
+
+    throw new Error('所有解析通道都失败（' + errors.slice(0, 3).join('；') + '）');
 }
 
 // ========== 逆地理编码 ==========
@@ -397,13 +451,15 @@ async function reverseGeocodeWithProxy(lng, lat) {
         geoStatusIcon.innerText = '📍 坐标就绪';
         return true;
     }
+
     geoAddressDisplay.innerHTML = '<span class="loading">🔍 解析地址中...</span>';
     try {
-        const apiUrl = `https://apis.map.qq.com/ws/geocoder/v1/?location=${lat},${lng}&key=${currentKey}&get_poi=1`;
+        const apiUrl = `https://apis.map.qq.com/ws/geocoder/v1/?location=${lat},${lng}&key=${encodeURIComponent(currentKey)}&get_poi=1`;
         const data = await fetchWithProxy(apiUrl);
+
         if (data.status === 0 && data.result) {
             const addr = data.result;
-            const formattedAddress = addr.formatted_addresses?.recommend || addr.address;
+            const formattedAddress = (addr.formatted_addresses && addr.formatted_addresses.recommend) || addr.address;
             let html = `<div style="font-weight:600; margin-bottom:6px;">🏠 ${formattedAddress}</div>`;
             if (addr.address_component) {
                 const c = addr.address_component;
@@ -414,15 +470,24 @@ async function reverseGeocodeWithProxy(lng, lat) {
             geoAddressDisplay.innerHTML = html;
             geoStatusIcon.innerText = '✅ 地址解析成功';
             return true;
-        } else {
-            throw new Error(data.message || '解析失败');
         }
+
+        let hint = data.message || ('status=' + data.status);
+        if ([110, 111, 112, 113].includes(data.status)) {
+            hint += '　👉 Key 未授权/配额用尽/IP白名单限制，请在腾讯位置服务控制台检查';
+        }
+        throw new Error(hint);
+
     } catch (err) {
         geoAddressDisplay.innerHTML = `
-            <div style="color:#f97316;">⚠️ 地址解析失败: ${err.message}</div>
-            <div style="font-size:12px; color:#9ca3af;">坐标: ${lng.toFixed(6)}, ${lat.toFixed(6)}</div>
+            <div style="color:#f97316;">⚠️ 地址解析失败：${err.message}</div>
+            <div style="font-size:12px; color:#9ca3af; margin-top:6px;">
+                坐标: ${lng.toFixed(6)}, ${lat.toFixed(6)}<br>
+                （可先用下方地图按钮查看位置）
+            </div>
             ${generateMapLinks(lat, lng)}
         `;
+        geoStatusIcon.innerText = '⚠️ 解析失败';
         return false;
     }
 }
@@ -504,7 +569,6 @@ function tryPrettyJSON(str) {
         return str;
     }
 }
-
 function normalizeValue(key, raw) {
     if (raw === undefined || raw === null) return null;
     let value = raw;
