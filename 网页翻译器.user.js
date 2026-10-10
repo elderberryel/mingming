@@ -951,7 +951,7 @@ const engineSelect=document.createElement('select');
 engineSelect.id='tuEngine';
 [
   ['microsoft','Microsoft Edge (默认)'],
-  ['google','Google (Auto)'],
+  ['google','Google'],
   ['tencent','Tencent'],
   ['deepseek','DeepSeek (AI)'],
   ['glm','GLM-4 (AI)'],
