@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         网页翻译器 (AI增强版)
 // @description  谷歌/微软/腾讯/DeepSeek/GLM 多引擎翻译，支持双语对照、API配置、配置导入导出
-// @version      5.0
+// @version      5.2
 // @match        *://*/*
 // @grant        GM_xmlhttpRequest
 // @grant        GM_addStyle
@@ -90,7 +90,7 @@ function gmFetch(opts){return new Promise((resolve,reject)=>{GM_xmlhttpRequest({
 const MAX_CACHE=5000;const CACHE_SAVE_INTERVAL=30000;let cacheModified=false;
 let cacheData={};try{cacheData=JSON.parse(_savedCache)}catch(e){cacheData={}}
 const cache=new Map(Object.entries(cacheData));
-const CACHE_VERSION = 'v7';
+const CACHE_VERSION = 'v9';
 function cacheKey(text){return CACHE_VERSION+'\u0000'+currentEngine+'\u0000'+targetLang+'\u0000'+text}
 function cacheGet(text){return cache.get(cacheKey(text))}
 function cacheSet(text,value){if(cache.size>=MAX_CACHE){const deleteCount=Math.floor(MAX_CACHE*0.2);const keys=cache.keys();for(let i=0;i<deleteCount;i++){cache.delete(keys.next().value)}}cache.set(cacheKey(text),value);cacheModified=true}
@@ -337,8 +337,176 @@ function getLangRegex(lang){if(lang in _langRegex)return _langRegex[lang];let re
 function isTargetLang(text){if(!text||!text.trim())return true;const lang=targetLang.split('-')[0];const re=getLangRegex(lang);return re?re.test(text.trim()):false}
 const PRE_WHITELIST_IDS=new Set(['exifInfo']);
 function isTranslatablePre(el){return !!el&&el.nodeType===Node.ELEMENT_NODE&&el.tagName==='PRE'&&!!el.id&&PRE_WHITELIST_IDS.has(el.id)}
-const EXIF_KEY_MAP={ImageWidth:'图像宽度',ImageHeight:'图像高度',ImageLength:'图像高度',ExifImageWidth:'Exif 图像宽度',ExifImageHeight:'Exif 图像高度',PixelXDimension:'像素宽度',PixelYDimension:'像素高度',ResolutionUnit:'分辨率单位',XResolution:'水平分辨率',YResolution:'垂直分辨率',FocalPlaneResolutionUnit:'焦平面分辨率单位',FocalPlaneXResolution:'焦平面水平分辨率',FocalPlaneYResolution:'焦平面垂直分辨率',Make:'品牌',Model:'型号',Software:'软件',HostComputer:'设备',LensMake:'镜头品牌',LensModel:'镜头型号',LensInfo:'镜头信息',LensSerialNumber:'镜头序列号',BodySerialNumber:'机身序列号',SerialNumber:'序列号',OwnerName:'所有者',Artist:'作者',Copyright:'版权',ImageDescription:'图像描述',UserComment:'用户备注',ImageUniqueID:'图像唯一标识',Orientation:'方向',YCbCrPositioning:'YCbCr 定位',YCbCrSubSampling:'YCbCr 子采样',Compression:'压缩方式',PhotometricInterpretation:'色彩解释',BitsPerSample:'位深',SamplesPerPixel:'每像素采样数',PlanarConfiguration:'平面配置',ModifyDate:'修改时间',CreateDate:'创建时间',DateTimeOriginal:'拍摄时间',DateTimeDigitized:'数字化时间',DateTime:'时间',OffsetTime:'时区偏移',OffsetTimeOriginal:'拍摄时区偏移',OffsetTimeDigitized:'数字化时区偏移',SubSecTime:'亚秒时间',SubSecTimeOriginal:'原始亚秒时间',SubSecTimeDigitized:'数字化亚秒时间',ISO:'ISO 感光度',ISOSpeedRatings:'ISO 感光度',PhotographicSensitivity:'ISO 感光度',SensitivityType:'感光度类型',RecommendedExposureIndex:'推荐曝光指数',StandardOutputSensitivity:'标准输出灵敏度',ExposureTime:'快门速度',ShutterSpeedValue:'快门速度值',FNumber:'光圈',ApertureValue:'光圈值',MaxApertureValue:'最大光圈值',BrightnessValue:'亮度值',ExposureProgram:'曝光程序',ExposureMode:'曝光模式',ExposureCompensation:'曝光补偿',ExposureBiasValue:'曝光补偿',MeteringMode:'测光模式',LightSource:'光源',Flash:'闪光灯',FlashEnergy:'闪光强度',WhiteBalance:'白平衡',FocalLength:'焦距',FocalLengthIn35mmFormat:'等效 35mm 焦距',DigitalZoomRatio:'数码变焦倍数',SensingMethod:'感光元件类型',FileSource:'文件来源',SceneType:'场景类型',SceneCaptureType:'场景拍摄类型',CustomRendered:'自定义渲染',GainControl:'增益控制',Contrast:'对比度',Saturation:'饱和度',Sharpness:'锐度',SubjectDistance:'主体距离',SubjectDistanceRange:'主体距离范围',SubjectArea:'主体区域',ColorSpace:'色彩空间',ComponentsConfiguration:'分量配置',CompressedBitsPerPixel:'每像素压缩位数',ExifVersion:'Exif 版本',FlashpixVersion:'Flashpix 版本',InteropIndex:'互操作索引',InteropVersion:'互操作版本',ThumbnailOffset:'缩略图偏移',ThumbnailLength:'缩略图大小',GPSVersionID:'GPS 版本',GPSLatitude:'GPS 纬度',GPSLatitudeRef:'GPS 纬度基准',GPSLongitude:'GPS 经度',GPSLongitudeRef:'GPS 经度基准',GPSAltitude:'GPS 海拔',GPSAltitudeRef:'GPS 海拔基准',GPSTimeStamp:'GPS 时间戳',GPSDateStamp:'GPS 日期',GPSProcessingMethod:'GPS 定位方式',GPSMapDatum:'GPS 大地基准',GPSSpeed:'GPS 速度',GPSSpeedRef:'GPS 速度单位',GPSTrack:'GPS 航向',GPSTrackRef:'GPS 航向基准',GPSImgDirection:'GPS 拍摄方向',GPSImgDirectionRef:'GPS 拍摄方向基准',GPSDOP:'GPS 精度因子',GPSSatellites:'GPS 卫星数',GPSStatus:'GPS 状态',GPSMeasureMode:'GPS 测量模式',latitude:'纬度',longitude:'经度',altitude:'海拔',Regions:'区域',RegionList:'区域列表',Type:'类型',Area:'区域',y:'Y 坐标',w:'宽度',x:'X 坐标',h:'高度',unit:'单位',Extensions:'扩展',AngleInfoYaw:'偏航角信息',AngleInfoRoll:'翻滚角信息',ConfidenceLevel:'置信度',FaceID:'面部 ID',AppliedToDimensions:'应用尺寸',ApplicationRecordVersion:'应用记录版本',TimeCreated:'创建时间',DateCreated:'创建日期',ProfileVersion:'配置文件版本',ProfileClass:'配置文件类别',ColorSpaceData:'色彩空间数据',ProfileConnectionSpace:'配置文件连接空间',ProfileDateTime:'配置文件日期时间',ProfileFileSignature:'配置文件签名',RenderingIntent:'渲染意图',ProfileDescription:'配置文件描述',RedMatrixColumn:'红色矩阵列',GreenMatrixColumn:'绿色矩阵列',BlueMatrixColumn:'蓝色矩阵列',RedTRC:'红色 TRC',GreenTRC:'绿色 TRC',BlueTRC:'蓝色 TRC',MediaWhitePoint:'媒体白点',ProfileCopyright:'配置文件版权','Bits Per Sample':'位深','Color Components':'颜色分量',Subsampling:'子采样','JFIF Thumbnail Width':'JFIF 缩略图宽度','JFIF Thumbnail Height':'JFIF 缩略图高度','Exif IFD Pointer':'Exif IFD 指针','Record Version':'记录版本','Preferred CMM type':'首选 CMM 类型','Profile/Device class':'配置文件/设备类别','Connection Space':'连接空间','ICC Profile Date':'ICC 配置文件日期','ICC Signature':'ICC 签名','Primary Platform':'主平台','Device Manufacturer':'设备制造商','Device Model Number':'设备型号','Profile Creator':'配置文件创建者','ICC Description':'ICC 描述','ICC Copyright':'ICC 版权',FileType:'文件类型'};
-const EXIF_VALUE_MAP={'inches':'英寸','inch':'英寸','cm':'厘米','centimeters':'厘米','centimeter':'厘米','none':'无','unknown':'未知','not defined':'未定义','undefined':'未定义','auto':'自动','manual':'手动','normal':'标准','standard':'标准','low':'低','high':'高','soft':'柔和','hard':'强烈','off':'关闭','on':'开启','yes':'是','no':'否','other':'其他','normal program':'标准程序','program ae':'程序自动','program':'程序自动','aperture-priority ae':'光圈优先','aperture priority':'光圈优先','shutter speed priority ae':'快门优先','shutter priority':'快门优先','manual exposure':'手动曝光','bulb':'B 门','creative (slow speed)':'创意（慢速）','action (high speed)':'运动（高速）','portrait':'人像','portrait mode':'人像模式','landscape':'风景','landscape mode':'风景模式','one-chip color area sensor':'单芯片彩色区域传感器','two-chip color area sensor':'双芯片彩色区域传感器','three-chip color area sensor':'三芯片彩色区域传感器','color sequential area sensor':'色彩顺序区域传感器','color sequential linear sensor':'色彩顺序线性传感器','trilinear sensor':'三线性传感器','monochrome area sensor':'单色区域传感器','monochrome linear sensor':'单色线性传感器','centerweightedaverage':'中央重点测光','center-weighted average':'中央重点测光','center weighted average':'中央重点测光','average':'平均测光','spot':'点测光','multispot':'多点测光','multi-spot':'多点测光','pattern':'分区测光','multi-segment':'分区测光','partial':'部分测光','directly photographed':'直接拍摄','not a directly photographed image':'非直接拍摄图像','digital still camera':'数码相机','film scanner':'胶片扫描仪','reflection print scanner':'反射稿扫描仪','flash did not fire':'未闪光','flash did not fire, compulsory flash mode':'未闪光（强制闪光模式）','flash did not fire, auto mode':'未闪光（自动模式）','flash did not fire, compulsory flash suppression':'未闪光（强制关闭闪光）','no flash function':'无闪光功能','flash fired':'已闪光','flash fired, compulsory flash mode':'已闪光（强制闪光模式）','flash fired, auto mode':'已闪光（自动模式）','flash fired, red-eye reduction':'已闪光（防红眼）','off, did not fire':'关闭，未闪光','on, fired':'开启，已闪光','auto, did not fire':'自动，未闪光','auto, fired':'自动，已闪光','daylight':'日光','fine weather':'晴天','cloudy weather':'阴天','cloudy':'阴天','shade':'阴影','shadow':'阴影','fluorescent':'荧光灯','daylight fluorescent':'日光型荧光灯','day white fluorescent':'中性白荧光灯','cool white fluorescent':'冷白荧光灯','white fluorescent':'白色荧光灯','warm white fluorescent':'暖白荧光灯','tungsten':'白炽灯','tungsten (incandescent light)':'白炽灯','flash':'闪光灯','standard light a':'标准光源 A','standard light b':'标准光源 B','standard light c':'标准光源 C','iso studio tungsten':'ISO 影棚白炽灯','other light source':'其他光源','srgb':'sRGB','uncalibrated':'未校准','adobe rgb':'Adobe RGB','auto white balance':'自动白平衡','manual white balance':'手动白平衡','horizontal (normal)':'水平（正常）','rotate 90 cw':'顺时针旋转 90°','rotate 180':'旋转 180°','rotate 270 cw':'顺时针旋转 270°','mirror horizontal':'水平镜像','mirror vertical':'垂直镜像','mirror horizontal and rotate 90 cw':'水平镜像并顺时针旋转 90°','mirror horizontal and rotate 270 cw':'水平镜像并顺时针旋转 270°','night scene':'夜景','close view':'近景','distant view':'远景','macro':'微距','no gain':'无增益','low gain up':'低增益提升','high gain up':'高增益提升','low gain down':'低增益降低','high gain down':'高增益降低','normal process':'标准处理','custom process':'自定义处理','above sea level':'海平面以上','below sea level':'海平面以下','measurement in progress':'测量中','measurement interoperability':'测量有效','2-dimensional measurement':'二维测量','3-dimensional measurement':'三维测量','km/h':'公里/小时','mph':'英里/小时','knots':'节','magnetic north':'磁北','true north':'真北','north':'北','south':'南','east':'东','west':'西','resource':'资源','face':'面部','normalized':'归一化','pixel':'像素','monitor':'显示器','relative colorimetric':'相对比色','centered':'居中','rectangle':'矩形','a directly photographed image':'直接拍摄的图像','auto exposure':'自动曝光','display device profile':'显示设备配置文件','jpeg':'JPEG','ycbcr4:4:4 (1 1)':'YCbCr4:4:4 (1 1)'};
+
+const EXIF_KEY_MAP={
+  ImageWidth:'图像宽度',ImageHeight:'图像高度',ImageLength:'图像高度',
+  ExifImageWidth:'Exif 图像宽度',ExifImageHeight:'Exif 图像高度',
+  PixelXDimension:'像素宽度',PixelYDimension:'像素高度',
+  ResolutionUnit:'分辨率单位',XResolution:'水平分辨率',YResolution:'垂直分辨率',
+  FocalPlaneResolutionUnit:'焦平面分辨率单位',FocalPlaneXResolution:'焦平面水平分辨率',FocalPlaneYResolution:'焦平面垂直分辨率',
+  Make:'品牌',Model:'型号',Software:'软件',HostComputer:'设备',
+  LensMake:'镜头品牌',LensModel:'镜头型号',LensInfo:'镜头信息',
+  LensSerialNumber:'镜头序列号',BodySerialNumber:'机身序列号',SerialNumber:'序列号',
+  OwnerName:'所有者',Artist:'作者',Copyright:'版权',ImageDescription:'图像描述',
+  UserComment:'用户备注',ImageUniqueID:'图像唯一标识',Orientation:'方向',
+  YCbCrPositioning:'YCbCr 定位',YCbCrSubSampling:'YCbCr 子采样',
+  Compression:'压缩方式',PhotometricInterpretation:'色彩解释',
+  BitsPerSample:'位深',SamplesPerPixel:'每像素采样数',
+  PlanarConfiguration:'平面配置',ModifyDate:'修改时间',CreateDate:'创建时间',
+  DateTimeOriginal:'拍摄时间',DateTimeDigitized:'数字化时间',DateTime:'时间',
+  OffsetTime:'时区偏移',OffsetTimeOriginal:'拍摄时区偏移',OffsetTimeDigitized:'数字化时区偏移',
+  SubSecTime:'亚秒时间',SubSecTimeOriginal:'原始亚秒时间',SubSecTimeDigitized:'数字化亚秒时间',
+  ISO:'ISO 感光度',ISOSpeedRatings:'ISO 感光度',PhotographicSensitivity:'ISO 感光度',
+  SensitivityType:'感光度类型',RecommendedExposureIndex:'推荐曝光指数',
+  StandardOutputSensitivity:'标准输出灵敏度',ExposureTime:'快门速度',
+  ShutterSpeedValue:'快门速度值',FNumber:'光圈',ApertureValue:'光圈值',
+  MaxApertureValue:'最大光圈值',BrightnessValue:'亮度值',
+  ExposureProgram:'曝光程序',ExposureMode:'曝光模式',ExposureCompensation:'曝光补偿',
+  ExposureBiasValue:'曝光补偿',MeteringMode:'测光模式',LightSource:'光源',
+  Flash:'闪光灯',FlashEnergy:'闪光强度',WhiteBalance:'白平衡',
+  FocalLength:'焦距',FocalLengthIn35mmFormat:'等效 35mm 焦距',
+  DigitalZoomRatio:'数码变焦倍数',SensingMethod:'感光元件类型',
+  FileSource:'文件来源',SceneType:'场景类型',SceneCaptureType:'场景拍摄类型',
+  CustomRendered:'自定义渲染',GainControl:'增益控制',Contrast:'对比度',
+  Saturation:'饱和度',Sharpness:'锐度',SubjectDistance:'主体距离',
+  SubjectDistanceRange:'主体距离范围',SubjectArea:'主体区域',
+  ColorSpace:'色彩空间',ComponentsConfiguration:'分量配置',
+  CompressedBitsPerPixel:'每像素压缩位数',ExifVersion:'Exif 版本',
+  FlashpixVersion:'Flashpix 版本',InteropIndex:'互操作索引',InteropVersion:'互操作版本',
+  ThumbnailOffset:'缩略图偏移',ThumbnailLength:'缩略图大小',
+  GPSVersionID:'GPS 版本',GPSLatitude:'GPS 纬度',GPSLatitudeRef:'GPS 纬度基准',
+  GPSLongitude:'GPS 经度',GPSLongitudeRef:'GPS 经度基准',
+  GPSAltitude:'GPS 海拔',GPSAltitudeRef:'GPS 海拔基准',
+  GPSTimeStamp:'GPS 时间戳',GPSDateStamp:'GPS 日期',
+  GPSProcessingMethod:'GPS 定位方式',GPSMapDatum:'GPS 大地基准',
+  GPSSpeed:'GPS 速度',GPSSpeedRef:'GPS 速度单位',GPSTrack:'GPS 航向',
+  GPSTrackRef:'GPS 航向基准',GPSImgDirection:'GPS 拍摄方向',
+  GPSImgDirectionRef:'GPS 拍摄方向基准',GPSDOP:'GPS 精度因子',
+  GPSSatellites:'GPS 卫星数',GPSStatus:'GPS 状态',GPSMeasureMode:'GPS 测量模式',
+  latitude:'纬度',longitude:'经度',altitude:'海拔',
+  Regions:'区域',RegionList:'区域列表',Type:'类型',Area:'区域',
+  y:'Y 坐标',w:'宽度',x:'X 坐标',h:'高度',unit:'单位',
+  Extensions:'扩展',AngleInfoYaw:'偏航角信息',AngleInfoRoll:'翻滚角信息',
+  ConfidenceLevel:'置信度',FaceID:'面部 ID',AppliedToDimensions:'应用尺寸',
+  ApplicationRecordVersion:'应用记录版本',TimeCreated:'创建时间',DateCreated:'创建日期',
+  ProfileVersion:'配置文件版本',ProfileClass:'配置文件类别',
+  ColorSpaceData:'色彩空间数据',ProfileConnectionSpace:'配置文件连接空间',
+  ProfileDateTime:'配置文件日期时间',ProfileFileSignature:'配置文件签名',
+  RenderingIntent:'渲染意图',ProfileDescription:'配置文件描述',
+  RedMatrixColumn:'红色矩阵列',GreenMatrixColumn:'绿色矩阵列',BlueMatrixColumn:'蓝色矩阵列',
+  RedTRC:'红色 TRC',GreenTRC:'绿色 TRC',BlueTRC:'蓝色 TRC',
+  MediaWhitePoint:'媒体白点',ProfileCopyright:'配置文件版权',
+  'Bits Per Sample':'位深','Color Components':'颜色分量',Subsampling:'子采样',
+  'JFIF Thumbnail Width':'JFIF 缩略图宽度','JFIF Thumbnail Height':'JFIF 缩略图高度',
+  'Exif IFD Pointer':'Exif IFD 指针','Record Version':'记录版本',
+  'Preferred CMM type':'首选 CMM 类型','Profile/Device class':'配置文件/设备类别',
+  'Connection Space':'连接空间','ICC Profile Date':'ICC 配置文件日期',
+  'ICC Signature':'ICC 签名','Primary Platform':'主平台',
+  'Device Manufacturer':'设备制造商','Device Model Number':'设备型号',
+  'Profile Creator':'配置文件创建者','ICC Description':'ICC 描述',
+  'ICC Copyright':'ICC 版权',FileType:'文件类型',
+  // ===== 新增（来自你提供的 EXIF 段） =====
+  filter:'滤镜',
+  fileterIntensity:'滤镜强度',
+  filterIntensity:'滤镜强度',
+  filterMask:'滤镜蒙版',
+  captureOrientation:'拍摄方向',
+  algolist:'算法列表',
+  'multi-frame':'多帧',
+  brp_mask:'BRP 蒙版',
+  brp_del_th:'BRP 删除阈值',
+  brp_del_sen:'BRP 删除灵敏度',
+  motionR:'运动半径',
+  delta:'差值',
+  module:'模块',
+  'hw-remosaic':'硬件重马赛克',
+  touch:'触摸',
+  sceneMode:'场景模式',
+  cct_value:'色温值',
+  AI_Scene:'AI 场景',
+  aec_lux:'自动曝光亮度',
+  aec_lux_index:'自动曝光亮度指数',
+  albedo:'反照率',
+  confidence:'置信度',
+  motionLevel:'运动级别',
+  weatherinfo:'天气信息',
+  temperature:'温度'
+};
+
+const EXIF_VALUE_MAP={
+  'inches':'英寸','inch':'英寸','cm':'厘米','centimeters':'厘米','centimeter':'厘米',
+  'none':'无','unknown':'未知','not defined':'未定义','undefined':'未定义',
+  'auto':'自动','manual':'手动','normal':'标准','standard':'标准',
+  'low':'低','high':'高','soft':'柔和','hard':'强烈',
+  'off':'关闭','on':'开启','yes':'是','no':'否','other':'其他',
+  'normal program':'标准程序','program ae':'程序自动','program':'程序自动',
+  'aperture-priority ae':'光圈优先','aperture priority':'光圈优先',
+  'shutter speed priority ae':'快门优先','shutter priority':'快门优先',
+  'manual exposure':'手动曝光','bulb':'B 门',
+  'creative (slow speed)':'创意（慢速）','action (high speed)':'运动（高速）',
+  'portrait':'人像','portrait mode':'人像模式','landscape':'风景','landscape mode':'风景模式',
+  'one-chip color area sensor':'单芯片彩色区域传感器',
+  'two-chip color area sensor':'双芯片彩色区域传感器',
+  'three-chip color area sensor':'三芯片彩色区域传感器',
+  'color sequential area sensor':'色彩顺序区域传感器',
+  'color sequential linear sensor':'色彩顺序线性传感器',
+  'trilinear sensor':'三线性传感器','monochrome area sensor':'单色区域传感器',
+  'monochrome linear sensor':'单色线性传感器',
+  'centerweightedaverage':'中央重点测光',
+  'center-weighted average':'中央重点测光','center weighted average':'中央重点测光',
+  'average':'平均测光','spot':'点测光','multispot':'多点测光','multi-spot':'多点测光',
+  'pattern':'分区测光','multi-segment':'分区测光','partial':'部分测光',
+  'directly photographed':'直接拍摄','not a directly photographed image':'非直接拍摄图像',
+  'digital still camera':'数码相机','film scanner':'胶片扫描仪',
+  'reflection print scanner':'反射稿扫描仪',
+  'flash did not fire':'未闪光',
+  'flash did not fire, compulsory flash mode':'未闪光（强制闪光模式）',
+  'flash did not fire, auto mode':'未闪光（自动模式）',
+  'flash did not fire, compulsory flash suppression':'未闪光（强制关闭闪光）',
+  'no flash function':'无闪光功能','flash fired':'已闪光',
+  'flash fired, compulsory flash mode':'已闪光（强制闪光模式）',
+  'flash fired, auto mode':'已闪光（自动模式）',
+  'flash fired, red-eye reduction':'已闪光（防红眼）',
+  'off, did not fire':'关闭，未闪光','on, fired':'开启，已闪光',
+  'auto, did not fire':'自动，未闪光','auto, fired':'自动，已闪光',
+  'daylight':'日光','fine weather':'晴天','cloudy weather':'阴天','cloudy':'阴天',
+  'shade':'阴影','shadow':'阴影','fluorescent':'荧光灯',
+  'daylight fluorescent':'日光型荧光灯','day white fluorescent':'中性白荧光灯',
+  'cool white fluorescent':'冷白荧光灯','white fluorescent':'白色荧光灯',
+  'warm white fluorescent':'暖白荧光灯','tungsten':'白炽灯',
+  'tungsten (incandescent light)':'白炽灯','flash':'闪光灯',
+  'standard light a':'标准光源 A','standard light b':'标准光源 B',
+  'standard light c':'标准光源 C','iso studio tungsten':'ISO 影棚白炽灯',
+  'other light source':'其他光源','srgb':'sRGB','uncalibrated':'未校准',
+  'adobe rgb':'Adobe RGB','auto white balance':'自动白平衡',
+  'manual white balance':'手动白平衡',
+  'horizontal (normal)':'水平（正常）','rotate 90 cw':'顺时针旋转 90°',
+  'rotate 180':'旋转 180°','rotate 270 cw':'顺时针旋转 270°',
+  'mirror horizontal':'水平镜像','mirror vertical':'垂直镜像',
+  'mirror horizontal and rotate 90 cw':'水平镜像并顺时针旋转 90°',
+  'mirror horizontal and rotate 270 cw':'水平镜像并顺时针旋转 270°',
+  'night scene':'夜景','close view':'近景','distant view':'远景','macro':'微距',
+  'no gain':'无增益','low gain up':'低增益提升','high gain up':'高增益提升',
+  'low gain down':'低增益降低','high gain down':'高增益降低',
+  'normal process':'标准处理','custom process':'自定义处理',
+  'above sea level':'海平面以上','below sea level':'海平面以下',
+  'measurement in progress':'测量中','measurement interoperability':'测量有效',
+  '2-dimensional measurement':'二维测量','3-dimensional measurement':'三维测量',
+  'km/h':'公里/小时','mph':'英里/小时','knots':'节',
+  'magnetic north':'磁北','true north':'真北','north':'北','south':'南',
+  'east':'东','west':'西','resource':'资源','face':'面部',
+  'normalized':'归一化','pixel':'像素','monitor':'显示器',
+  'relative colorimetric':'相对比色','centered':'居中','rectangle':'矩形',
+  'a directly photographed image':'直接拍摄的图像','auto exposure':'自动曝光',
+  'display device profile':'显示设备配置文件','jpeg':'JPEG',
+  'ycbcr4:4:4 (1 1)':'YCbCr4:4:4 (1 1)',
+  // ===== 新增（来自你提供的 EXIF 段） =====
+  'photo':'照片',
+  'false':'否',
+  'true':'是',
+  'null':'空'
+};
+
 const EXIF_KEEP_VALUE_KEYS=new Set(['Make','Model','Software','HostComputer','LensMake','LensModel','LensInfo','LensSerialNumber','BodySerialNumber','SerialNumber','OwnerName','Artist','Copyright','ImageUniqueID','InteropIndex','InteropVersion','ExifVersion','FlashpixVersion','GPSVersionID','GPSProcessingMethod','ComponentsConfiguration','GPSMapDatum','GPSSatellites']);
 const HAS_LATIN_WORD=/\p{Script=Latin}{2,}/u;
 const DATE_TOSTRING_RE=/^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2}\s+\d{4}\b/;
@@ -350,7 +518,69 @@ function lookupExifKey(key){if(!exifDictEnabled())return null;if(Object.prototyp
 function lookupExifValue(value){if(!exifDictEnabled())return null;const norm=normalizeExifValue(value);return Object.prototype.hasOwnProperty.call(EXIF_VALUE_MAP,norm)?EXIF_VALUE_MAP[norm]:null}
 const EXIF_KV_RE=/^([^:：]+)([:：][ \t]*)([\s\S]*)$/;
 function splitIndent(line){const m=line.match(/^([ \t]*)([\s\S]*?)([ \t]*)$/);return{prefix:m[1],core:m[2],suffix:m[3]}}
-function planExifLine(line){const{prefix,core,suffix}=splitIndent(line);if(!core)return null;const kv=core.match(EXIF_KV_RE);const tokens=[];let localChanged=false,pending=0;if(!kv){if(!HAS_LATIN_WORD.test(core)||isTargetLang(core))return null;tokens.push({src:core,out:null});return{prefix,suffix,tokens}}const rawKey=kv[1],sep=kv[2],rawValue=kv[3];let keyTranslatedLocally=false,keyIsForeign=false;if(!HAS_LATIN_WORD.test(rawKey)||isTargetLang(rawKey)){tokens.push({lit:rawKey})}else{keyIsForeign=true;const mapped=lookupExifKey(rawKey.trim());if(mapped){tokens.push({lit:rawKey.replace(rawKey.trim(),mapped)});localChanged=true;keyTranslatedLocally=true}else{tokens.push({src:rawKey,out:null});pending++}}tokens.push({lit:sep});const dateStr=localizeDateValue(rawValue.trim());const dictStr=dateStr?null:lookupExifValue(rawValue);if(dateStr){tokens.push({lit:rawValue.replace(rawValue.trim(),dateStr)});localChanged=true}else if(dictStr&&dictStr!==rawValue.trim()){tokens.push({lit:rawValue.replace(rawValue.trim(),dictStr)});localChanged=true}else if(EXIF_KEEP_VALUE_KEYS.has(rawKey.trim())||!HAS_LATIN_WORD.test(rawValue)||!/\s/.test(rawValue.trim())||!keyIsForeign){tokens.push({lit:rawValue})}else{tokens.push({src:rawValue,out:null});pending++}if(!localChanged&&pending===0)return null;void keyTranslatedLocally;return{prefix,suffix,tokens}}
+function planExifLine(line){
+  const{prefix,core,suffix}=splitIndent(line);
+  if(!core)return null;
+  // 按分号拆分，保留分隔符
+  const parts=core.split(/([;；])/);
+  const tokens=[];let localChanged=false,pending=0;
+  for(let i=0;i<parts.length;i++){
+    const part=parts[i];
+    if(part===';'||part==='；'){
+      tokens.push({lit:part});
+      continue;
+    }
+    const segKv=part.match(EXIF_KV_RE);
+    if(!segKv){
+      // 无冒号的纯文本段
+      if(!HAS_LATIN_WORD.test(part)||isTargetLang(part)){
+        tokens.push({lit:part});
+      }else{
+        const dictStr=lookupExifValue(part.trim());
+        if(dictStr&&dictStr!==part.trim()){
+          tokens.push({lit:part.replace(part.trim(),dictStr)});
+          localChanged=true;
+        }else{
+          tokens.push({src:part,out:null});
+          pending++;
+        }
+      }
+      continue;
+    }
+    const rawKey=segKv[1],sep=segKv[2],rawValue=segKv[3];
+    let keyIsForeign=false;
+    if(!HAS_LATIN_WORD.test(rawKey)||isTargetLang(rawKey)){
+      tokens.push({lit:rawKey});
+    }else{
+      keyIsForeign=true;
+      const mapped=lookupExifKey(rawKey.trim());
+      if(mapped){
+        tokens.push({lit:rawKey.replace(rawKey.trim(),mapped)});
+        localChanged=true;
+      }else{
+        tokens.push({src:rawKey,out:null});
+        pending++;
+      }
+    }
+    tokens.push({lit:sep});
+    const dateStr=localizeDateValue(rawValue.trim());
+    const dictStr=dateStr?null:lookupExifValue(rawValue);
+    if(dateStr){
+      tokens.push({lit:rawValue.replace(rawValue.trim(),dateStr)});
+      localChanged=true;
+    }else if(dictStr&&dictStr!==rawValue.trim()){
+      tokens.push({lit:rawValue.replace(rawValue.trim(),dictStr)});
+      localChanged=true;
+    }else if(EXIF_KEEP_VALUE_KEYS.has(rawKey.trim())||!HAS_LATIN_WORD.test(rawValue)||!/\s/.test(rawValue.trim())||!keyIsForeign){
+      tokens.push({lit:rawValue});
+    }else{
+      tokens.push({src:rawValue,out:null});
+      pending++;
+    }
+  }
+  if(!localChanged&&pending===0)return null;
+  return{prefix,suffix,tokens};
+}
 function renderExifPlan(plan){let out='';for(const t of plan.tokens){out+=(t.src!==undefined)?(t.out!==null&&t.out!==undefined?t.out:t.src):t.lit}return plan.prefix+out+plan.suffix}
 let suppressMutations=false;
 function applyExifJob(job){
