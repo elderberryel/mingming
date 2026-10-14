@@ -90,7 +90,7 @@ function gmFetch(opts){return new Promise((resolve,reject)=>{GM_xmlhttpRequest({
 const MAX_CACHE=5000;const CACHE_SAVE_INTERVAL=30000;let cacheModified=false;
 let cacheData={};try{cacheData=JSON.parse(_savedCache)}catch(e){cacheData={}}
 const cache=new Map(Object.entries(cacheData));
-const CACHE_VERSION = 'v9';
+const CACHE_VERSION = 'v10';
 function cacheKey(text){return CACHE_VERSION+'\u0000'+currentEngine+'\u0000'+targetLang+'\u0000'+text}
 function cacheGet(text){return cache.get(cacheKey(text))}
 function cacheSet(text,value){if(cache.size>=MAX_CACHE){const deleteCount=Math.floor(MAX_CACHE*0.2);const keys=cache.keys();for(let i=0;i<deleteCount;i++){cache.delete(keys.next().value)}}cache.set(cacheKey(text),value);cacheModified=true}
@@ -148,9 +148,7 @@ async function translate(text){
   if(/^\d+$/.test(trimmed))return null;
   const cached=cacheGet(trimmed);
   if(cached)return cached;
-
   const {text: protectedText, map} = protectNoTranslate(trimmed);
-
   const finish = (result) => {
     if (!result) return null;
     const restored = restoreNoTranslate(result, map);
@@ -160,7 +158,6 @@ async function translate(text){
     }
     return null;
   };
-
   try{
     const result=await Engine[currentEngine].translate(protectedText,targetLang);
     const done = finish(result);
@@ -194,7 +191,6 @@ async function translate(text){
 async function batchTranslate(texts){
   const results=new Array(texts.length).fill(null);
   const uniqueTexts=[],textToIndices=new Map(),seenInBatch=new Set();
-
   for(let i=0;i<texts.length;i++){
     const t=texts[i].trim();
     if(!t||/^\d+$/.test(t))continue;
@@ -208,28 +204,22 @@ async function batchTranslate(texts){
       textToIndices.get(t).push(i);
     }
   }
-
   if(uniqueTexts.length===0)return results;
-
   let engine=Engine[currentEngine];
-
   const fillResults=(text,translation)=>{
     if(!translation)return;
     cacheSet(text,translation);
     const indices=textToIndices.get(text);
     if(indices)indices.forEach(idx=>results[idx]=translation);
   };
-
   const protectedInfos = uniqueTexts.map(t => protectNoTranslate(t));
   const protectedTexts = protectedInfos.map(x => x.text);
   const protectedMaps = protectedInfos.map(x => x.map);
-
   const fillProtectedResult = (original, rawResult, map) => {
     if (!rawResult) return;
     const restored = restoreNoTranslate(rawResult, map);
     if (restored && restored !== original) fillResults(original, restored);
   };
-
   if(engine.isAI&&engine.translateBatch){
     try{
       const batchResults=await engine.translateBatch(protectedTexts,targetLang);
@@ -241,7 +231,6 @@ async function batchTranslate(texts){
       return results;
     }catch(e){}
   }
-
   if(engine.translateBatch){
     try{
       const BATCH_SIZE=currentEngine==='microsoft'?MS_BATCH_SIZE:DEFAULT_BATCH_SIZE;
@@ -250,7 +239,6 @@ async function batchTranslate(texts){
         const chunkProtected=protectedInfos.slice(b,b+BATCH_SIZE);
         const chunkProtectedTexts=chunkProtected.map(x=>x.text);
         const chunkMaps=chunkProtected.map(x=>x.map);
-
         try{
           const batchResults=await engine.translateBatch(chunkProtectedTexts,targetLang);
           if(batchResults){
@@ -276,7 +264,6 @@ async function batchTranslate(texts){
               }
             }catch(e2){}
           }
-
           for(const text of chunkTexts){
             try{
               const r=await translate(text);
@@ -288,13 +275,10 @@ async function batchTranslate(texts){
       return results;
     }catch(e){}
   }
-
   const concurrency=engine.isAI?AI_CONCURRENCY_LIMIT:CONCURRENCY_LIMIT;
   const requestDelay=engine.isAI?AI_REQUEST_DELAY:0;
-
   for(let i=0;i<uniqueTexts.length;i+=concurrency){
     const batch=uniqueTexts.slice(i,i+concurrency);
-
     await Promise.allSettled(batch.map(async(text,idx)=>{
       try{
         if(requestDelay>0)await delay(idx*requestDelay);
@@ -318,10 +302,8 @@ async function batchTranslate(texts){
         }
       }
     }));
-
     if(requestDelay>0&&i+concurrency<uniqueTexts.length)await delay(requestDelay);
   }
-
   return results;
 }
 
@@ -405,7 +387,7 @@ const EXIF_KEY_MAP={
   'Device Manufacturer':'设备制造商','Device Model Number':'设备型号',
   'Profile Creator':'配置文件创建者','ICC Description':'ICC 描述',
   'ICC Copyright':'ICC 版权',FileType:'文件类型',
-  // ===== 新增（来自你提供的 EXIF 段） =====
+  // ===== 新增（filter/sceneMode 段） =====
   filter:'滤镜',
   fileterIntensity:'滤镜强度',
   filterIntensity:'滤镜强度',
@@ -430,7 +412,12 @@ const EXIF_KEY_MAP={
   confidence:'置信度',
   motionLevel:'运动级别',
   weatherinfo:'天气信息',
-  temperature:'温度'
+  temperature:'温度',
+  Directory:'目录',
+  Item:'项目',
+  Semantic:'语义',
+  Mime:'MIME',
+  Length:'长度'
 };
 
 const EXIF_VALUE_MAP={
@@ -500,15 +487,18 @@ const EXIF_VALUE_MAP={
   'a directly photographed image':'直接拍摄的图像','auto exposure':'自动曝光',
   'display device profile':'显示设备配置文件','jpeg':'JPEG',
   'ycbcr4:4:4 (1 1)':'YCbCr4:4:4 (1 1)',
-  // ===== 新增（来自你提供的 EXIF 段） =====
   'photo':'照片',
   'false':'否',
   'true':'是',
-  'null':'空'
+  'null':'空',
+  'primary':'主图',
+  'gainmap':'增益图',
+  'gain map':'增益图'
 };
 
 const EXIF_KEEP_VALUE_KEYS=new Set(['Make','Model','Software','HostComputer','LensMake','LensModel','LensInfo','LensSerialNumber','BodySerialNumber','SerialNumber','OwnerName','Artist','Copyright','ImageUniqueID','InteropIndex','InteropVersion','ExifVersion','FlashpixVersion','GPSVersionID','GPSProcessingMethod','ComponentsConfiguration','GPSMapDatum','GPSSatellites']);
 const HAS_LATIN_WORD=/\p{Script=Latin}{2,}/u;
+const OBJECT_OBJECT_TOKEN='\u0001OBJECT_OBJECT\u0001';
 const DATE_TOSTRING_RE=/^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2}\s+\d{4}\b/;
 const DATE_ISO_RE=/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2})?/;
 function localizeDateValue(value){if(!DATE_TOSTRING_RE.test(value)&&!DATE_ISO_RE.test(value))return null;const d=new Date(value);if(isNaN(d.getTime()))return null;try{const s=new Intl.DateTimeFormat(targetLang,{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false,timeZoneName:'short'}).format(d);return s===value?null:s}catch(_){return null}}
@@ -518,10 +508,10 @@ function lookupExifKey(key){if(!exifDictEnabled())return null;if(Object.prototyp
 function lookupExifValue(value){if(!exifDictEnabled())return null;const norm=normalizeExifValue(value);return Object.prototype.hasOwnProperty.call(EXIF_VALUE_MAP,norm)?EXIF_VALUE_MAP[norm]:null}
 const EXIF_KV_RE=/^([^:：]+)([:：][ \t]*)([\s\S]*)$/;
 function splitIndent(line){const m=line.match(/^([ \t]*)([\s\S]*?)([ \t]*)$/);return{prefix:m[1],core:m[2],suffix:m[3]}}
+
 function planExifLine(line){
   const{prefix,core,suffix}=splitIndent(line);
   if(!core)return null;
-  // 按分号拆分，保留分隔符
   const parts=core.split(/([;；])/);
   const tokens=[];let localChanged=false,pending=0;
   for(let i=0;i<parts.length;i++){
@@ -532,7 +522,6 @@ function planExifLine(line){
     }
     const segKv=part.match(EXIF_KV_RE);
     if(!segKv){
-      // 无冒号的纯文本段
       if(!HAS_LATIN_WORD.test(part)||isTargetLang(part)){
         tokens.push({lit:part});
       }else{
@@ -581,7 +570,14 @@ function planExifLine(line){
   if(!localChanged&&pending===0)return null;
   return{prefix,suffix,tokens};
 }
-function renderExifPlan(plan){let out='';for(const t of plan.tokens){out+=(t.src!==undefined)?(t.out!==null&&t.out!==undefined?t.out:t.src):t.lit}return plan.prefix+out+plan.suffix}
+function renderExifPlan(plan){
+  let out='';
+  for(const t of plan.tokens){
+    out+=(t.src!==undefined)?(t.out!==null&&t.out!==undefined?t.out:t.src):t.lit;
+  }
+  const rendered=plan.prefix+out+plan.suffix;
+  return rendered.split(OBJECT_OBJECT_TOKEN).join('[object Object]');
+}
 let suppressMutations=false;
 function applyExifJob(job){
   const lines=job.original.split('\n');
@@ -592,7 +588,6 @@ function applyExifJob(job){
   const rendered=lines.join('\n');
   if(rendered===job.original)return false;
   const node=job.node;
-  // 去重：内容与上次渲染一致则跳过，避免重复写 DOM 造成闪烁
   if(node._exifLastRendered===rendered)return false;
   const parent=node.parentElement;
   if(!parent)return false;
@@ -622,7 +617,6 @@ function applyExifJob(job){
 async function processExifPre(pre){
   if(!pre||!pre.isConnected)return;
   if(displayMode==='original')return;
-  // 并发保护：同一 pre 正在处理时不重复进入
   if(pre._exifProcessing)return;
   pre._exifProcessing=true;
   try{
@@ -640,8 +634,6 @@ async function processExifPre(pre){
       jobs.push({node,original,lines,plans});
     }
     if(jobs.length===0)return;
-
-    // 阶段 1：收集所有待翻译 token（此阶段不写 DOM）
     const texts=[],metas=[];
     for(const job of jobs){
       for(const plan of job.plans){
@@ -654,8 +646,6 @@ async function processExifPre(pre){
         }
       }
     }
-
-    // 阶段 2：等 API 一次性返回
     if(texts.length>0){
       let results=null;
       try{results=await batchTranslate(texts)}catch(e){results=null}
@@ -665,8 +655,6 @@ async function processExifPre(pre){
         }
       }
     }
-
-    // 阶段 3：所有 token 就绪后，一次性写 DOM（applyExifJob 内部有去重）
     for(const job of jobs)applyExifJob(job);
   }finally{
     pre._exifProcessing=false;
@@ -951,7 +939,7 @@ const engineSelect=document.createElement('select');
 engineSelect.id='tuEngine';
 [
   ['microsoft','Microsoft Edge (默认)'],
-  ['google','Google'],
+  ['google','Google (Auto)'],
   ['tencent','Tencent'],
   ['deepseek','DeepSeek (AI)'],
   ['glm','GLM-4 (AI)'],
@@ -1062,7 +1050,6 @@ panel.appendChild(fileInput);
 
 ui.appendChild(panel);
 
-// 悬浮按钮
 const btn=document.createElement('button');
 btn.className='tu-btn'+(autoMode?' active':'');
 btn.id='tuBtn';
