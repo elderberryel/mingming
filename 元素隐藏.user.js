@@ -89,7 +89,6 @@
         'div:nth-of-type(8) > div.grecaptcha-badge:nth-of-type(1) > div.grecaptcha-logo:nth-of-type(1) > iframe',
         '.grecaptcha-badge',
 
-        'div.mx-auto:has(> h1.text-center.font-bold):has(> div > div.tool > form.tool-form)',
         'a[href*="t.me/twittervideoranking"]',
         'a[href*="mufufu.link"]',
 
