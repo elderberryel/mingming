@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         网页翻译器 (AI增强版)
 // @description  谷歌/微软/腾讯/DeepSeek/GLM 多引擎翻译，支持双语对照、API配置、配置导入导出
-// @version      5.2
+// @version      5.3
 // @match        *://*/*
 // @grant        GM_xmlhttpRequest
 // @grant        GM_addStyle
@@ -19,7 +19,6 @@
 // @updateURL    https://raw.githubusercontent.com/elderberryel/mingming/main/%E7%BD%91%E9%A1%B5%E7%BF%BB%E8%AF%91%E5%99%A8.user.js
 // @downloadURL  https://raw.githubusercontent.com/elderberryel/mingming/main/%E7%BD%91%E9%A1%B5%E7%BF%BB%E8%AF%91%E5%99%A8.user.js
 // ==/UserScript==
-
 (async()=>{
 'use strict';
 try{if(document.contentType==='application/xml')return}catch(_){}
@@ -387,7 +386,6 @@ const EXIF_KEY_MAP={
   'Device Manufacturer':'设备制造商','Device Model Number':'设备型号',
   'Profile Creator':'配置文件创建者','ICC Description':'ICC 描述',
   'ICC Copyright':'ICC 版权',FileType:'文件类型',
-  // ===== 新增（filter/sceneMode 段） =====
   filter:'滤镜',
   fileterIntensity:'滤镜强度',
   filterIntensity:'滤镜强度',
@@ -417,9 +415,38 @@ const EXIF_KEY_MAP={
   Item:'项目',
   Semantic:'语义',
   Mime:'MIME',
-  Length:'长度'
+  Length:'长度',
+  ISOSpeed:'ISO 感光度',
+  'Interoperability IFD Pointer':'互操作 IFD 指针',
+  FocalLengthIn35mmFilm:'等效 35mm 焦距',
+  InteroperabilityIndex:'互操作索引',
+  InteroperabilityVersion:'互操作版本',
+  ProfileCreator:'配置文件创建者',
+  PrimaryPlatform:'主平台',
+  ChromaticAdaptation:'色度自适应',
+  Version:'版本',
+  MPFVersion:'MPF 版本',
+  NumberOfImages:'图像数量',
+  MPEntry:'MP 条目',
+  makerNote:'制造商注释',
+  MakerNote:'制造商注释',
+  buildDevice:'构建设备',
+  customize:'自定义',
+  cvLensName:'镜头名称',
+  filterName:'滤镜名称',
+  livephotoInfo:'实况照片信息',
+  version:'版本',
+  waterLogo:'水印 Logo',
+  waterName:'水印名称',
+  mirror:'镜像',
+  sensorType:'传感器类型',
+  Hdr:'HDR',
+  OpMode:'操作模式',
+  smallPicture:'缩略图',
+  AIScene:'AI 场景',
+  filterId:'滤镜 ID',
+  zoomMultiple:'变焦倍数'
 };
-
 const EXIF_VALUE_MAP={
   'inches':'英寸','inch':'英寸','cm':'厘米','centimeters':'厘米','centimeter':'厘米',
   'none':'无','unknown':'未知','not defined':'未定义','undefined':'未定义',
@@ -493,7 +520,11 @@ const EXIF_VALUE_MAP={
   'null':'空',
   'primary':'主图',
   'gainmap':'增益图',
-  'gain map':'增益图'
+  'gain map':'增益图',
+  'perceptual':'感知',
+  'iso speed':'ISO 感光度',
+  'rear':'后置',
+  'front':'前置'
 };
 
 const EXIF_KEEP_VALUE_KEYS=new Set(['Make','Model','Software','HostComputer','LensMake','LensModel','LensInfo','LensSerialNumber','BodySerialNumber','SerialNumber','OwnerName','Artist','Copyright','ImageUniqueID','InteropIndex','InteropVersion','ExifVersion','FlashpixVersion','GPSVersionID','GPSProcessingMethod','ComponentsConfiguration','GPSMapDatum','GPSSatellites']);
@@ -504,10 +535,25 @@ const DATE_ISO_RE=/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2})?/;
 function localizeDateValue(value){if(!DATE_TOSTRING_RE.test(value)&&!DATE_ISO_RE.test(value))return null;const d=new Date(value);if(isNaN(d.getTime()))return null;try{const s=new Intl.DateTimeFormat(targetLang,{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false,timeZoneName:'short'}).format(d);return s===value?null:s}catch(_){return null}}
 function normalizeExifValue(v){return v.trim().toLowerCase().replace(/\s+/g,' ')}
 function exifDictEnabled(){return targetLang==='zh-CN'||targetLang==='zh'}
-function lookupExifKey(key){if(!exifDictEnabled())return null;if(Object.prototype.hasOwnProperty.call(EXIF_KEY_MAP,key))return EXIF_KEY_MAP[key];const lower=key.toLowerCase();for(const k in EXIF_KEY_MAP){if(k.toLowerCase()===lower)return EXIF_KEY_MAP[k]}return null}
+function stripWrapQuotes(s){return String(s==null?'':s).replace(/^[\s"'“”‘’]+|[\s"'“”‘’]+$/g,'')}
+function lookupExifKey(key){
+  if(!exifDictEnabled())return null;
+  const clean=stripWrapQuotes(key);
+  if(Object.prototype.hasOwnProperty.call(EXIF_KEY_MAP,clean))return EXIF_KEY_MAP[clean];
+  const lower=clean.toLowerCase();
+  for(const k in EXIF_KEY_MAP){
+    if(k.toLowerCase()===lower)return EXIF_KEY_MAP[k];
+  }
+  return null;
+}
 function lookupExifValue(value){if(!exifDictEnabled())return null;const norm=normalizeExifValue(value);return Object.prototype.hasOwnProperty.call(EXIF_VALUE_MAP,norm)?EXIF_VALUE_MAP[norm]:null}
 const EXIF_KV_RE=/^([^:：]+)([:：][ \t]*)([\s\S]*)$/;
 function splitIndent(line){const m=line.match(/^([ \t]*)([\s\S]*?)([ \t]*)$/);return{prefix:m[1],core:m[2],suffix:m[3]}}
+
+function splitWrapped(raw){
+  const m=raw.match(/^(\s*["'“”‘’]?)([\s\S]*?)(["'“”‘’]?\s*,?\s*)$/);
+  return m?{pre:m[1],core:m[2],post:m[3]}:{pre:'',core:raw,post:''};
+}
 
 function planExifLine(line){
   const{prefix,core,suffix}=splitIndent(line);
@@ -537,33 +583,38 @@ function planExifLine(line){
       continue;
     }
     const rawKey=segKv[1],sep=segKv[2],rawValue=segKv[3];
+    const keyWrap=splitWrapped(rawKey);
+    const valWrap=splitWrapped(rawValue);
+    const isJsonStyle=/^\s*["']/.test(rawKey);
+    const valAllowDict=!isJsonStyle||/^\s*["']/.test(rawValue);
     let keyIsForeign=false;
-    if(!HAS_LATIN_WORD.test(rawKey)||isTargetLang(rawKey)){
+    if(!HAS_LATIN_WORD.test(keyWrap.core)||isTargetLang(keyWrap.core)){
       tokens.push({lit:rawKey});
     }else{
       keyIsForeign=true;
-      const mapped=lookupExifKey(rawKey.trim());
+      const mapped=lookupExifKey(keyWrap.core);
       if(mapped){
-        tokens.push({lit:rawKey.replace(rawKey.trim(),mapped)});
+        tokens.push({lit:keyWrap.pre+mapped+keyWrap.post});
         localChanged=true;
       }else{
-        tokens.push({src:rawKey,out:null});
+        tokens.push({src:keyWrap.core,pre:keyWrap.pre,post:keyWrap.post,out:null});
         pending++;
       }
     }
     tokens.push({lit:sep});
-    const dateStr=localizeDateValue(rawValue.trim());
-    const dictStr=dateStr?null:lookupExifValue(rawValue);
+    const valCore=valWrap.core;
+    const dateStr=localizeDateValue(valCore.trim());
+    const dictStr=(dateStr||!valAllowDict)?null:lookupExifValue(valCore);
     if(dateStr){
-      tokens.push({lit:rawValue.replace(rawValue.trim(),dateStr)});
+      tokens.push({lit:valWrap.pre+dateStr+valWrap.post});
       localChanged=true;
-    }else if(dictStr&&dictStr!==rawValue.trim()){
-      tokens.push({lit:rawValue.replace(rawValue.trim(),dictStr)});
+    }else if(dictStr&&dictStr!==valCore.trim()){
+      tokens.push({lit:valWrap.pre+dictStr+valWrap.post});
       localChanged=true;
-    }else if(EXIF_KEEP_VALUE_KEYS.has(rawKey.trim())||!HAS_LATIN_WORD.test(rawValue)||!/\s/.test(rawValue.trim())||!keyIsForeign){
+    }else if(EXIF_KEEP_VALUE_KEYS.has(keyWrap.core)||!HAS_LATIN_WORD.test(valCore)||!/\s/.test(valCore.trim())||!keyIsForeign){
       tokens.push({lit:rawValue});
     }else{
-      tokens.push({src:rawValue,out:null});
+      tokens.push({src:valCore,pre:valWrap.pre,post:valWrap.post,out:null});
       pending++;
     }
   }
@@ -573,7 +624,7 @@ function planExifLine(line){
 function renderExifPlan(plan){
   let out='';
   for(const t of plan.tokens){
-    out+=(t.src!==undefined)?(t.out!==null&&t.out!==undefined?t.out:t.src):t.lit;
+    out+=(t.src!==undefined)?((t.pre||'')+(t.out!==null&&t.out!==undefined?t.out:t.src)+(t.post||'')):t.lit;
   }
   const rendered=plan.prefix+out+plan.suffix;
   return rendered.split(OBJECT_OBJECT_TOKEN).join('[object Object]');
@@ -724,7 +775,7 @@ function scanAndObserve(root){
   nodes.forEach(node=>{const p=node.parentElement;if(p)parents.add(p)});
   collectPlaceholders(root).forEach(el=>{if(!el.dataset.translated)parents.add(el)});
   collectInputValues(root).forEach(el=>{if(!el.dataset.translated)parents.add(el)});
-  parents.forEach(el=>{try{visibilityObserver.observe(el)}catch(e){}})
+  parents.forEach(el=>{try{visibilityObserver.observe(el)}catch(e){}});
 }
 function restorePage(){
   if(visibilityObserver){visibilityObserver.disconnect();visibilityObserver=null}
