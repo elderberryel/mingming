@@ -2720,6 +2720,27 @@ fix(force){
    if(/select|listbox|combobox|dropdown/i.test(ac))continue;
   }catch(e){}
 
+  // ===== 排序/方向切换按钮（如 Lucky 的 #order.order-toggle）：保留玻璃胶囊外观，但绝不覆盖 background-image，让箭头保留 =====
+  const isSortBtn = btn.id==='order' || btn.name==='order' ||
+    (btn.classList&&btn.classList.contains('order-toggle')) ||
+    /sort|order|排序|方向|升序|降序/i.test(((btn.getAttribute&&btn.getAttribute('aria-label'))||'')+' '+((btn.getAttribute&&btn.getAttribute('title'))||''));
+  if(isSortBtn){
+   try{
+    setImp(btn,'background-color','rgba(255,255,255,.10)');
+    setImp(btn,'backdrop-filter','blur(16px) saturate(130%)');
+    setImp(btn,'-webkit-backdrop-filter','blur(16px) saturate(130%)');
+    setImp(btn,'border','1px solid rgba(255,255,255,.30)');
+    setImp(btn,'border-color','rgba(255,255,255,.30)');
+    setImp(btn,'border-radius','9999px');
+    setImp(btn,'box-shadow',LGGC.shadow);
+    setImp(btn,'isolation','isolate');
+    setImp(btn,'transform','translateZ(0)');
+    setImp(btn,'cursor','pointer');
+    // 注意：不写 background / background-image:none，箭头才留得住
+   }catch(e){}
+   continue;
+  }
+
   const clazz = (typeof btn.className === 'string' ? btn.className : '').toLowerCase();
   const idStr = (btn.id || '').toLowerCase();
   if (clazz.includes('mask') || clazz.includes('overlay') || clazz.includes('backdrop') || clazz.includes('drawer') ||
