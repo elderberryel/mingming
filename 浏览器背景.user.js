@@ -2293,7 +2293,6 @@ pan123OverlayCSS(blur,alpha){
  const alphaVal=Number.isFinite(a)?Utils.clamp(a,0,.8):.1;
  const gf=b>0?LGGC.filter(b):'none';
  const bg=`rgba(${LGGC.bgDark},${alphaVal})`;
-// ⬇️ 把 drawer body 也纳入
  return `[class*="mfy_h-popup-module__body"],[class*="mfy_h-drawer-module__body"]{`
  +`background:${bg}!important;`
  +`background-color:${bg}!important;`
@@ -2719,8 +2718,6 @@ fix(force){
    const ac=btn.getAttribute('aria-controls')||'';
    if(/select|listbox|combobox|dropdown/i.test(ac))continue;
   }catch(e){}
-
-  // ===== 排序/方向切换按钮（如 Lucky 的 #order.order-toggle）：保留玻璃胶囊外观，但绝不覆盖 background-image，让箭头保留 =====
   const isSortBtn = btn.id==='order' || btn.name==='order' ||
     (btn.classList&&btn.classList.contains('order-toggle')) ||
     /sort|order|排序|方向|升序|降序/i.test(((btn.getAttribute&&btn.getAttribute('aria-label'))||'')+' '+((btn.getAttribute&&btn.getAttribute('title'))||''));
@@ -2736,7 +2733,6 @@ fix(force){
     setImp(btn,'isolation','isolate');
     setImp(btn,'transform','translateZ(0)');
     setImp(btn,'cursor','pointer');
-    // 注意：不写 background / background-image:none，箭头才留得住
    }catch(e){}
    continue;
   }
