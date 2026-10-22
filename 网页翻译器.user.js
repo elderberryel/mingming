@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         网页翻译器 (AI增强版)
 // @description  谷歌/微软/腾讯/DeepSeek/GLM 多引擎翻译，支持双语对照、API配置、配置导入导出
-// @version      5.3
+// @version      5.5
 // @match        *://*/*
 // @grant        GM_xmlhttpRequest
 // @grant        GM_addStyle
@@ -430,6 +430,7 @@ const EXIF_KEY_MAP={
   MPEntry:'MP 条目',
   makerNote:'制造商注释',
   MakerNote:'制造商注释',
+
   buildDevice:'构建设备',
   customize:'自定义',
   cvLensName:'镜头名称',
@@ -445,8 +446,23 @@ const EXIF_KEY_MAP={
   smallPicture:'缩略图',
   AIScene:'AI 场景',
   filterId:'滤镜 ID',
-  zoomMultiple:'变焦倍数'
+  zoomMultiple:'变焦倍数',
+  ZComment:'厂商注释',
+  ZteComment:'ZTE 注释',
+  ZSComment:'ZTE 状态注释',
+  ZteSComment:'ZTE 状态注释',
+  ZOfflineComment:'离线注释',
+  WatermarkType:'水印类型',
+  RestoreImageLength:'恢复图像长度',
+  WatermarkRectLeft:'水印左边界',
+  WatermarkRectTop:'水印上边界',
+  WatermarkRectRight:'水印右边界',
+  WatermarkRectBottom:'水印下边界',
+  JFIFVersion:'JFIF 版本',
+  ThumbnailWidth:'缩略图宽度',
+  ThumbnailHeight:'缩略图高度'
 };
+
 const EXIF_VALUE_MAP={
   'inches':'英寸','inch':'英寸','cm':'厘米','centimeters':'厘米','centimeter':'厘米',
   'none':'无','unknown':'未知','not defined':'未定义','undefined':'未定义',
@@ -521,10 +537,12 @@ const EXIF_VALUE_MAP={
   'primary':'主图',
   'gainmap':'增益图',
   'gain map':'增益图',
+  // ===== 补充 =====
   'perceptual':'感知',
   'iso speed':'ISO 感光度',
   'rear':'后置',
-  'front':'前置'
+  'front':'前置',
+  'classic':'经典'
 };
 
 const EXIF_KEEP_VALUE_KEYS=new Set(['Make','Model','Software','HostComputer','LensMake','LensModel','LensInfo','LensSerialNumber','BodySerialNumber','SerialNumber','OwnerName','Artist','Copyright','ImageUniqueID','InteropIndex','InteropVersion','ExifVersion','FlashpixVersion','GPSVersionID','GPSProcessingMethod','ComponentsConfiguration','GPSMapDatum','GPSSatellites']);
@@ -548,6 +566,7 @@ function lookupExifKey(key){
 }
 function lookupExifValue(value){if(!exifDictEnabled())return null;const norm=normalizeExifValue(value);return Object.prototype.hasOwnProperty.call(EXIF_VALUE_MAP,norm)?EXIF_VALUE_MAP[norm]:null}
 const EXIF_KV_RE=/^([^:：]+)([:：][ \t]*)([\s\S]*)$/;
+const EXIF_RAW_PREFIX_RE=/^(?:ZComment|ZSComment|ZteComment|ZteSComment|ZOfflineComment)\b/i;
 function splitIndent(line){const m=line.match(/^([ \t]*)([\s\S]*?)([ \t]*)$/);return{prefix:m[1],core:m[2],suffix:m[3]}}
 
 function splitWrapped(raw){
@@ -558,6 +577,17 @@ function splitWrapped(raw){
 function planExifLine(line){
   const{prefix,core,suffix}=splitIndent(line);
   if(!core)return null;
+  // 保护厂商原始参数块（ZComment/ZSComment/...），仅翻键名，值原样保留
+  if(EXIF_RAW_PREFIX_RE.test(core)){
+    const m=core.match(/^([A-Za-z][A-Za-z0-9]*)\b/);
+    if(m){
+      const mapped=lookupExifKey(m[1]);
+      if(mapped&&mapped!==m[1]){
+        return {prefix,suffix,tokens:[{lit:mapped+core.slice(m[1].length)}]};
+      }
+    }
+    return null;
+  }
   const parts=core.split(/([;；])/);
   const tokens=[];let localChanged=false,pending=0;
   for(let i=0;i<parts.length;i++){
