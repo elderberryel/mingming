@@ -123,7 +123,7 @@ const SLOT_POPUP_CHILD=kid(SLOT_POPUP);
 const POPUP_PANEL='[data-slot="select-content"] [data-slot="select-group"],[data-slot="select-content"] [data-slot="select-viewport"],[data-slot="command"] [data-slot="command-list"],[role="listbox"] [role="group"],[role="menu"] [role="group"],[id^="base-ui-"][id$="-list"]';
 const POPUP_UNFILTER='[data-slot="select-content"],[data-slot="dropdown-menu-content"],[data-slot="context-menu-content"],[data-slot="menubar-content"],[data-slot="popover-content"],[data-slot="hover-card-content"],[data-slot="tooltip-content"],[data-slot="select-popup"],[data-slot="menu-popup"],[data-slot="popover-popup"],[id^="base-ui-"][id$="-popup"]';
 const POPUP_LEAF='[data-slot="select-item"],[data-slot="select-item-text"],[data-slot="dropdown-menu-item"],[data-slot="command-item"],[role="option"],[role="menuitem"]';
-// ===== 关键修复：排除用边框画的三角/箭头元素（caret / arrow），避免被玻璃弹层规则误伤 =====
+
 const DROP='[id^="typeaheadDropdown"],.search-suggest,.sug-list,.s-sug,[class*="suggest"],[class*="dropdown"]:not([class*="caret"]):not([class*="Caret"]):not([class*="arrow"]):not([class*="Arrow"]),[class*="autocomplete"],[id*="search-result"],[id*="search-results"],[id*="searchResult"],[id*="search_result"],[class*="search-result"],[class*="searchResult"],[class*="search-results"],[role="listbox"],[role="menu"],[id^="base-ui-"][id$="-list"],[id^="base-ui-"][id$="-popup"],'+SLOT_POPUP;
 const DROP_CHILD=kid('[id^="typeaheadDropdown"],.search-suggest,.sug-list,.s-sug,[class*="suggest"],[id*="search-result"],[id*="search-results"],[class*="search-result"],[role="listbox"],[role="menu"],[id^="base-ui-"][id$="-list"],[id^="base-ui-"][id$="-popup"],'+SLOT_POPUP);
 
@@ -628,6 +628,106 @@ const ADM_SEARCH_GLASS_CSS=
 `appearance:none!important;`+
 `display:none!important;`+
 `}`;
+const SEARCH_FORM_GLASS_CSS =
+`html body form.search-form#search-form,
+html body form#search-form.search-form,
+html body form.search-form{
+  display:flex!important;
+  flex-direction:row!important;
+  flex-wrap:wrap!important;
+  align-items:center!important;
+  gap:10px!important;
+  padding:0!important;
+  margin:0!important;
+  background:transparent!important;
+  background-color:transparent!important;
+  background-image:none!important;
+  border:0!important;
+  border-radius:0!important;
+  box-shadow:none!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+  overflow:visible!important;
+}
+`
++`html body form.search-form > .search-input,
+html body form.search-form input#q.search-input,
+html body form.search-form input#q{
+  flex: 1 1 100%!important;
+  width:100%!important;
+  min-width:0!important;
+  height:44px!important;
+  line-height:44px!important;
+  box-sizing:border-box!important;
+  padding:0 20px!important;
+  margin:0!important;
+  -webkit-appearance:none!important;
+  appearance:none!important;
+  background-color:rgba(255,255,255,.10)!important;
+  background-image:none!important;
+  backdrop-filter:blur(16px) saturate(130%)!important;
+  -webkit-backdrop-filter:blur(16px) saturate(130%)!important;
+  border:1px solid rgba(255,255,255,.30)!important;
+  border-radius:9999px!important;
+  box-shadow:inset 1.5px -1.5px 1px -1px rgba(255,255,255,.92),
+             inset -1.5px 1.5px 1px -1px rgba(255,255,255,.90),
+             inset 0 0 3px rgba(15,23,42,.35),
+             0 8px 20px rgba(15,23,42,.16)!important;
+  color:inherit!important;
+  outline:none!important;
+  isolation:isolate!important;
+  transform:translateZ(0)!important;
+  transition:background-color .2s,border-color .2s!important;
+}
+html body form.search-form > .search-input:hover,
+html body form.search-form > .search-input:focus,
+html body form.search-form > .search-input:focus-within,
+html body form.search-form input#q:hover,
+html body form.search-form input#q:focus,
+html body form.search-form input#q:focus-visible{
+  background-color:rgba(255,255,255,.16)!important;
+  border-color:rgba(255,255,255,.42)!important;
+  outline:none!important;
+}
+html body form.search-form > .search-input::placeholder,
+html body form.search-form input#q::placeholder{
+  color:inherit!important;
+  opacity:.6!important;
+}
+`
++`html body form.search-form .search-form__controls{
+  display:flex!important;
+  flex-direction:row!important;
+  flex-wrap:nowrap!important;
+  align-items:center!important;
+  justify-content:space-between!important;
+  gap:10px!important;
+  flex: 1 1 100%!important;
+  width:100%!important;
+  padding:0!important;
+  margin:0!important;
+  background:transparent!important;
+  background-color:transparent!important;
+  background-image:none!important;
+  box-shadow:none!important;
+  border:0!important;
+}
+`
++`html body form.search-form .search-form__controls > select,
+html body form.search-form .search-form__controls > #order{
+  height:39px!important;
+  min-height:39px!important;
+  box-sizing:border-box!important;
+  margin:0!important;
+}
+html body form.search-form .search-form__controls > select{
+  flex: 1 1 auto!important;
+}
+html body form.search-form .search-form__controls > #order{
+  flex: 0 0 39px!important;
+  padding:0!important;
+}
+`;
 
 const XPC='[data-testid="primaryColumn"]',XABB='[data-testid="app-bar-back"]',XNAV='nav[aria-live="polite"][role="navigation"]';
 const X_CSS=`${XPC} div:has(${XNAV}),${XPC} div:has(> div > div > ${XNAV}),${XPC} div:has(> ${XABB}),${XPC} div:has(> div > ${XABB}),${XPC} > div:first-child,${XPC} > div:first-child > div,${XPC} > div:first-child > div > div{background-color:${_T};${BF0}}${XPC} .r-1e5uvyk{${BF0}}${XPC} .r-17c3jg3{background-color:${_T};}${XNAV},${XNAV} > div,${XNAV} div[role="tablist"],${XNAV} div[role="presentation"],${XNAV} div[role="tab"]{background-color:${_T};${BF0}}`;
@@ -891,6 +991,44 @@ background(cfg,finalUrl){
  +`.GlobalNav,.UnderlineNav,.LocalNavigation,[class*="UnderlineNav"],[class*="GlobalNav"]{${BF0}}`;},
 skeleton(cfg){return `html,body{${BG0}}`+htmlBefore(`background:${SKELETON_BG}!important;`,cfg.blur)+ROOT_HARDEN;},
 theme(t){const L=t===1;return `input:not(.translate-ui input),div,${L?'font,':''}h1,h2,h3,h4,h5,h6,p,li,span:not(.tu-bi),label,strong,em{color:${L?'#ddd':'#222'}!important;}a:not([style]){color:#98DD98!important;}textarea,pre,code{color:${L?'#fff':'#000'}!important;}`;},
+// ===== 原生 <select> 下拉框：LGGC 玻璃胶囊 + SVG 倒三角箭头 =====
+selectGlass(theme){
+ const dark=theme!==2;
+ const arrowColor=dark?'ffffff':'222222';
+ const optBg=dark?'rgba(28,30,38,.92)':'rgba(255,255,255,.92)';
+ const optFg=dark?'#f0f0f0':'#222';
+ const SEL='html body select:not([multiple]):not([size]):not(.translate-ui select)';
+ return `${SEL}{`
+ +`-webkit-appearance:none!important;-moz-appearance:none!important;appearance:none!important;`
+ +`background-color:rgba(255,255,255,.10)!important;`
+ +`background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'><path fill='%23${arrowColor}' d='M6 8L0 0h12z'/></svg>")!important;`
+ +`background-repeat:no-repeat!important;`
+ +`background-position:right 12px center!important;`
+ +`background-size:10px 7px!important;`
+ +`backdrop-filter:blur(16px) saturate(130%)!important;`
+ +`-webkit-backdrop-filter:blur(16px) saturate(130%)!important;`
+ +`border:1px solid rgba(255,255,255,.30)!important;`
+ +`border-radius:9999px!important;`
+ +`box-shadow:${LGGC.shadow}!important;`
+ +`color:inherit!important;`
+ +`padding-left:16px!important;`
+ +`padding-right:32px!important;`
+ +`cursor:pointer!important;`
+ +`isolation:isolate!important;`
+ +`transform:translateZ(0)!important;`
+ +`transition:background-color .2s,border-color .2s!important;`
+ +`outline:none!important;`
+ +`box-sizing:border-box!important;`
+ +`}`
+ +`${SEL}:hover,${SEL}:focus,${SEL}:focus-visible{`
+ +`background-color:rgba(255,255,255,.16)!important;`
+ +`border-color:rgba(255,255,255,.42)!important;`
+ +`}`
+ +`${SEL} option{`
+ +`background-color:${optBg}!important;`
+ +`color:${optFg}!important;`
+ +`}`;
+},
 nativeBlur(b,theme){
  if(b<=0)return '';
  const dark=theme===1,GF=LGGC.filter(b);
@@ -978,6 +1116,8 @@ buildAll(cfg,finalUrl){
 +TD_SEARCH_GLASS_CSS
 +CHAT_INPUT_GLASS_CSS
 +TAB_GLASS_CSS
++SEARCH_FORM_GLASS_CSS
++StyleBuilder.selectGlass(cfg.theme)
  +`nav.segmented-control.shadow-sm,nav.apple-navbar,nav.apple-navbar .container-fluid{${BG0}${SH0}${BF0}}`
  +`.ant-menu.ant-menu-horizontal,.ant-menu-root.ant-menu-horizontal,ul.ant-menu.ant-menu-horizontal,.ant-menu-horizontal>.ant-menu-item,.ant-menu-horizontal>.ant-menu-submenu,.ant-menu-horizontal .ant-menu-submenu-title,.ant-btn.ant-btn-default,.ant-btn-variant-outlined,button.ant-btn{${BG0}${SH0}${BD3}}`
  +`:root,${BGVAR_SEL},[class*="bg-[rgb(var(--bg-"]{--bg-tertiary:${_T};--bg-secondary:${_T};--bg-primary:${_T};${BG0}${SH0}}`
@@ -2293,6 +2433,7 @@ pan123OverlayCSS(blur,alpha){
  const alphaVal=Number.isFinite(a)?Utils.clamp(a,0,.8):.1;
  const gf=b>0?LGGC.filter(b):'none';
  const bg=`rgba(${LGGC.bgDark},${alphaVal})`;
+// ⬇️ 把 drawer body 也纳入
  return `[class*="mfy_h-popup-module__body"],[class*="mfy_h-drawer-module__body"]{`
  +`background:${bg}!important;`
  +`background-color:${bg}!important;`
@@ -2718,6 +2859,8 @@ fix(force){
    const ac=btn.getAttribute('aria-controls')||'';
    if(/select|listbox|combobox|dropdown/i.test(ac))continue;
   }catch(e){}
+
+  // ===== 排序/方向切换按钮（如 Lucky 的 #order.order-toggle）：保留玻璃胶囊外观，但绝不覆盖 background-image，让箭头保留 =====
   const isSortBtn = btn.id==='order' || btn.name==='order' ||
     (btn.classList&&btn.classList.contains('order-toggle')) ||
     /sort|order|排序|方向|升序|降序/i.test(((btn.getAttribute&&btn.getAttribute('aria-label'))||'')+' '+((btn.getAttribute&&btn.getAttribute('title'))||''));
@@ -2733,6 +2876,7 @@ fix(force){
     setImp(btn,'isolation','isolate');
     setImp(btn,'transform','translateZ(0)');
     setImp(btn,'cursor','pointer');
+    // 注意：不写 background / background-image:none，箭头才留得住
    }catch(e){}
    continue;
   }
